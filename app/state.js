@@ -1,4 +1,4 @@
-// The screen's own small store: mode, layer, tool, colours, brush, symbol, flag design, selection.
+// The screen's own small store: mode, layer, tool, colours, brush, symbol, flag design, selection, city colour.
 // Map data never lives here; that is model.js.
 
 import { layersOnScreen, lookFor, settleLayers, soloView, toggleLayer } from "./layers.js";
@@ -48,6 +48,7 @@ export function createAppState(initial) {
     brush: 1,
     design: -1,
     nameTag: true,
+    cityColour: "neutral",
     selected: null,
     ...initial,
     ...start,

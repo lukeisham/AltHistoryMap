@@ -11,7 +11,7 @@ const KEY = "current";
 const INTERVAL_MS = 60_000;
 const PREFS_KEY = "ahm.prefs";
 const MODES = ["view", "edit"];
-const DEFAULT_PREFS = { mode: "view", layer: "political", view: ["political"] };
+const DEFAULT_PREFS = { mode: "view", layer: "political", view: ["political"], cityColour: "neutral" };
 
 function request(req) {
   return new Promise((resolve, reject) => {
@@ -106,8 +106,8 @@ export async function clearRecovery() {
 }
 
 /**
- * @returns {{mode: string, layer: string, view: string[]}} The remembered mode, layer and View-mode
- *   layers, or the defaults. A stored view that is not allowed becomes the stored layer alone.
+ * @returns {{mode: string, layer: string, view: string[], cityColour: string}} The remembered mode, layer,
+ *   View-mode layers and city colour choice, or the defaults. A stored view that is not allowed becomes the stored layer alone.
  */
 export function loadPrefs() {
   try {
@@ -117,6 +117,7 @@ export function loadPrefs() {
       mode: MODES.includes(stored?.mode) ? stored.mode : DEFAULT_PREFS.mode,
       layer,
       view: isAllowedView(stored?.view) ? stored.view : soloView(layer),
+      cityColour: stored?.cityColour === "nation" ? "nation" : "neutral",
     };
   } catch (error) {
     console.warn("saved settings could not be read", error);
@@ -125,12 +126,12 @@ export function loadPrefs() {
 }
 
 /**
- * Remembers the mode, layer and View-mode layers for the next visit.
- * @param {{mode: string, layer: string, view: string[]}} prefs
+ * Remembers the mode, layer, View-mode layers and city colour choice for the next visit.
+ * @param {{mode: string, layer: string, view: string[], cityColour: string}} prefs
  */
-export function savePrefs({ mode, layer, view }) {
+export function savePrefs({ mode, layer, view, cityColour }) {
   try {
-    globalThis.localStorage.setItem(PREFS_KEY, JSON.stringify({ mode, layer, view }));
+    globalThis.localStorage.setItem(PREFS_KEY, JSON.stringify({ mode, layer, view, cityColour }));
   } catch (error) {
     console.warn("settings could not be saved", error);
   }

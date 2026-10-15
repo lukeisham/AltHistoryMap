@@ -4,7 +4,7 @@ import { createModel, LAND, RIVER, LAKE, COAST, FIGHTING } from "../app/model.js
 import { createRenderer, pixelColour, clampViewport, fadeFactor, pngFileName } from "../app/render.js";
 import { makeSource, parseColour, packColour, readTheme, mixColour, riverScale, riverMask, createRiverOverview } from "../app/layerimage.js";
 import { fitScale, homeViewport, zoomViewport, resizeViewport, readoutText, brushOutline } from "../app/viewport.js";
-import { markerVisible, hitMarker, hitTag, drawMarkers, createGlyphLibrary } from "../app/markers.js";
+import { markerVisible, hitMarker, hitTag, drawMarkers, cityDotColour, createGlyphLibrary } from "../app/markers.js";
 
 const SIDE = 16;
 const TOKENS = {
@@ -540,6 +540,39 @@ test("a solid shape is filled in the marker colour with no disc; an outline symb
   });
 });
 
+test("a city is a bullseye: an ink ring on a pale centre with an ink dot, whatever its stored colour", () => {
+  withPath2D(() => {
+    const theme = readTheme(fakeStyle());
+    const city = { id: 1, type: "city", x: 2, y: 2, name: "", colour: 1, tagDx: 0, tagDy: 0, layer: "political" };
+    const drawn = recordingContext();
+    drawMarkers(drawn.ctx, markerScene([city]));
+    const arcs = drawn.log.filter(([name]) => name === "arc");
+    assert.deepEqual(arcs.map((a) => a[3]), [6, 2.6], "ring then dot");
+    assert.equal(drawn.ctx.fillStyle, theme.css.ink, "the dot is ink and never the stored colour");
+    assert.equal(drawn.ctx.strokeStyle, theme.css.ink);
+  });
+});
+
+test("cityDotColour: ink by default, the political colour under the city when matching the nation, ink on unclaimed land", () => {
+  const theme = readTheme(fakeStyle());
+  const political = new Uint8Array(SIDE * SIDE);
+  political[idx(3, 4)] = 2;
+  const scene = { theme, palette: ["#ff0000", "#00ff00"], political, n: SIDE };
+  const at = (x, y) => ({ x, y });
+  assert.equal(cityDotColour({ ...scene, cityColour: "neutral" }, at(3, 4)), theme.css.ink);
+  assert.equal(cityDotColour(scene, at(3, 4)), theme.css.ink, "no choice made is neutral");
+  assert.equal(cityDotColour({ ...scene, cityColour: "nation" }, at(3, 4)), "#00ff00");
+  assert.equal(cityDotColour({ ...scene, cityColour: "nation" }, at(12, 12)), theme.css.ink, "no paint within reach");
+  assert.equal(cityDotColour({ ...scene, cityColour: "nation" }, at(4, 4)), "#00ff00", "a river pixel takes the paint beside it");
+  political[idx(5, 4)] = 1;
+  political[idx(5, 5)] = 1;
+  assert.equal(cityDotColour({ ...scene, cityColour: "nation" }, at(4, 4)), "#ff0000", "the commonest neighbour wins, nearest ring first");
+  assert.equal(cityDotColour({ ...scene, cityColour: "nation" }, at(0, 0)), theme.css.ink, "a corner with no paint near");
+  assert.doesNotThrow(() => cityDotColour({ ...scene, cityColour: "nation" }, at(SIDE - 1, SIDE - 1)), "the map edge");
+  political[idx(1, 1)] = 9;
+  assert.equal(cityDotColour({ ...scene, cityColour: "nation" }, at(1, 1)), theme.css.ink, "a colour the palette lacks");
+});
+
 test("a name tag is drawn at its offset, and a marker with no name draws no tag", () => {
   withPath2D(() => {
     const base = { type: "city", x: 2, y: 2, colour: 1, glyph: "", design: -1, layer: "political" };
@@ -550,7 +583,7 @@ test("a name tag is drawn at its offset, and a marker with no name draws no tag"
     const texts = drawn.log.filter(([name]) => name === "fillText");
     assert.equal(texts.length, 1);
     const sx = 2.5 * 40;
-    assert.deepEqual(texts[0].slice(1), ["Roma", sx + 3.5 + 4 + 15, sx - 6]);
+    assert.deepEqual(texts[0].slice(1), ["Roma", sx + 6 + 4 + 15, sx - 6]);
   });
 });
 

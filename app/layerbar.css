@@ -160,3 +160,12 @@
     padding-block: var(--s-2);
   }
 }
+
+.city-colour {
+  flex: none;
+
+  &[aria-pressed="true"] {
+    border-color: var(--acc);
+    background: var(--acc-wash);
+  }
+}

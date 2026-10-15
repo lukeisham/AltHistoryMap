@@ -65,7 +65,7 @@ async function main() {
   const narrow = window.matchMedia(NARROW_QUERY);
   const prefs = loadPrefs();
   const glyphIds = GLYPHS.map((glyph) => glyph.id);
-  const state = createAppState({ mode: narrow.matches ? "view" : prefs.mode, layer: prefs.layer, view: prefs.view, glyph: glyphIds[0] });
+  const state = createAppState({ mode: narrow.matches ? "view" : prefs.mode, layer: prefs.layer, view: prefs.view, cityColour: prefs.cityColour, glyph: glyphIds[0] });
 
   say("Loading the map...");
   let base;
@@ -83,9 +83,11 @@ async function main() {
   const canvas = part("canvas");
   const renderer = createRenderer({ canvas, model, glyphs: GLYPHS });
   renderer.setLook(lookFor(state.get()));
+  renderer.setCityColour(state.get().cityColour);
   renderer.zoomHome();
   state.subscribe((value, changed) => {
     if (changed.includes("mode") || changed.includes("layer") || changed.includes("view")) renderer.setLook(lookFor(value));
+    if (changed.includes("cityColour")) renderer.setCityColour(value.cityColour);
   });
 
   const dialogs = createDialogs(part("app-dialog"));
@@ -170,13 +172,14 @@ async function main() {
   document.body.dataset.mode = state.get().mode;
 
   // A window too narrow to edit in shows View, but the remembered mode survives for the next wide visit.
-  const remembered = { mode: prefs.mode, layer: prefs.layer, view: prefs.view };
+  const remembered = { mode: prefs.mode, layer: prefs.layer, view: prefs.view, cityColour: prefs.cityColour };
   let forcingView = false;
   state.subscribe((value, changed) => {
     if (changed.includes("mode") && !forcingView) remembered.mode = value.mode;
     if (changed.includes("layer")) remembered.layer = value.layer;
     if (changed.includes("view")) remembered.view = value.view;
-    if (changed.includes("mode") || changed.includes("layer") || changed.includes("view")) savePrefs(remembered);
+    if (changed.includes("cityColour")) remembered.cityColour = value.cityColour;
+    if (["mode", "layer", "view", "cityColour"].some((key) => changed.includes(key))) savePrefs(remembered);
   });
   const applyWidth = () => {
     header.setNarrow(narrow.matches);

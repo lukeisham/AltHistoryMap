@@ -22,6 +22,7 @@ export function bindLayerBar({ root, state, model, editor, say }) {
   const eyes = LAYERS.map((layer) => part(layer, "[data-eye]"));
   const undoButton = root.querySelector('[data-action="undo"]');
   const redoButton = root.querySelector('[data-action="redo"]');
+  const cityColourButton = root.querySelector('[data-action="city-colour"]');
 
   LAYERS.forEach((layer, i) => {
     names[i].addEventListener("click", () => {
@@ -32,6 +33,7 @@ export function bindLayerBar({ root, state, model, editor, say }) {
   });
   undoButton.addEventListener("click", () => editor.undo());
   redoButton.addEventListener("click", () => editor.redo());
+  cityColourButton.addEventListener("click", () => state.set({ cityColour: state.get().cityColour === "nation" ? "neutral" : "nation" }));
 
   function syncLayers() {
     const { mode, layer, view } = state.get();
@@ -53,6 +55,9 @@ export function bindLayerBar({ root, state, model, editor, say }) {
       }
     });
   }
+  function syncCityColour() {
+    cityColourButton.setAttribute("aria-pressed", String(state.get().cityColour === "nation"));
+  }
   function syncHistory() {
     undoButton.disabled = !model.canUndo();
     redoButton.disabled = !model.canRedo();
@@ -60,8 +65,10 @@ export function bindLayerBar({ root, state, model, editor, say }) {
 
   state.subscribe((value, changed) => {
     if (changed.includes("mode") || changed.includes("layer") || changed.includes("view")) syncLayers();
+    if (changed.includes("cityColour")) syncCityColour();
   });
   model.onChange(syncHistory);
   syncLayers();
+  syncCityColour();
   syncHistory();
 }

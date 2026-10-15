@@ -18,7 +18,9 @@ const LABEL_BASE_SIZE = 12;
 const LABEL_GROWTH = 2;
 const LABEL_MAX_Z = 6;
 const HALO_WIDTH = 3;
-const CITY_RADIUS = 3.5;
+const CITY_RADIUS = 6;
+const CITY_DOT = 2.6;
+const NATION_REACH = 2;
 const CITY_RING = 1.5;
 const FLAG_CELL = 1.5;
 const POLE_HEIGHT = 32;
@@ -125,14 +127,50 @@ function drawLabel(ctx, scene, marker, sx, sy, z) {
   drawText(ctx, scene, marker.name, sx, sy, size, alpha, "center");
 }
 
+/**
+ * The colour of a city's centre dot: ink, or with `scene.cityColour === "nation"` the political colour that holds
+ * the city. Paint never covers a river or lake pixel, so a city on one takes the commonest colour among the
+ * nearest painted pixels, searching out to NATION_REACH pixels. A city with none near it stays ink.
+ * @param {object} scene Needs theme, palette, and for "nation" also political (the plane) and n (its side).
+ * @param {{x: number, y: number}} marker
+ * @returns {string} CSS colour.
+ */
+export function cityDotColour(scene, marker) {
+  const ink = scene.theme.css.ink;
+  if (scene.cityColour !== "nation") return ink;
+  const { political, n } = scene;
+  for (let reach = 0; reach <= NATION_REACH; reach++) {
+    const counts = new Map();
+    for (let dy = -reach; dy <= reach; dy++) {
+      for (let dx = -reach; dx <= reach; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== reach) continue;
+        const x = marker.x + dx;
+        const y = marker.y + dy;
+        if (x < 0 || y < 0 || x >= n || y >= n) continue;
+        const colour = political[y * n + x];
+        if (colour > 0) counts.set(colour, (counts.get(colour) ?? 0) + 1);
+      }
+    }
+    if (counts.size === 0) continue;
+    const [best] = [...counts].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
+    return scene.palette[best - 1] ?? ink;
+  }
+  return ink;
+}
+
+// A bullseye: an ink ring round a pale centre, and a dot that is ink or the nation's colour.
 function drawCity(ctx, scene, marker, sx, sy) {
   ctx.beginPath();
   ctx.arc(sx, sy, CITY_RADIUS, 0, Math.PI * 2);
-  ctx.fillStyle = paletteCss(scene, marker);
+  ctx.fillStyle = scene.theme.css.land;
   ctx.fill();
   ctx.lineWidth = CITY_RING;
-  ctx.strokeStyle = scene.theme.css.land;
+  ctx.strokeStyle = scene.theme.css.ink;
   ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(sx, sy, CITY_DOT, 0, Math.PI * 2);
+  ctx.fillStyle = cityDotColour(scene, marker);
+  ctx.fill();
 }
 
 function drawFlagCloth(ctx, scene, marker, left, top) {
@@ -245,7 +283,7 @@ function previewed(scene, marker) {
  * Draws every marker visible on the scene's layers, then every name tag over them.
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} scene Needs layers, vp, stage, markers, designs, palette (CSS colours), theme, glyphs,
- *   and optionally `preview`: fields that replace one marker's while it is dragged.
+ *   cityColour ("neutral" or "nation"), political and n for "nation", and optionally `preview`: fields that replace one marker's while it is dragged.
  */
 export function drawMarkers(ctx, scene) {
   const { vp, stage } = scene;

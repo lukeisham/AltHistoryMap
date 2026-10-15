@@ -165,6 +165,7 @@ export function createRenderer({ canvas, model, glyphs }) {
   const disposers = [];
 
   let look = "political";
+  let cityColour = "neutral";
   let theme = readTheme(getComputedStyle(canvas));
   let stage = { w: 0, h: 0 };
   let dpr = 1;
@@ -228,6 +229,8 @@ export function createRenderer({ canvas, model, glyphs }) {
       rivers,
       theme,
       markers: model.markers,
+      cityColour,
+      political: model.planes.political,
       designs: model.designs,
       palette: model.palette,
       glyphs: glyphLibrary,
@@ -363,6 +366,18 @@ export function createRenderer({ canvas, model, glyphs }) {
       }
       look = next;
       invalidate();
+    },
+
+    /**
+     * @param {"neutral" | "nation"} next How a city's centre dot is coloured: ink, or the political colour under it.
+     */
+    setCityColour(next) {
+      if (next !== "neutral" && next !== "nation") {
+        console.warn("render: unknown city colour", next);
+        return;
+      }
+      cityColour = next;
+      scheduleFrame();
     },
 
     /** @returns {string} The look on screen. */

@@ -1,6 +1,6 @@
 # AltHistoryMap
 
-A zoomable world map for building alternative histories. Luke founds cities, plants flags and paints territory on a Mercator map, or starts from one of nine ready-made empire sketches and changes it. Three layers (Political, Conflict, Culture) show alone or together in View mode, in the five combinations `app/layers.js` allows; Political and Culture never share a view. Cities are bullseyes (an ink ring round a pale centre, and a dot) so they stand apart from coloured symbols and flags; the **Cities by nation** button in the layer bar colours each city's dot by the political colour that holds it. It is a static web app: nothing is sent anywhere, and a map is one file that Save downloads and Open loads.
+A zoomable world map for building alternative histories. The player founds cities, plants flags and paints territory on a Mercator map, or starts from one of nine ready-made empire sketches and changes it. Three layers (Political, Conflict, Culture) show alone or together in View mode, in the five combinations `app/layers.js` allows; Political and Culture never share a view. Cities are bullseyes (an ink ring round a pale centre, and a dot) so they stand apart from coloured symbols and flags; the **Cities by nation** button in the layer bar colours each city's dot by the political colour that holds it. It is a static web app: nothing is sent anywhere, and a map is one file that Save downloads and Open loads.
 
 ## Run it on your computer
 

@@ -1,0 +1,36 @@
+.marker-info {
+  position: absolute;
+  left: calc(var(--at-x, 0) * 1px);
+  top: calc(var(--at-y, 0) * 1px);
+  flex-direction: column;
+  gap: var(--s-1);
+  max-width: var(--panel-w);
+  margin: var(--s-2);
+  padding: var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: var(--shade-float);
+
+  &:not([hidden]) {
+    display: flex;
+  }
+}
+
+.info-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.info-kind {
+  color: var(--ink-2);
+  font-size: var(--t-micro);
+}
+
+.info-actions {
+  gap: var(--s-2);
+
+  &:not([hidden]) {
+    display: flex;
+  }
+}

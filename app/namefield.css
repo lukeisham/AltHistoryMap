@@ -1,0 +1,31 @@
+.name-field {
+  position: absolute;
+  left: calc(var(--at-x, 0) * 1px);
+  top: calc(var(--at-y, 0) * 1px);
+  gap: var(--s-1);
+  max-width: 100%;
+  padding: var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: var(--shade-float);
+
+  &:not([hidden]) {
+    display: flex;
+  }
+}
+
+.name-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: var(--panel-w);
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+}

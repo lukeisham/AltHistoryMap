@@ -1,0 +1,43 @@
+# AltHistoryMap — Decisions
+
+## Approvals
+
+What Luke has signed off. A draft and an approved document look identical on disk — this table is
+the only difference. A decision that deliberately reverses an earlier one also goes here, so a
+later agent does not "restore" the old behaviour.
+
+| Date | Approved | Version / scope |
+|---|---|---|
+| 2026-10-13 | PRD approved | PRD v1.0 |
+| 2026-10-13 | Symbols added to the PRD, approved | PRD v1.1 |
+| 2026-10-13 | Flag designer added to the PRD, approved | PRD v1.2 |
+| 2026-10-14 | Design closed; specs approved | PRD v1.2 |
+| 2026-10-14 | Layer rules approved: layers can show together in View mode, Culture never with Political, Edit mode on Culture fades Political. Reverses the PRD's one layer at a time; the PRD is not edited, the render and interface specs carry the change | PRD v1.2 + specs |
+| 2026-10-14 | Plain shapes (square, circle, triangle, diamond, pentagon, hexagon, star, cross) added to the symbol picker, drawn filled in the chosen colour. Extends Key decision 3: the shapes are hand-written paths, not Lucide | app change |
+| 2026-10-14 | App confirmed working; PRD and specs no longer required | `_build/prd.md` + `_build/specs/` |
+| 2026-10-14 | Build accepted; build docs retired | `_build/` |
+
+## Key decisions
+
+Only an important decision (CORE-4): one a future agent, reading only the code and README, would
+likely undo or do differently. Each gets its reason; the reason is the point. Append it the moment
+it is made. A minor or easily guessed choice belongs in the commit message.
+
+| # | Decision | Reason | Rejected alternative |
+|---|---|---|---|
+| 1 | Territory is a 4096 x 4096 pixel grid in Mercator; the base map has coastlines, main rivers and major lakes only, no country outlines | Luke wants pixel-by-pixel painting at the closest zoom, so territory cannot follow country shapes. 4096 gives about 80 pixels from Rome to Carthage; 2048 is too coarse for cities and 8192 is too heavy | Equirectangular grid (even pixel area, less familiar look); 8192 x 8192; painting by country or region |
+| 2 | Fully static web app, put online as a public site; no server, no accounts. Save downloads a map file and Open loads one | Luke wants it online. Free to host, nothing to run, no one else's data to hold, within the vibe-coding rules (SR-2). A map is one self-contained file | Shareable links (needs a hosted map store and a new dependency); accounts and cloud saves (heaviest, far outside the rules) |
+| 3 | Symbols are a preset set of Lucide glyphs plus eight plain shapes, on all three layers; no other custom glyphs | Luke asked for a simple preset set and not to reinvent the wheel; Lucide is on the house approved list and is plain SVG, so no dependency | Phosphor; drawing custom glyphs; Political layer only |
+| 4 | Painting, filling and borders work on dry land only: never on the sea, rivers or lakes; naval power is shown with symbols. A fill crosses a river without colouring it, and a map loaded with paint on water has that paint cleared | Fill on sea would flood the oceans, and the PRD limits borders to land. Luke wants rivers and lakes always readable, so territory never covers them | Painting on sea; letting territory cover rivers; a river stopping a fill |
+| 5 | View mode offers five views: Political, Conflict, Political + Conflict, Culture, Culture + Conflict. Political and Culture never share a view. Edit mode on Culture draws the political colours faded with culture over them | Political fills every pixel it covers, so culture could only show as a pattern that hides part of the fill and averages into noise at world view. Keeping them apart makes each layer's look simple: full colour, hatching, a pale tint | Speckle, dot lattice, grid, pinstripe, tint, seam, studs and rim patterns for Culture over Political |
+| 6 | A name tag is part of a marker but moves on its own: `tagDx`, `tagDy` are screen-pixel offsets from the default spot, and an empty name means no tag | Luke wants symbols and cities placed with or without a name tag and wants tags dragged apart from their markers. Screen pixels keep a tag beside its marker at every zoom; a name that cannot be empty would force a tag | A tag offset in grid pixels (drifts away when zoomed); a separate "show name" flag (a hidden name nobody can see) |
+
+## Rule exceptions
+
+Deliberate breaks from `Memory/Long-Term/Coding/vibe-coding-rules.md`, each granted by Luke after
+being asked with the rule ID and a reason. Code that matches a row here is intentional — do not
+"fix" it.
+
+| Rule ID | Where it applies | Reason | Granted |
+|---|---|---|---|
+| — | — | — | — |

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "blank-world",
+    "title": "Blank world",
+    "year": null,
+    "note": "An empty map."
+  },
+  {
+    "id": "achaemenid-500bc",
+    "title": "Achaemenid Persia c. 500 BC",
+    "year": -500,
+    "note": "Approximate sketch at about 10 km per pixel, not a historian's map: the empire of Darius I, with the core satrapies in dark violet and the outer ones in light violet."
+  },
+  {
+    "id": "han-100",
+    "title": "Han China AD 100",
+    "year": 100,
+    "note": "Approximate sketch at about 10 km per pixel, not a historian's map: Eastern Han with its commanderies in red and the outer protectorates in rose."
+  },
+  {
+    "id": "roman-117",
+    "title": "Roman Empire AD 117",
+    "year": 117,
+    "note": "Approximate sketch at about 10 km per pixel, not a historian's map."
+  },
+  {
+    "id": "abbasid-800",
+    "title": "Abbasid Caliphate AD 800",
+    "year": 800,
+    "note": "Approximate sketch at about 10 km per pixel, not a historian's map: Harun al-Rashid's caliphate, with the central provinces in slate and the outer or nominal ones in teal."
+  },
+  {
+    "id": "mongol-1279",
+    "title": "Mongol Empire 1279",
+    "year": 1279,
+    "note": "Approximate sketch at about 10 km per pixel, not a historian's map: Kublai's Yuan China, the Golden Horde, the Chagatai Khanate, the Ilkhanate and the Mongolian homeland, each in its own colour."
+  },
+  {
+    "id": "spanish-1600",
+    "title": "Spanish Empire 1600",
+    "year": 1600,
+    "note": "Approximate sketch at about 10 km per pixel, not a historian's map: Spain in red, the Habsburg lands in Europe in amber, the Americas and the Philippines in terracotta, and Portugal and its bases (united with Spain in 1580) in blue."
+  },
+  {
+    "id": "ottoman-1683",
+    "title": "Ottoman Empire 1683",
+    "year": 1683,
+    "note": "Approximate sketch at about 10 km per pixel, not a historian's map: Anatolia, the Balkans and Ottoman Hungary in green; the Arab provinces paler; the North African regencies in ochre; Crimea and the Danubian principalities as vassals."
+  },
+  {
+    "id": "british-1920",
+    "title": "British Empire 1920",
+    "year": 1920,
+    "note": "Approximate sketch at about 10 km per pixel, not a historian's map: The British Isles, colonies and India in rose and amber, the Dominions in a lighter shade, the League of Nations mandates in violet."
+  }
+]

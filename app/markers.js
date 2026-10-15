@@ -1,0 +1,352 @@
+// Draws and hit-tests cities, flags, labels and symbols over the layer picture.
+// render.js calls drawMarkers once per frame and hitMarker from renderer.hitTest, so both use
+// the same visibility rule and the same screen geometry.
+
+import { FLAG_W, FLAG_H } from "./model.js";
+import { fadeFactor } from "./viewport.js";
+import { parseColour, unpackColour } from "./layerimage.js";
+
+export const HIT_RADIUS = 14;
+
+const CITY_FADE = [1.4, 2.6];
+const LABEL_FADE = [0.9, 1.7];
+const SYMBOL_FADE = [2.2, 3.2];
+const DRAW_ORDER = ["label", "city", "flag", "symbol"];
+
+const NAME_SIZE = 12;
+const LABEL_BASE_SIZE = 12;
+const LABEL_GROWTH = 2;
+const LABEL_MAX_Z = 6;
+const HALO_WIDTH = 3;
+const CITY_RADIUS = 3.5;
+const CITY_RING = 1.5;
+const FLAG_CELL = 1.5;
+const POLE_HEIGHT = 32;
+const POLE_WIDTH = 1.5;
+const SYMBOL_RADIUS = 11;
+const SYMBOL_GLYPH_FILL = 0.62;
+const GLYPH_BOX = 24;
+const GLYPH_STROKE = 2;
+const NAME_GAP = 4;
+const SHAPE_OUTLINE = 1.5;
+const TAG_HIT_PAD = 3;
+const SELECT_RADIUS = 16;
+const SELECT_PAD = 4;
+const SELECT_WIDTH = 2;
+const CULL_MARGIN = 120;
+
+// Design cell 0 is white in the map file, so this is map data and not a theme colour.
+
+const FLAG_CLOTH_W = FLAG_W * FLAG_CELL;
+const FLAG_CLOTH_H = FLAG_H * FLAG_CELL;
+
+/**
+ * Whether a marker shows: cities, flags and labels when Political is on screen, a symbol when
+ * the layer it was placed on is.
+ * @param {{type: string, layer: string}} marker
+ * @param {string[]} layers The layers on screen.
+ * @returns {boolean}
+ */
+export function markerVisible(marker, layers) {
+  return layers.includes(marker.type === "symbol" ? marker.layer : "political");
+}
+
+/**
+ * Chooses between two candidate colours the one that stands out more from a background.
+ * @param {number} background Packed colour.
+ * @param {{css: string, packed: number}} a
+ * @param {{css: string, packed: number}} b
+ * @returns {string} CSS colour of the winner.
+ */
+export function contrastColour(background, a, b) {
+  const luma = (packed) => {
+    const { r, g, b: blue } = unpackColour(packed);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * blue;
+  };
+  const base = luma(background);
+  return Math.abs(luma(a.packed) - base) >= Math.abs(luma(b.packed) - base) ? a.css : b.css;
+}
+
+/**
+ * Looks up Path2D shapes for glyph ids, building each once.
+ * @param {{id: string, path: string, solid?: boolean}[]} glyphs
+ * @returns {{get: (id: string) => Path2D | null, isSolid: (id: string) => boolean}} `isSolid` is true for a
+ *   plain shape that is drawn filled in the marker's colour instead of as an outline on a disc.
+ */
+export function createGlyphLibrary(glyphs) {
+  const sources = new Map(glyphs.map((g) => [g.id, g.path]));
+  const solid = new Set(glyphs.filter((g) => g.solid).map((g) => g.id));
+  const built = new Map();
+  const reported = new Set();
+  return {
+    get(id) {
+      if (built.has(id)) return built.get(id);
+      const source = sources.get(id);
+      if (source === undefined) {
+        if (!reported.has(id)) console.warn("render: unknown glyph id", id);
+        reported.add(id);
+        return null;
+      }
+      const path = new Path2D(source);
+      built.set(id, path);
+      return path;
+    },
+    isSolid: (id) => solid.has(id),
+  };
+}
+
+function paletteCss(scene, marker) {
+  return scene.palette[marker.colour - 1];
+}
+
+// Where the marker's pixel lands on the stage, and the cloth centre for flags.
+function anchorOf(marker, vp) {
+  return { sx: vp.x + (marker.x + 0.5) * vp.k, sy: vp.y + (marker.y + 0.5) * vp.k };
+}
+
+function drawText(ctx, scene, text, x, y, size, alpha, align) {
+  ctx.globalAlpha = alpha;
+  ctx.font = `${size}px ${scene.theme.font}`;
+  ctx.textAlign = align;
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = HALO_WIDTH;
+  ctx.strokeStyle = scene.theme.css.land;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = scene.theme.css.ink;
+  ctx.fillText(text, x, y);
+  ctx.globalAlpha = 1;
+}
+
+function drawLabel(ctx, scene, marker, sx, sy, z) {
+  const alpha = fadeFactor(z, LABEL_FADE[0], LABEL_FADE[1]);
+  if (alpha <= 0) return;
+  const size = LABEL_BASE_SIZE + LABEL_GROWTH * Math.min(z, LABEL_MAX_Z);
+  drawText(ctx, scene, marker.name, sx, sy, size, alpha, "center");
+}
+
+function drawCity(ctx, scene, marker, sx, sy) {
+  ctx.beginPath();
+  ctx.arc(sx, sy, CITY_RADIUS, 0, Math.PI * 2);
+  ctx.fillStyle = paletteCss(scene, marker);
+  ctx.fill();
+  ctx.lineWidth = CITY_RING;
+  ctx.strokeStyle = scene.theme.css.land;
+  ctx.stroke();
+}
+
+function drawFlagCloth(ctx, scene, marker, left, top) {
+  const design = marker.design >= 0 ? scene.designs[marker.design] : null;
+  if (!design) {
+    ctx.beginPath();
+    ctx.moveTo(left, top);
+    ctx.lineTo(left + FLAG_CLOTH_W, top + FLAG_CLOTH_H / 2);
+    ctx.lineTo(left, top + FLAG_CLOTH_H);
+    ctx.closePath();
+    ctx.fillStyle = paletteCss(scene, marker);
+    ctx.fill();
+    return;
+  }
+  for (let row = 0; row < FLAG_H; row++) {
+    for (let col = 0; col < FLAG_W; col++) {
+      const v = design[row * FLAG_W + col];
+      ctx.fillStyle = v === 0 ? scene.theme.css.flagWhite : scene.palette[v - 1];
+      ctx.fillRect(left + col * FLAG_CELL, top + row * FLAG_CELL, FLAG_CELL, FLAG_CELL);
+    }
+  }
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = scene.theme.css.ink;
+  ctx.strokeRect(left, top, FLAG_CLOTH_W, FLAG_CLOTH_H);
+}
+
+function drawFlag(ctx, scene, marker, sx, sy) {
+  const top = sy - POLE_HEIGHT;
+  ctx.lineWidth = POLE_WIDTH;
+  ctx.strokeStyle = scene.theme.css.ink;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(sx, top);
+  ctx.stroke();
+  drawFlagCloth(ctx, scene, marker, sx, top);
+}
+
+function drawSolidShape(ctx, scene, marker, path, sx, sy) {
+  const colour = paletteCss(scene, marker);
+  const { css, packed } = scene.theme;
+  const scale = (SYMBOL_RADIUS * 2) / GLYPH_BOX;
+  ctx.save();
+  ctx.translate(sx - (GLYPH_BOX * scale) / 2, sy - (GLYPH_BOX * scale) / 2);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = colour;
+  ctx.fill(path);
+  ctx.lineWidth = SHAPE_OUTLINE / scale;
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = contrastColour(parseColour(colour), { css: css.ink, packed: packed.ink }, { css: css.land, packed: packed.land });
+  ctx.stroke(path);
+  ctx.restore();
+}
+
+// `path` is null for an unknown glyph id, which still gets its disc.
+function drawGlyphOnDisc(ctx, scene, marker, path, sx, sy) {
+  const colour = paletteCss(scene, marker);
+  ctx.beginPath();
+  ctx.arc(sx, sy, SYMBOL_RADIUS, 0, Math.PI * 2);
+  ctx.fillStyle = colour;
+  ctx.fill();
+  ctx.lineWidth = CITY_RING;
+  ctx.strokeStyle = scene.theme.css.land;
+  ctx.stroke();
+  if (!path) return;
+  const { css, packed } = scene.theme;
+  const stroke = contrastColour(parseColour(colour), { css: css.ink, packed: packed.ink }, { css: css.land, packed: packed.land });
+  const scale = (SYMBOL_RADIUS * 2 * SYMBOL_GLYPH_FILL) / GLYPH_BOX;
+  ctx.save();
+  ctx.translate(sx - (GLYPH_BOX * scale) / 2, sy - (GLYPH_BOX * scale) / 2);
+  ctx.scale(scale, scale);
+  ctx.lineWidth = GLYPH_STROKE;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = stroke;
+  ctx.stroke(path);
+  ctx.restore();
+}
+
+function drawSymbol(ctx, scene, marker, sx, sy) {
+  const path = scene.glyphs.get(marker.glyph);
+  if (path && scene.glyphs.isSolid(marker.glyph)) drawSolidShape(ctx, scene, marker, path, sx, sy);
+  else drawGlyphOnDisc(ctx, scene, marker, path, sx, sy);
+}
+
+const PAINTERS = { label: drawLabel, city: drawCity, flag: drawFlag, symbol: drawSymbol };
+
+// Where a marker's name tag sits: beside a city or flag, under a symbol, moved by the offset the person
+// dragged it to. A label is its own text, so it has no tag.
+function tagSpec(marker, sx, sy, z) {
+  if (!marker.name || marker.type === "label") return null;
+  let spec;
+  if (marker.type === "city") {
+    spec = { x: sx + CITY_RADIUS + NAME_GAP, y: sy, align: "left", fade: CITY_FADE };
+  } else if (marker.type === "flag") {
+    spec = { x: sx + FLAG_CLOTH_W + NAME_GAP, y: sy - POLE_HEIGHT + FLAG_CLOTH_H / 2, align: "left", fade: CITY_FADE };
+  } else {
+    spec = { x: sx, y: sy + SYMBOL_RADIUS + NAME_SIZE * 0.8, align: "center", fade: SYMBOL_FADE };
+  }
+  const alpha = fadeFactor(z, spec.fade[0], spec.fade[1]);
+  if (alpha <= 0) return null;
+  return { text: marker.name, x: spec.x + (marker.tagDx ?? 0), y: spec.y + (marker.tagDy ?? 0), align: spec.align, alpha };
+}
+
+// The marker as it should look this frame: a marker being dragged follows the pointer before the edit is recorded.
+function previewed(scene, marker) {
+  return scene.preview?.id === marker.id ? { ...marker, ...scene.preview } : marker;
+}
+
+/**
+ * Draws every marker visible on the scene's layers, then every name tag over them.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {object} scene Needs layers, vp, stage, markers, designs, palette (CSS colours), theme, glyphs,
+ *   and optionally `preview`: fields that replace one marker's while it is dragged.
+ */
+export function drawMarkers(ctx, scene) {
+  const { vp, stage } = scene;
+  const z = vp.k / vp.kFit;
+  const shown = [];
+  for (const type of DRAW_ORDER) {
+    for (const original of scene.markers) {
+      if (original.type !== type || !markerVisible(original, scene.layers)) continue;
+      const marker = previewed(scene, original);
+      const { sx, sy } = anchorOf(marker, vp);
+      if (sx < -CULL_MARGIN || sy < -CULL_MARGIN || sx > stage.w + CULL_MARGIN || sy > stage.h + CULL_MARGIN) continue;
+      PAINTERS[type](ctx, scene, marker, sx, sy, z);
+      shown.push({ marker, sx, sy });
+    }
+  }
+  for (const { marker, sx, sy } of shown) {
+    const tag = tagSpec(marker, sx, sy, z);
+    if (tag) drawText(ctx, scene, tag.text, tag.x, tag.y, NAME_SIZE, tag.alpha, tag.align);
+  }
+}
+
+/**
+ * Rings the selected marker.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {object} scene As for drawMarkers.
+ * @param {{type: string, x: number, y: number}} marker
+ */
+export function drawSelection(ctx, scene, marker) {
+  const shown = previewed(scene, marker);
+  const { sx, sy } = anchorOf(shown, scene.vp);
+  const pass = (colour, width) => {
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    if (shown.type === "flag") {
+      ctx.rect(sx - SELECT_PAD, sy - POLE_HEIGHT - SELECT_PAD, FLAG_CLOTH_W + 2 * SELECT_PAD, POLE_HEIGHT + 2 * SELECT_PAD);
+    } else {
+      ctx.arc(sx, sy, SELECT_RADIUS, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+  };
+  pass(scene.theme.css.land, SELECT_WIDTH + HALO_WIDTH);
+  pass(scene.theme.css.ink, SELECT_WIDTH);
+}
+
+/**
+ * The nearest visible marker within HIT_RADIUS of a stage point. A flag answers to its pole
+ * foot and to its cloth.
+ * @param {object[]} markers
+ * @param {string[]} layers The layers on screen.
+ * @param {{x: number, y: number, k: number}} vp
+ * @param {number} sx
+ * @param {number} sy
+ * @returns {object | null}
+ */
+export function hitMarker(markers, layers, vp, sx, sy) {
+  let best = null;
+  let bestDistance = HIT_RADIUS;
+  for (const marker of markers) {
+    if (!markerVisible(marker, layers)) continue;
+    const anchor = anchorOf(marker, vp);
+    let distance = Math.hypot(anchor.sx - sx, anchor.sy - sy);
+    if (marker.type === "flag") {
+      const cloth = Math.hypot(anchor.sx + FLAG_CLOTH_W / 2 - sx, anchor.sy - POLE_HEIGHT + FLAG_CLOTH_H / 2 - sy);
+      distance = Math.min(distance, cloth);
+    }
+    if (distance <= bestDistance) {
+      best = marker;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/**
+ * The marker whose name tag is under a stage point: the tag must be showing, and the nearest one wins.
+ * @param {object[]} markers
+ * @param {string[]} layers The layers on screen.
+ * @param {{x: number, y: number, k: number, kFit: number}} vp
+ * @param {number} sx
+ * @param {number} sy
+ * @param {(text: string, size: number) => number} measure Width of text in stage pixels, from the canvas.
+ * @returns {object | null}
+ */
+export function hitTag(markers, layers, vp, sx, sy, measure) {
+  const z = vp.k / vp.kFit;
+  let best = null;
+  let bestDistance = Infinity;
+  for (const marker of markers) {
+    if (!markerVisible(marker, layers)) continue;
+    const anchor = anchorOf(marker, vp);
+    const tag = tagSpec(marker, anchor.sx, anchor.sy, z);
+    if (!tag) continue;
+    const width = measure(tag.text, NAME_SIZE);
+    const left = tag.align === "left" ? tag.x : tag.x - width / 2;
+    if (sx < left - TAG_HIT_PAD || sx > left + width + TAG_HIT_PAD || Math.abs(sy - tag.y) > NAME_SIZE / 2 + TAG_HIT_PAD) continue;
+    const distance = Math.abs(sx - (left + width / 2));
+    if (distance < bestDistance) {
+      best = marker;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}

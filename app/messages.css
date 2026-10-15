@@ -1,0 +1,7 @@
+.message {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: calc(var(--lh-ui) * 2em);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}

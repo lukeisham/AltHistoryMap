@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AltHistoryMap</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="page.css">
+  <link rel="stylesheet" href="buttons.css">
+  <link rel="stylesheet" href="header.css">
+  <link rel="stylesheet" href="layerbar.css">
+  <link rel="stylesheet" href="messages.css">
+  <link rel="stylesheet" href="toolpanel.css">
+  <link rel="stylesheet" href="palette.css">
+  <link rel="stylesheet" href="symbols.css">
+  <link rel="stylesheet" href="flagstrip.css">
+  <link rel="stylesheet" href="stage.css">
+  <link rel="stylesheet" href="namefield.css">
+  <link rel="stylesheet" href="markerinfo.css">
+  <link rel="stylesheet" href="footer.css">
+  <link rel="stylesheet" href="dialogs.css">
+  <link rel="stylesheet" href="flagdesigner.css">
+  <script type="module" src="main.js"></script>
+</head>
+<body data-mode="view">
+
+<header class="app-header">
+  <h1 class="app-name">AltHistoryMap</h1>
+  <div class="mode-toggle" role="radiogroup" aria-label="Mode">
+    <label class="mode-option">
+      <input class="visually-hidden" type="radio" name="mode" value="view" checked>
+      <span>View</span>
+    </label>
+    <label class="mode-option">
+      <input class="visually-hidden" type="radio" name="mode" value="edit">
+      <span>Edit</span>
+    </label>
+  </div>
+  <p class="map-name">
+    <span data-role="map-name"></span>
+    <span class="dirty-mark" data-role="dirty" aria-hidden="true" hidden>*</span>
+    <span class="visually-hidden" data-role="dirty" hidden>, unsaved changes</span>
+  </p>
+  <p class="edit-note" data-role="edit-note" hidden>Editing needs a wider window. You can still look around and zoom.</p>
+  <div class="file-actions" role="group" aria-label="File">
+    <button class="btn" type="button" data-action="open">Open</button>
+    <button class="btn" type="button" data-action="save">Save</button>
+    <button class="btn" type="button" data-action="save-as">Save as</button>
+    <button class="btn" type="button" data-action="png">PNG</button>
+  </div>
+</header>
+
+<nav class="layerbar" aria-label="Layers">
+  <div class="layer-group" role="group" aria-label="Layers">
+    <div class="layer-chip" data-chip="political" data-on="true" data-edit="false">
+      <button class="layer-eye view-only" type="button" data-eye="political" aria-pressed="true" aria-label="Show Political"><svg class="layer-eye-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path class="layer-eye-slash" d="M3 3l18 18"/></svg></button>
+      <button class="layer-button" type="button" data-layer="political" aria-keyshortcuts="1" title="Show Political alone (1)">Political<span class="layer-key layer-key--political" aria-hidden="true"></span></button>
+    </div>
+    <div class="layer-chip" data-chip="conflict" data-on="false" data-edit="false">
+      <button class="layer-eye view-only" type="button" data-eye="conflict" aria-pressed="false" aria-label="Show Conflict"><svg class="layer-eye-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path class="layer-eye-slash" d="M3 3l18 18"/></svg></button>
+      <button class="layer-button" type="button" data-layer="conflict" aria-keyshortcuts="2" title="Show Conflict alone (2)">Conflict<span class="layer-key layer-key--conflict" aria-hidden="true"></span></button>
+    </div>
+    <div class="layer-chip" data-chip="culture" data-on="false" data-edit="false">
+      <button class="layer-eye view-only" type="button" data-eye="culture" aria-pressed="false" aria-label="Show Culture"><svg class="layer-eye-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path class="layer-eye-slash" d="M3 3l18 18"/></svg></button>
+      <button class="layer-button" type="button" data-layer="culture" aria-keyshortcuts="3" title="Show Culture alone (3)">Culture<span class="layer-key layer-key--culture" aria-hidden="true"></span></button>
+    </div>
+  </div>
+  <p class="message" data-role="message" role="status" aria-live="polite"></p>
+  <div class="history-group edit-only" role="group" aria-label="History">
+    <button class="btn" type="button" data-action="undo" aria-keyshortcuts="Control+Z Meta+Z">Undo</button>
+    <button class="btn" type="button" data-action="redo" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z">Redo</button>
+  </div>
+</nav>
+
+<aside class="tool-panel edit-only" aria-label="Edit tools">
+  <section class="panel-section">
+    <h2 class="panel-heading">Tools</h2>
+    <div class="tool-list" role="group" aria-label="Tools" data-role="tools"></div>
+    <label class="name-tag-option" data-role="name-tag-row" hidden>
+      <input type="checkbox" data-role="name-tag" checked>
+      <span>Name tag</span>
+    </label>
+  </section>
+  <section class="panel-section">
+    <h2 class="panel-heading">Brush</h2>
+    <div class="brush-row">
+      <input class="brush-input" type="range" data-role="brush" aria-label="Brush size in pixels" min="1" max="16" value="1">
+      <output class="brush-value" data-role="brush-value"></output>
+    </div>
+  </section>
+  <section class="panel-section">
+    <h2 class="panel-heading">Colours</h2>
+    <div class="palette" role="group" aria-label="Colours. Click for the colour, Shift-click for the second colour." data-role="palette"></div>
+    <p class="panel-hint">Click sets the colour. Shift-click sets the second colour.</p>
+    <input class="visually-hidden" type="color" data-role="colour-input" tabindex="-1" aria-hidden="true">
+  </section>
+  <section class="panel-section">
+    <h2 class="panel-heading">Symbols</h2>
+    <div class="symbol-grid" role="group" aria-label="Symbols" data-role="symbols"></div>
+  </section>
+  <section class="panel-section" data-role="flags-section">
+    <h2 class="panel-heading">Flags</h2>
+    <div class="flag-strip" role="group" aria-label="Flag designs" data-role="flags"></div>
+    <div class="flag-actions">
+      <button class="btn" type="button" data-role="flag-new">+ New design</button>
+      <button class="btn" type="button" data-role="flag-edit">Edit design</button>
+    </div>
+  </section>
+</aside>
+
+<main class="stage" data-role="stage">
+  <canvas class="map-canvas" data-role="canvas" tabindex="0" role="application" aria-label="Map" data-cursor="grab"></canvas>
+  <div class="zoom-buttons" role="group" aria-label="Zoom">
+    <button class="btn zoom-button" type="button" data-role="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
+    <button class="btn zoom-button" type="button" data-role="zoom-out" aria-label="Zoom out" title="Zoom out (-)">&minus;</button>
+    <button class="btn zoom-button" type="button" data-role="zoom-home" aria-label="Show the whole world" title="Show the whole world">&#8962;</button>
+  </div>
+  <form class="name-field" data-role="name-field" hidden>
+    <input class="name-input" type="text" data-role="name-input" aria-label="Name" maxlength="60" autocomplete="off" required>
+    <button class="btn btn-primary" type="submit" data-role="name-submit">Place</button>
+    <button class="btn" type="button" data-role="name-cancel">Cancel</button>
+  </form>
+  <div class="marker-info" data-role="marker-info" role="group" aria-label="Marker details" hidden>
+    <p class="info-name" data-role="info-name"></p>
+    <p class="info-kind" data-role="info-kind"></p>
+    <div class="info-actions" data-role="info-actions" hidden>
+      <button class="btn" type="button" data-role="info-rename">Rename</button>
+      <button class="btn btn-danger" type="button" data-role="info-delete">Delete</button>
+    </div>
+  </div>
+</main>
+
+<footer class="app-footer">
+  <label class="scenario-menu">
+    <span class="footer-label">Scenarios</span>
+    <select class="scenario-select" data-role="scenarios"></select>
+  </label>
+  <p class="readout"><span data-role="coord"></span><span class="readout-sep" aria-hidden="true">&middot;</span><span data-role="zoom"></span></p>
+</footer>
+
+<dialog data-role="flag-designer"></dialog>
+<dialog data-role="app-dialog"></dialog>
+</body>
+</html>

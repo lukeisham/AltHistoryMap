@@ -1,0 +1,50 @@
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.swatch {
+  position: relative;
+  width: var(--s-4);
+  height: var(--s-4);
+  padding: 0;
+  border: 2px solid var(--bg-raised);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--line-strong);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  &[data-mark~="2"] {
+    outline: 2px dashed var(--ink-2);
+    outline-offset: 2px;
+  }
+
+  &[aria-pressed="true"] {
+    outline: 2px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  &[data-mark]:not([data-mark=""])::after {
+    content: attr(data-mark);
+    position: absolute;
+    inset: auto calc(-1 * var(--s-1)) calc(-1 * var(--s-1)) auto;
+    padding: 0 var(--s-1);
+    border-radius: var(--radius-sm);
+    background: var(--bg-raised);
+    box-shadow: var(--shade-edge);
+    color: var(--ink);
+    font-size: var(--t-micro);
+    line-height: var(--lh-ui);
+  }
+}
+
+.swatch-add {
+  background: var(--bg-raised);
+  color: var(--ink-2);
+  line-height: 1;
+}

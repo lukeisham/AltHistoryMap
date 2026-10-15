@@ -1,0 +1,10 @@
+{
+  "id": "blank-world",
+  "title": "Blank world",
+  "year": null,
+  "note": "An empty map.",
+  "palette": ["#b5473b", "#c98b2b", "#d9c04a", "#5c8a4d", "#3f7f9c", "#6c5a9e", "#8a5a3c", "#4a4a4a"],
+  "areas": [],
+  "flagDesigns": [],
+  "markers": []
+}

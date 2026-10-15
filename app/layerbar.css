@@ -1,0 +1,162 @@
+.layerbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-1) var(--s-3);
+  border-bottom: 1px solid var(--line-faint);
+  background: var(--bg);
+}
+
+.layer-group {
+  display: flex;
+  flex: none;
+  gap: var(--s-3);
+}
+
+.layer-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  border-bottom: 2px solid transparent;
+  color: var(--ink-3);
+
+  &[data-on="true"] {
+    color: var(--ink);
+  }
+
+  &[data-edit="true"] {
+    border-bottom-color: var(--acc);
+  }
+}
+
+.layer-eye {
+  display: grid;
+  place-items: center;
+  padding: var(--s-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+
+  &:hover:not([aria-disabled="true"]) {
+    background: var(--bg-sunk);
+  }
+
+  &[aria-disabled="true"] {
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+}
+
+.layer-eye-icon {
+  width: var(--glyph-md);
+  height: var(--glyph-md);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--glyph-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.layer-eye-slash {
+  display: none;
+}
+
+.layer-eye[aria-pressed="false"] .layer-eye-slash {
+  display: inline;
+}
+
+.layer-button {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-1) var(--s-2);
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  transition: transform var(--m-fast) var(--ease-out);
+
+  &:hover {
+    color: var(--ink);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  .layer-chip[data-edit="true"] & {
+    font-weight: 600;
+  }
+}
+
+/* Each key shows its layer's look in the neutral ink, so it reads the same under any palette. */
+.layer-key {
+  width: var(--s-4);
+  height: var(--s-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg);
+  opacity: 0.5;
+
+  .layer-chip[data-on="true"] & {
+    opacity: 1;
+  }
+}
+
+.layer-key--political {
+  background-color: var(--ink-2);
+}
+
+.layer-key--conflict {
+  background-image:
+    repeating-linear-gradient(45deg, var(--ink-2) 0 1px, transparent 1px var(--s-1)),
+    repeating-linear-gradient(-45deg, var(--ink-2) 0 1px, transparent 1px var(--s-1));
+}
+
+.layer-key--culture {
+  background-color: color-mix(in srgb, var(--ink-2) 30%, var(--bg));
+}
+
+.history-group {
+  display: flex;
+  flex: none;
+  gap: var(--s-2);
+}
+
+/* Same width as the narrow query in main.js, where View is the only mode: the keys go and the
+   gaps tighten so all three layers fit a phone, and the buttons grow for a finger. */
+@media (max-width: 719px) {
+  .layerbar {
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-2);
+    padding-inline: var(--s-2);
+  }
+
+  .layer-group {
+    gap: var(--s-1);
+  }
+
+  .layer-key {
+    display: none;
+  }
+
+  .layer-eye {
+    padding: var(--s-2);
+  }
+
+  .layer-button {
+    padding-block: var(--s-2);
+  }
+}

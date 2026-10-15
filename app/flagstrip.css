@@ -1,0 +1,37 @@
+.flag-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.flag-thumb {
+  display: block;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  line-height: 0;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  &[aria-pressed="true"] {
+    outline: 2px solid var(--acc);
+    outline-offset: 1px;
+  }
+}
+
+.flag-thumb-canvas {
+  display: block;
+  width: calc(var(--s-5) + var(--s-1));
+  height: var(--s-4);
+}
+
+.flag-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}

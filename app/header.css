@@ -1,0 +1,81 @@
+.app-header {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+}
+
+.app-name {
+  font-family: var(--font-prose);
+  font-size: var(--t-h3);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+}
+
+.mode-toggle {
+  display: inline-flex;
+}
+
+.mode-option {
+  position: relative;
+  display: block;
+
+  & span {
+    display: block;
+    padding: var(--s-1) var(--s-3);
+    border: 1px solid var(--line-strong);
+    background: var(--bg-raised);
+    cursor: pointer;
+  }
+
+  &:first-child span {
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  }
+
+  &:last-child span {
+    margin-left: -1px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  &:has(input:checked) span {
+    background: var(--acc);
+    border-color: var(--acc);
+    color: var(--acc-ink);
+  }
+
+  &:has(input:focus-visible) span {
+    box-shadow: var(--focus-ring);
+  }
+
+  &:has(input:disabled) span {
+    color: var(--ink-3);
+    cursor: not-allowed;
+  }
+}
+
+.map-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.dirty-mark {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.edit-note {
+  flex-basis: 100%;
+  color: var(--ink-2);
+}
+
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}

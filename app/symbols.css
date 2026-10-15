@@ -1,0 +1,42 @@
+.symbol-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+
+.symbol-button {
+  display: grid;
+  place-items: center;
+  width: var(--s-5);
+  height: var(--s-5);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform var(--m-fast) var(--ease-out);
+
+  &:hover {
+    background: var(--bg-sunk);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  &[aria-pressed="true"] {
+    border-color: var(--acc);
+    background: var(--acc-wash);
+  }
+}
+
+.symbol-icon {
+  width: var(--glyph-md);
+  height: var(--glyph-md);
+}

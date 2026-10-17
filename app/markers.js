@@ -22,6 +22,8 @@ const CITY_RADIUS = 6;
 const CITY_DOT = 2.6;
 const NATION_REACH = 2;
 const CITY_RING = 1.5;
+const CAPITAL_GAP = 2.5;
+const CAPITAL_RING = 1;
 const FLAG_CELL = 1.5;
 const POLE_HEIGHT = 32;
 const POLE_WIDTH = 1.5;
@@ -171,6 +173,14 @@ function drawCity(ctx, scene, marker, sx, sy) {
   ctx.arc(sx, sy, CITY_DOT, 0, Math.PI * 2);
   ctx.fillStyle = cityDotColour(scene, marker);
   ctx.fill();
+  if (marker.capital) {
+    // A capital wears a second, thinner ring round the bullseye.
+    ctx.beginPath();
+    ctx.arc(sx, sy, CITY_RADIUS + CAPITAL_GAP, 0, Math.PI * 2);
+    ctx.lineWidth = CAPITAL_RING;
+    ctx.strokeStyle = scene.theme.css.ink;
+    ctx.stroke();
+  }
 }
 
 function drawFlagCloth(ctx, scene, marker, left, top) {
@@ -263,7 +273,7 @@ function tagSpec(marker, sx, sy, z) {
   if (!marker.name || marker.type === "label") return null;
   let spec;
   if (marker.type === "city") {
-    spec = { x: sx + CITY_RADIUS + NAME_GAP, y: sy, align: "left", fade: CITY_FADE };
+    spec = { x: sx + CITY_RADIUS + (marker.capital ? CAPITAL_GAP : 0) + NAME_GAP, y: sy, align: "left", fade: CITY_FADE };
   } else if (marker.type === "flag") {
     spec = { x: sx + FLAG_CLOTH_W + NAME_GAP, y: sy - POLE_HEIGHT + FLAG_CLOTH_H / 2, align: "left", fade: CITY_FADE };
   } else {

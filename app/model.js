@@ -7,20 +7,21 @@ export const RIVER = 2;
 export const LAKE = 4;
 export const COAST = 8;
 export const WATER = RIVER | LAKE;
-export const FIGHTING = 255;
 export const FLAG_W = 24;
 export const FLAG_H = 16;
 export const MAX_PALETTE = 254;
 export const MAX_DESIGNS = 64;
 export const MAX_NAME = 60;
 export const MAX_TAG_OFFSET = 2000;
-export const LAYERS = ["political", "conflict", "culture"];
+export const LAYERS = ["political", "province", "culture"];
 export const MARKER_TYPES = ["city", "flag", "label", "symbol"];
-export const PLANE_NAMES = ["political", "culture", "claimA", "claimB", "border"];
+// `reserved` is always zero; it keeps the map file layout at five planes.
+export const PLANE_NAMES = ["political", "culture", "province", "reserved", "border"];
 export const DEFAULT_PALETTE = ["#b5473b", "#c98b2b", "#d9c04a", "#5c8a4d", "#3f7f9c", "#6c5a9e", "#8a5a3c", "#4a4a4a"];
 
 const MAX_LAT = 85.0511;
 const MAX_STEPS = 100;
+const SIDES = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 const MAX_ENTRIES = 8_000_000;
 const HEX = /^#[0-9a-f]{6}$/;
 
@@ -155,7 +156,7 @@ export function createModel(base, n = N) {
 
   // ---- history ----
 
-  function pushStep(step) {
+  function pushStep(step, notice = step.notice) {
     undoStack.push(step);
     entryTotal += step.cost;
     redoStack.length = 0;
@@ -163,7 +164,7 @@ export function createModel(base, n = N) {
       entryTotal -= undoStack.shift().cost;
     }
     model.revision++;
-    notify(step.notice);
+    notify(notice);
   }
 
   function stepPixels(recorder) {
@@ -171,7 +172,8 @@ export function createModel(base, n = N) {
     for (const [plane, log] of recorder.logs) {
       parts.push({ plane, idx: log.idx.trimmed(), old: log.old.trimmed(), nv: log.nv });
     }
-    const notice = { layer: recorder.layer, rect: recorder.rect };
+    const flips = recorder.flips;
+    const notice = { layer: recorder.layer, rect: recorder.rect, markers: flips.length > 0 };
     return {
       cost: recorder.count,
       notice,
@@ -180,12 +182,14 @@ export function createModel(base, n = N) {
           const arr = model.planes[p.plane];
           for (let k = 0; k < p.idx.length; k++) arr[p.idx[k]] = p.old[k];
         }
+        for (const marker of flips) marker.capital = true;
       },
       redo() {
         for (const p of parts) {
           const arr = model.planes[p.plane];
           for (let k = 0; k < p.idx.length; k++) arr[p.idx[k]] = p.nv;
         }
+        for (const marker of flips) marker.capital = false;
       },
     };
   }
@@ -197,7 +201,7 @@ export function createModel(base, n = N) {
   // ---- pixel recording ----
 
   function startRecording(layer) {
-    return { layer, logs: new Map(), count: 0, rect: null };
+    return { layer, logs: new Map(), count: 0, rect: null, flips: [] };
   }
 
   function touch(rec, x0, y0, x1, y1) {
@@ -226,49 +230,75 @@ export function createModel(base, n = N) {
     rec.count++;
   }
 
-  function finishRecording(rec) {
+  function finishRecording(rec, { drawn = false } = {}) {
     if (rec.count === 0) return false;
-    pushStep(stepPixels(rec));
+    const step = stepPixels(rec);
+    // A stroke's pixels were announced as they were drawn; closing it only tells listeners the history moved.
+    pushStep(step, drawn ? { layer: rec.layer, history: true } : step.notice);
     return true;
   }
 
-  function writeTool(rec, tool, layer, i, colour, colour2) {
+  function writeTool(rec, tool, layer, i, colour) {
     switch (tool) {
       case "paint":
-        writePixel(rec, layer === "culture" ? "culture" : "political", i, colour);
-        break;
-      case "claim":
-        writePixel(rec, "claimA", i, colour);
-        writePixel(rec, "claimB", i, colour2);
-        break;
-      case "fighting":
-        writePixel(rec, "claimA", i, FIGHTING);
-        writePixel(rec, "claimB", i, 0);
+        writePixel(rec, layer, i, colour);
         break;
       case "border":
         writePixel(rec, "border", i, 1);
         break;
       case "erase":
-        if (layer === "political") {
-          writePixel(rec, "political", i, 0);
-          writePixel(rec, "border", i, 0);
-        } else if (layer === "culture") {
-          writePixel(rec, "culture", i, 0);
-        } else {
-          writePixel(rec, "claimA", i, 0);
-          writePixel(rec, "claimB", i, 0);
-        }
+        writePixel(rec, layer, i, 0);
+        if (layer === "political") writePixel(rec, "border", i, 0);
         break;
     }
   }
 
   const TOOL_LAYERS = {
-    paint: ["political", "culture"],
-    claim: ["conflict"],
-    fighting: ["conflict"],
+    paint: LAYERS,
     border: ["political"],
     erase: LAYERS,
   };
+
+  // The political colour a capital stands for: its own pixel's, else the commonest among its four sides, else 0.
+  function nationAround(x, y) {
+    const { political } = model.planes;
+    const own = political[y * n + x];
+    if (own !== 0) return own;
+    const counts = new Map();
+    for (const [dx, dy] of SIDES) {
+      const sx = x + dx;
+      const sy = y + dy;
+      if (sx < 0 || sy < 0 || sx >= n || sy >= n) continue;
+      const colour = political[sy * n + sx];
+      if (colour !== 0) counts.set(colour, (counts.get(colour) ?? 0) + 1);
+    }
+    return counts.size === 0 ? 0 : [...counts].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
+  }
+
+  // A capital holds while its own pixel or any of its four sides still has its nation's colour.
+  function holdsNation(marker) {
+    const { political } = model.planes;
+    for (const [dx, dy] of [[0, 0], ...SIDES]) {
+      const x = marker.x + dx;
+      const y = marker.y + dy;
+      if (x >= 0 && y >= 0 && x < n && y < n && political[y * n + x] === marker.nation) return true;
+    }
+    return false;
+  }
+
+  // A capital whose colour has changed on every side goes back to being a city. The flip is recorded
+  // with the edit, so undoing the edit makes it a capital again.
+  function settleCapitals(rec, x0, y0, x1, y1) {
+    let flipped = false;
+    for (const marker of model.markers) {
+      if (!marker.capital || marker.x < x0 - 1 || marker.x > x1 + 1 || marker.y < y0 - 1 || marker.y > y1 + 1) continue;
+      if (holdsNation(marker)) continue;
+      marker.capital = false;
+      rec.flips.push(marker);
+      flipped = true;
+    }
+    return flipped;
+  }
 
   function isPaintable(bits) {
     return (bits & LAND) !== 0 && (bits & WATER) === 0;
@@ -279,7 +309,7 @@ export function createModel(base, n = N) {
   }
 
   function stamp(x, y) {
-    const { rec, offsets, tool, layer, colour, colour2 } = stroke;
+    const { rec, offsets, tool, layer, colour } = stroke;
     let x0 = n;
     let y0 = n;
     let x1 = -1;
@@ -290,13 +320,17 @@ export function createModel(base, n = N) {
       if (px < 0 || py < 0 || px >= n || py >= n) continue;
       const i = py * n + px;
       if (!isPaintable(base[i])) continue;
-      writeTool(rec, tool, layer, i, colour, colour2);
+      writeTool(rec, tool, layer, i, colour);
       if (px < x0) x0 = px;
       if (px > x1) x1 = px;
       if (py < y0) y0 = py;
       if (py > y1) y1 = py;
     }
-    if (x1 >= 0) touch(rec, x0, y0, x1, y1);
+    if (x1 >= 0) {
+      touch(rec, x0, y0, x1, y1);
+      touch(stroke.live, x0, y0, x1, y1);
+      if (layer === "political" && tool !== "border" && settleCapitals(rec, x0, y0, x1, y1)) stroke.live.markers = true;
+    }
   }
 
   // Bresenham between samples so a fast drag leaves no gap.
@@ -327,7 +361,7 @@ export function createModel(base, n = N) {
 
   Object.assign(model, {
     /**
-     * Subscribes to changes. A notice is {layer, rect:{x0,y0,x1,y1}} for pixels, {markers:true} for
+     * Subscribes to changes. A notice is {layer, rect:{x0,y0,x1,y1}} for pixels as they change (a stroke sends one per move), {layer, history:true} when a stroke closes as an undo step, {markers:true} for
      * markers and designs, {palette:true} for a new colour, or {all:true} when the map is replaced.
      * @param {(notice: object) => void} fn
      * @returns {() => void} Unsubscribe function.
@@ -382,24 +416,22 @@ export function createModel(base, n = N) {
     },
 
     /**
-     * Starts one stroke (one undo step). Tools: paint, erase, claim, fighting, border.
-     * @param {{tool: string, layer: string, colour?: number, colour2?: number, size?: number}} opts
+     * Starts one stroke (one undo step). Tools: paint, erase, border.
+     * @param {{tool: string, layer: string, colour?: number, size?: number}} opts
      * @returns {boolean} False when the options are not valid for the tool.
      */
-    beginStroke({ tool, layer, colour = 0, colour2 = 0, size = 1 }) {
+    beginStroke({ tool, layer, colour = 0, size = 1 }) {
       if (stroke) endStroke();
       if (!TOOL_LAYERS[tool]?.includes(layer)) return fail("tool does not apply to layer", { tool, layer });
-      const needsColour = tool === "paint" || tool === "claim";
-      if (needsColour && !validColour(colour)) return fail("colour not in palette", colour);
-      if (tool === "claim" && !validColour(colour2)) return fail("second colour not in palette", colour2);
+      if (tool === "paint" && !validColour(colour)) return fail("colour not in palette", colour);
       const diameter = tool === "border" ? 1 : Math.max(1, Math.min(16, Math.round(size)));
       stroke = {
         tool,
         layer,
         colour,
-        colour2,
         offsets: discOffsets(diameter),
         rec: startRecording(layer),
+        live: { rect: null, markers: false },
         last: null,
       };
       return true;
@@ -417,6 +449,11 @@ export function createModel(base, n = N) {
       if (stroke.last) line(stroke.last.x, stroke.last.y, px, py);
       else stamp(px, py);
       stroke.last = { x: px, y: py };
+      if (stroke.live.rect) {
+        notify({ layer: stroke.layer, rect: stroke.live.rect, markers: stroke.live.markers });
+        stroke.live.rect = null;
+        stroke.live.markers = false;
+      }
     },
 
     /** Closes the open stroke and records it as one undo step.
@@ -430,23 +467,17 @@ export function createModel(base, n = N) {
      * @param {string} layer
      * @param {number} x
      * @param {number} y
-     * @param {number} colour Palette index written (claim A for Conflict).
-     * @param {number} [colour2] Claim B colour for Conflict.
+     * @param {number} colour Palette index written.
      * @returns {number} Pixels changed.
      */
-    fill(layer, x, y, colour, colour2 = 0) {
+    fill(layer, x, y, colour) {
       if (!LAYERS.includes(layer)) return warn("unknown layer", layer) ?? 0;
-      if (!validColour(colour) || (layer === "conflict" && !validColour(colour2))) {
-        return warn("fill colour not in palette", { colour, colour2 }) ?? 0;
-      }
+      if (!validColour(colour)) return warn("fill colour not in palette", colour) ?? 0;
       if (x < 0 || y < 0 || x >= n || y >= n || !isPaintable(base[y * n + x])) return 0;
-      const { political, culture, claimA, claimB } = model.planes;
-      const plane = layer === "culture" ? culture : political;
-      const valueAt =
-        layer === "conflict" ? (i) => (claimA[i] << 8) | claimB[i] : (i) => plane[i];
+      const plane = model.planes[layer];
+      const valueAt = (i) => plane[i];
       const target = valueAt(y * n + x);
-      const replacement = layer === "conflict" ? (colour << 8) | colour2 : colour;
-      if (target === replacement) return 0;
+      if (target === colour) return 0;
 
       const rec = startRecording(layer);
       const seen = new Uint8Array(n * n);
@@ -472,12 +503,7 @@ export function createModel(base, n = N) {
         const px = i % n;
         const py = (i - px) / n;
         if (!(base[i] & WATER)) {
-          if (layer === "conflict") {
-            writePixel(rec, "claimA", i, colour);
-            writePixel(rec, "claimB", i, colour2);
-          } else {
-            writePixel(rec, layer === "culture" ? "culture" : "political", i, colour);
-          }
+          writePixel(rec, layer, i, colour);
           if (px < x0) x0 = px;
           if (px > x1) x1 = px;
           if (py < y0) y0 = py;
@@ -488,14 +514,14 @@ export function createModel(base, n = N) {
         if (py > 0) visit(i - n);
         if (py < n - 1) visit(i + n);
       }
-      // A river is crossed without being coloured, so a fill reaches both banks.
+      // A river is a wall: the fill neither colours it nor crosses it.
       function visit(j) {
-        if (seen[j] || !(base[j] & LAND)) return;
-        if (!(base[j] & RIVER) && valueAt(j) !== target) return;
+        if (seen[j] || !isPaintable(base[j]) || valueAt(j) !== target) return;
         seen[j] = 1;
         push(j);
       }
       touch(rec, x0, y0, x1, y1);
+      if (layer === "political") settleCapitals(rec, x0, y0, x1, y1);
       const changed = rec.count;
       finishRecording(rec);
       return changed;
@@ -528,13 +554,14 @@ export function createModel(base, n = N) {
     /**
      * Adds a marker. City, flag and label always belong to Political. A city, flag or symbol may have an
      * empty name, which means it carries no name tag; a label is its text, so it must have one.
-     * @param {{type: string, x: number, y: number, name: string, colour: number, glyph?: string, design?: number, layer?: string, tagDx?: number, tagDy?: number}} spec
+     * @param {{type: string, x: number, y: number, name: string, colour: number, glyph?: string, design?: number, layer?: string, tagDx?: number, tagDy?: number, capital?: boolean}} spec
      * @returns {object | null} The marker, or null when the spec is invalid.
      */
     addMarker(spec) {
       const marker = checkedMarker(spec);
       if (!marker) return null;
       marker.id = nextId++;
+      if (marker.capital) marker.nation = nationAround(marker.x, marker.y);
       model.markers.push(marker);
       pushStep(
         stepOf(
@@ -559,31 +586,36 @@ export function createModel(base, n = N) {
       if (!marker || !Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= n || y >= n) {
         return fail("cannot move marker", { id, x, y });
       }
-      const from = { x: marker.x, y: marker.y };
+      const from = { x: marker.x, y: marker.y, nation: marker.nation };
       if (from.x === x && from.y === y) return true;
       marker.x = x;
       marker.y = y;
+      // A capital that moves stands for the nation it lands in.
+      if (marker.capital) marker.nation = nationAround(x, y);
+      const to = { x, y, nation: marker.nation };
       pushStep(
         stepOf(
           1,
           { markers: true },
           () => Object.assign(marker, from),
-          () => Object.assign(marker, { x, y }),
+          () => Object.assign(marker, to),
         ),
       );
       return true;
     },
 
     /**
-     * Changes a marker's name, colour, glyph, flag design or name tag offset.
+     * Changes a marker's name, colour, glyph, flag design, name tag offset, or whether a city is a capital.
      * @param {number} id
-     * @param {{name?: string, colour?: number, glyph?: string, design?: number, tagDx?: number, tagDy?: number}} patch
+     * @param {{name?: string, colour?: number, glyph?: string, design?: number, tagDx?: number, tagDy?: number, capital?: boolean}} patch
      * @returns {boolean}
      */
     editMarker(id, patch) {
       const marker = findMarker(id);
       if (!marker) return fail("no such marker", id);
-      const next = checkedMarker({ ...marker, ...patch });
+      const merged = { ...marker, ...patch };
+      if (merged.capital === true && !marker.capital) merged.nation = nationAround(marker.x, marker.y);
+      const next = checkedMarker(merged);
       if (!next) return false;
       const before = pickEditable(marker);
       const after = pickEditable(next);
@@ -695,7 +727,7 @@ export function createModel(base, n = N) {
 
   function endStroke() {
     if (!stroke) return false;
-    const changed = finishRecording(stroke.rec);
+    const changed = finishRecording(stroke.rec, { drawn: true });
     stroke = null;
     return changed;
   }
@@ -709,8 +741,8 @@ export function createModel(base, n = N) {
     }
   }
 
-  function pickEditable({ name, colour, glyph, design, tagDx, tagDy }) {
-    return { name, colour, glyph, design, tagDx, tagDy };
+  function pickEditable({ name, colour, glyph, design, tagDx, tagDy, capital, nation }) {
+    return { name, colour, glyph, design, tagDx, tagDy, capital, nation };
   }
 
   function findMarker(id) {
@@ -754,6 +786,8 @@ export function createModel(base, n = N) {
       layer,
       tagDx,
       tagDy,
+      capital: spec.type === "city" && spec.capital === true,
+      nation: spec.type === "city" && Number.isInteger(spec.nation) && spec.nation >= 0 ? spec.nation : 0,
     };
   }
 

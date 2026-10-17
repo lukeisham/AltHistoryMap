@@ -10,11 +10,13 @@ import { TOOLS_BY_LAYER, TOOL_LABELS, TOOL_HINTS, BRUSH_TOOLS, BRUSH_MIN, BRUSH_
  *   flagsSection: HTMLElement,
  *   nameTagRow: HTMLElement,
  *   nameTagInput: HTMLInputElement,
+ *   capitalRow: HTMLElement,
+ *   capitalInput: HTMLInputElement,
  *   state: {get: () => object, set: (patch: object) => void, subscribe: Function}
  * }} deps `flagsSection` is shown only on the layer that has the Flag tool; `nameTagRow` only for a tool
- *   whose marker may go without a name tag.
+ *   whose marker may go without a name tag; `capitalRow` only for the City tool.
  */
-export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, nameTagRow, nameTagInput, state }) {
+export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, nameTagRow, nameTagInput, capitalRow, capitalInput, state }) {
   const doc = toolsEl.ownerDocument;
   brushInput.min = String(BRUSH_MIN);
   brushInput.max = String(BRUSH_MAX);
@@ -62,8 +64,15 @@ export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, n
     nameTagInput.checked = nameTag;
   }
 
+  function syncCapital() {
+    const { tool, capital } = state.get();
+    capitalRow.hidden = tool !== "city";
+    capitalInput.checked = capital;
+  }
+
   brushInput.addEventListener("input", () => state.set({ brush: Number(brushInput.value) }));
   nameTagInput.addEventListener("change", () => state.set({ nameTag: nameTagInput.checked }));
+  capitalInput.addEventListener("change", () => state.set({ capital: capitalInput.checked }));
   state.subscribe((value, changed) => {
     if (changed.includes("layer")) {
       buildTools(value.layer);
@@ -72,6 +81,7 @@ export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, n
     if (changed.includes("layer") || changed.includes("tool")) syncPressed();
     if (changed.includes("brush") || changed.includes("tool")) syncBrush();
     if (changed.includes("nameTag") || changed.includes("tool")) syncNameTag();
+    if (changed.includes("capital") || changed.includes("tool")) syncCapital();
   });
 
   const { layer } = state.get();
@@ -80,4 +90,5 @@ export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, n
   syncPressed();
   syncBrush();
   syncNameTag();
+  syncCapital();
 }

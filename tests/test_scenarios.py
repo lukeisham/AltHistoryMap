@@ -21,11 +21,11 @@ import { readFile } from "node:fs/promises";
 import { decodeMap } from "%(app)s/mapfile.js";
 import { GLYPHS } from "%(app)s/glyphs.js";
 const data = await decodeMap(await readFile(process.argv[2]), GLYPHS.map((g) => g.id));
-const claimA = data.planes.claimA;
+const province = data.planes.province;
 console.log(JSON.stringify({
   name: data.name, origin: data.origin, palette: data.palette.length, markers: data.markers.length,
   designs: data.designs.length, painted: data.planes.political.some((v) => v > 0),
-  fighting: claimA.includes(255),
+  provinces: province.some((v) => v > 0),
 }));
 """
 
@@ -69,7 +69,7 @@ class ScenariosTest(unittest.TestCase):
         blank = json.loads(run_node(READ_MAP, str(self.output / "blank-world.ahmap")))
         self.assertEqual((blank["name"], blank["origin"], blank["markers"], blank["painted"]), ("Blank world", "blank-world", 0, False))
         roman = json.loads(run_node(READ_MAP, str(self.output / "roman-117.ahmap")))
-        self.assertEqual((roman["name"], roman["designs"], roman["painted"], roman["fighting"]), ("Roman Empire AD 117", 1, True, True))
+        self.assertEqual((roman["name"], roman["designs"], roman["painted"], roman["provinces"]), ("Roman Empire AD 117", 1, True, True))
         self.assertGreater(roman["markers"], 10)
 
     @unittest.skipIf(NODE is None, "node is not installed, so the JavaScript starter layouts cannot be run")

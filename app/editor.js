@@ -30,8 +30,8 @@ export function createEditor({ model, state, say }) {
   }
 
   function strokeOptions() {
-    const { tool, layer, colour, colour2, brush } = state.get();
-    return { tool, layer, colour, colour2, size: brush };
+    const { tool, layer, colour, brush } = state.get();
+    return { tool, layer, colour, size: brush };
   }
 
   const editor = {
@@ -64,18 +64,18 @@ export function createEditor({ model, state, say }) {
     },
 
     /**
-     * Fills the connected area under a pixel with the chosen colour (or claim, on Conflict).
+     * Fills the connected area under a pixel with the chosen colour.
      * @param {{x: number, y: number}} pixel
      * @returns {number} Pixels changed.
      */
     fill(pixel) {
       if (!editGate()) return 0;
-      const { layer, colour, colour2 } = state.get();
+      const { layer, colour } = state.get();
       if (!isLand(pixel.x, pixel.y)) {
         say(LAND_ONLY);
         return 0;
       }
-      return model.fill(layer, pixel.x, pixel.y, colour, colour2);
+      return model.fill(layer, pixel.x, pixel.y, colour);
     },
 
     /**
@@ -86,13 +86,14 @@ export function createEditor({ model, state, say }) {
      */
     place(pixel, name) {
       if (!editGate()) return null;
-      const { tool, layer, colour, design, glyph } = state.get();
+      const { tool, layer, colour, design, glyph, capital } = state.get();
       if (!PLACING_TOOLS.includes(tool)) {
         console.warn("editor: place called with a tool that places nothing", tool);
         return null;
       }
       const spec = { type: tool, x: pixel.x, y: pixel.y, name, colour };
       if (tool === "flag") spec.design = design;
+      if (tool === "city" && capital) spec.capital = true;
       if (tool === "symbol") Object.assign(spec, { glyph, layer });
       return model.addMarker(spec);
     },
@@ -133,6 +134,14 @@ export function createEditor({ model, state, say }) {
     /** @returns {boolean} */
     renameMarker(id, name) {
       return editGate() && model.editMarker(id, { name });
+    },
+
+    /**
+     * Makes a city a capital, or a capital a city again.
+     * @returns {boolean}
+     */
+    setCapital(id, capital) {
+      return editGate() && model.editMarker(id, { capital });
     },
 
     /** @returns {boolean} */

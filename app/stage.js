@@ -128,16 +128,21 @@ export function createStage(deps) {
     if (!editor.place(pixel, name)) say("That could not be placed.");
   }
 
-  async function rename(id, x, y) {
+  async function rename(id, x, y, avoid) {
     if (!editor.editGate()) return;
     const marker = model.markers.find((m) => m.id === id);
     if (!marker) return;
-    const name = await nameField.ask({ x, y, value: marker.name, confirmLabel: "Rename", allowEmpty: marker.type !== "label" });
+    const name = await nameField.ask({ x, y, avoid, value: marker.name, confirmLabel: "Rename", allowEmpty: marker.type !== "label" });
     if (name !== null) editor.renameMarker(id, name);
     if (model.markers.includes(marker)) select(marker);
   }
 
   markerInfo.onRename(rename);
+  markerInfo.onCapital((id, capital) => {
+    editor.setCapital(id, capital);
+    const marker = model.markers.find((m) => m.id === id);
+    if (marker) select(marker);
+  });
   markerInfo.onDelete((id) => {
     editor.deleteMarker(id);
     markerInfo.hide();
@@ -343,6 +348,11 @@ export function createStage(deps) {
   model.onChange((notice) => {
     if (notice.all) dismiss();
     else if (notice.markers && isSelectionGone()) dismiss();
+    else if (notice.markers && markerInfo.isOpen()) {
+      // A capital can turn back into a city under a brush; the open popover must say so.
+      const marker = model.markers.find((m) => m.id === state.get().selected);
+      if (marker) select(marker);
+    }
   });
 
   syncBrush();

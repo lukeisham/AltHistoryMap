@@ -109,6 +109,7 @@ async function main() {
     kind: part("info-kind"),
     actions: part("info-actions"),
     renameButton: part("info-rename"),
+    capitalButton: part("info-capital"),
     deleteButton: part("info-delete"),
     stage: stageBox,
   });
@@ -148,6 +149,8 @@ async function main() {
     flagsSection: part("flags-section"),
     nameTagRow: part("name-tag-row"),
     nameTagInput: part("name-tag"),
+    capitalRow: part("capital-row"),
+    capitalInput: part("capital"),
     state,
   });
   bindPalette({ container: part("palette"), colourInput: part("colour-input"), state, model, editor, say });

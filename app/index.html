@@ -57,9 +57,9 @@
       <button class="layer-eye view-only" type="button" data-eye="political" aria-pressed="true" aria-label="Show Political"><svg class="layer-eye-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path class="layer-eye-slash" d="M3 3l18 18"/></svg></button>
       <button class="layer-button" type="button" data-layer="political" aria-keyshortcuts="1" title="Show Political alone (1)">Political<span class="layer-key layer-key--political" aria-hidden="true"></span></button>
     </div>
-    <div class="layer-chip" data-chip="conflict" data-on="false" data-edit="false">
-      <button class="layer-eye view-only" type="button" data-eye="conflict" aria-pressed="false" aria-label="Show Conflict"><svg class="layer-eye-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path class="layer-eye-slash" d="M3 3l18 18"/></svg></button>
-      <button class="layer-button" type="button" data-layer="conflict" aria-keyshortcuts="2" title="Show Conflict alone (2)">Conflict<span class="layer-key layer-key--conflict" aria-hidden="true"></span></button>
+    <div class="layer-chip" data-chip="province" data-on="false" data-edit="false">
+      <button class="layer-eye view-only" type="button" data-eye="province" aria-pressed="false" aria-label="Show Province"><svg class="layer-eye-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path class="layer-eye-slash" d="M3 3l18 18"/></svg></button>
+      <button class="layer-button" type="button" data-layer="province" aria-keyshortcuts="2" title="Show Province alone (2)">Province<span class="layer-key layer-key--province" aria-hidden="true"></span></button>
     </div>
     <div class="layer-chip" data-chip="culture" data-on="false" data-edit="false">
       <button class="layer-eye view-only" type="button" data-eye="culture" aria-pressed="false" aria-label="Show Culture"><svg class="layer-eye-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path class="layer-eye-slash" d="M3 3l18 18"/></svg></button>
@@ -81,6 +81,10 @@
     <label class="name-tag-option" data-role="name-tag-row" hidden>
       <input type="checkbox" data-role="name-tag" checked>
       <span>Name tag</span>
+    </label>
+    <label class="name-tag-option" data-role="capital-row" hidden>
+      <input type="checkbox" data-role="capital">
+      <span>Capital</span>
     </label>
   </section>
   <section class="panel-section">
@@ -127,6 +131,7 @@
     <p class="info-kind" data-role="info-kind"></p>
     <div class="info-actions" data-role="info-actions" hidden>
       <button class="btn" type="button" data-role="info-rename">Rename</button>
+      <button class="btn" type="button" data-role="info-capital" hidden>Make capital</button>
       <button class="btn btn-danger" type="button" data-role="info-delete">Delete</button>
     </div>
   </div>

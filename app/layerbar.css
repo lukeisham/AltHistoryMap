@@ -119,10 +119,9 @@
   background-color: var(--ink-2);
 }
 
-.layer-key--conflict {
-  background-image:
-    repeating-linear-gradient(45deg, var(--ink-2) 0 1px, transparent 1px var(--s-1)),
-    repeating-linear-gradient(-45deg, var(--ink-2) 0 1px, transparent 1px var(--s-1));
+.layer-key--province {
+  background-color: color-mix(in srgb, var(--ink-2) 30%, var(--bg));
+  border-color: #000;
 }
 
 .layer-key--culture {

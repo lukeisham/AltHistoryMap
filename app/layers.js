@@ -4,17 +4,17 @@
 
 import { LAYERS } from "./model.js";
 
-/** The only combinations View mode offers, each in LAYERS order. Political and Culture never meet. */
-export const ALLOWED_VIEWS = [["political"], ["conflict"], ["political", "conflict"], ["culture"], ["conflict", "culture"]];
+/** The only combinations View mode offers. Each layer stands alone: Culture's Edit look draws a faded Political under it. */
+export const ALLOWED_VIEWS = [["political"], ["province"], ["culture"]];
 
-/** Every look the renderer draws: the five views, and Culture over faded Political in Edit mode. */
+/** Every look the renderer draws: the three views, and Culture over faded Political in Edit mode. */
 export const LOOKS = [...ALLOWED_VIEWS.map((view) => view.join("+")), "editCulture"];
 
-const ORDER = (layers) => LAYERS.filter((layer) => layers.includes(layer));
+const NAMES = { political: "Political", province: "Province", culture: "Culture" };
 
 /**
  * @param {string[]} view
- * @returns {boolean} True when the view is one of ALLOWED_VIEWS, in LAYERS order.
+ * @returns {boolean} True when the view is one of ALLOWED_VIEWS.
  */
 export function isAllowedView(view) {
   return Array.isArray(view) && ALLOWED_VIEWS.some((allowed) => allowed.length === view.length && allowed.every((layer, i) => layer === view[i]));
@@ -29,12 +29,12 @@ export function soloView(layer) {
 }
 
 /**
- * Turns one layer on or off, switching another off when the rules need it.
+ * Turns one layer on or off. Showing a layer replaces the view, since no layers share one.
  * @param {string[]} view The current allowed view.
  * @param {string} layer
  * @param {boolean} shown
- * @returns {{view: string[], note: string}} The new view, and a sentence for the message line when a
- *   second layer was switched off ("" when nothing was).
+ * @returns {{view: string[], note: string}} The new view, and a sentence for the message line when
+ *   another layer was switched off ("" when nothing was).
  */
 export function toggleLayer(view, layer, shown) {
   if (!LAYERS.includes(layer)) {
@@ -43,16 +43,9 @@ export function toggleLayer(view, layer, shown) {
   }
   const on = view.includes(layer);
   if (shown === on) return { view, note: "" };
-  if (!shown) return view.length === 1 ? { view, note: "" } : { view: view.filter((l) => l !== layer), note: "" };
-  if (layer === "culture") {
-    const note = view.includes("political") ? "Political hidden: Culture never shares a view with it." : "";
-    return { view: ORDER(["culture", ...view.filter((l) => l === "conflict")]), note };
-  }
-  if (layer === "political") {
-    const note = view.includes("culture") ? "Culture hidden: it never shares a view with Political." : "";
-    return { view: ORDER(["political", ...view.filter((l) => l === "conflict")]), note };
-  }
-  return { view: ORDER([...view, layer]), note: "" };
+  if (!shown) return { view, note: "" };
+  const hidden = view.map((name) => NAMES[name]).join(", ");
+  return { view: soloView(layer), note: `${hidden} hidden: ${NAMES[layer]} never shares a view.` };
 }
 
 /**
@@ -70,10 +63,10 @@ export function settleLayers(mode, layer, view) {
 }
 
 /**
- * The look the renderer draws: the layer alone in Edit mode (Culture over faded Political), the
- * joined layers in View mode.
+ * The look the renderer draws: the edited layer in Edit mode (Culture over faded Political), the
+ * viewed layer in View mode.
  * @param {{mode: string, layer: string, view: string[]}} screen
- * @returns {string} `political`, `conflict`, `political+conflict`, `culture`, `conflict+culture` or `editCulture`.
+ * @returns {string} `political`, `province`, `culture` or `editCulture`.
  */
 export function lookFor({ mode, layer, view }) {
   if (mode === "edit") return layer === "culture" ? "editCulture" : layer;
@@ -85,7 +78,7 @@ export function lookFor({ mode, layer, view }) {
  * @returns {string[]} The layers whose marks and planes the look shows.
  */
 export function layersOnScreen(look) {
-  return look === "editCulture" ? ["culture"] : look.split("+");
+  return look === "editCulture" ? ["culture"] : [look];
 }
 
 /**
@@ -94,5 +87,5 @@ export function layersOnScreen(look) {
  *   editCulture because Political shows through it.
  */
 export function layersDrawn(look) {
-  return look === "editCulture" ? ["political", "culture"] : look.split("+");
+  return look === "editCulture" ? ["political", "culture"] : [look];
 }

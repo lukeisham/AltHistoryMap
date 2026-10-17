@@ -1,6 +1,6 @@
 # AltHistoryMap
 
-A zoomable world map for building alternative histories. The player founds cities, plants flags and paints territory on a Mercator map, or starts from one of nine ready-made empire sketches and changes it. Three layers (Political, Conflict, Culture) show alone or together in View mode, in the five combinations `app/layers.js` allows; Political and Culture never share a view. Cities are bullseyes (an ink ring round a pale centre, and a dot) so they stand apart from coloured symbols and flags; the **Cities by nation** button in the layer bar colours each city's dot by the political colour that holds it. It is a static web app: nothing is sent anywhere, and a map is one file that Save downloads and Open loads.
+A zoomable world map for building alternative histories. The player founds cities, plants flags and paints territory on a Mercator map, or starts from one of nine ready-made empire sketches and changes it. Three layers (Political, Province, Culture) each show alone. Culture (while editing) draws the political colours faded beneath it. Province draws its own paint at full strength and outlines every coloured area in black; Political does not show on it. Cities are bullseyes (an ink ring round a pale centre, and a dot; a capital wears a second, thinner ring, and goes back to a city when the colour around it changes) so they stand apart from coloured symbols and flags; the **Cities by nation** button in the layer bar colours each city's dot by the political colour that holds it. It is a static web app: nothing is sent anywhere, and a map is one file that Save downloads and Open loads.
 
 ## Run it on your computer
 
@@ -55,7 +55,7 @@ Standalone: it reads no other Lukeatron app, store or file. Three Lukeatron file
 
 | From | To | What crosses | What breaks if it changes |
 |---|---|---|---|
-| `build/` scripts | `app/data/`, `app/glyphs.js` | `basemap.bin` (`AHBASE01` + zlib; bits LAND=1 RIVER=2 LAKE=4 COAST=8), `.ahmap` scenario files (gzip; `AHMAP001` + JSON header + five 4096 x 4096 planes: political, culture, claimA, claimB, border), `index.json` | The Python writer and the JavaScript reader (`mapfile.js`, `api.js`, `model.js`) must stay in step; `test_scenarios.py` decodes Python output with the real reader |
+| `build/` scripts | `app/data/`, `app/glyphs.js` | `basemap.bin` (`AHBASE01` + zlib; bits LAND=1 RIVER=2 LAKE=4 COAST=8), `.ahmap` scenario files (gzip; `AHMAP001` + JSON header + five 4096 x 4096 planes: political, culture, province, reserved, border; `reserved` is always zero), `index.json` | The Python writer and the JavaScript reader (`mapfile.js`, `api.js`, `model.js`) must stay in step; `test_scenarios.py` decodes Python output with the real reader |
 | `build/raster.py` | `app/model.js` | The same Mercator formula, 4096 grid, latitude clamp 85.0511 | Scenarios land in the wrong place |
 | `build/build_scenarios.py` | `app/flagcells.js` | Starter flag layouts (ported, compared by a test) | Scenario flags differ from the designer's starters |
 | `app/glyphs.js` | `build_scenarios.py`, `mapfile.js`, `symbols.js`, `markers.js` | Glyph ids; `solid` marks a plain shape (filled in the marker's colour) against a Lucide outline on a disc. `build_glyphs.py` writes both kinds | An unknown id is rejected on read and unseen on the map; a shape drawn as an outline |

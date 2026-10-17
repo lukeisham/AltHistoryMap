@@ -13,7 +13,6 @@ import {
   FLAG_H,
   LAYERS,
   MARKER_TYPES,
-  FIGHTING,
 } from "./model.js";
 import { collectBounded, StreamLimitError } from "./streams.js";
 
@@ -25,6 +24,7 @@ const DESIGN_CELLS = FLAG_W * FLAG_H;
 const MAX_HEADER = 4 * 1024 * 1024;
 const HEX = /^#[0-9a-f]{6}$/;
 const DEFAULT_NAME = "Untitled map";
+const LEGACY_FIGHTING = 255;
 
 /** A file could not be read or written; the message is plain English for the person using the app. */
 export class MapFileError extends Error {}
@@ -74,6 +74,8 @@ function buildHeader(data) {
       layer: m.layer ?? "political",
       tagDx: m.tagDx ?? 0,
       tagDy: m.tagDy ?? 0,
+      capital: m.capital === true,
+      nation: m.nation ?? 0,
     })),
     flags: data.designs.map((d) => Array.from(d)),
     savedWith: SAVED_WITH,
@@ -139,6 +141,11 @@ export async function decodeMap(source, glyphIds) {
     planes[name] = plane;
     offset += PLANE_BYTES;
   }
+  // Older files hold claims and fighting in these two planes, which no layer draws now.
+  planes.reserved.fill(0);
+  for (let i = 0; i < PLANE_BYTES; i++) {
+    if (planes.province[i] === LEGACY_FIGHTING) planes.province[i] = 0;
+  }
   return { ...checked, planes };
 }
 
@@ -156,7 +163,7 @@ function planeIsLegal(plane, name, paletteLength) {
     legal[1] = 1;
   } else {
     legal.fill(1, 0, paletteLength + 1);
-    if (name === "claimA") legal[FIGHTING] = 1;
+    if (name === "province") legal[LEGACY_FIGHTING] = 1;
   }
   for (let i = 0; i < plane.length; i++) {
     if (legal[plane[i]] === 0) return false;
@@ -221,8 +228,13 @@ function checkMarker(m, paletteLength, designCount, glyphs, seen) {
   if (!isInt(m.colour) || m.colour < 1 || m.colour > paletteLength) throw bad("uses a colour that is not valid");
 
   const isSymbol = m.type === "symbol";
-  const layer = m.layer ?? (isSymbol ? undefined : "political");
+  const layer = (m.layer === "conflict" ? "province" : m.layer) ?? (isSymbol ? undefined : "political");
   if (!LAYERS.includes(layer) || (!isSymbol && layer !== "political")) throw bad("is on a layer it cannot be on");
+
+  const capital = m.capital ?? false;
+  const nation = m.nation ?? 0;
+  if (typeof capital !== "boolean" || (capital && m.type !== "city")) throw bad("is a capital but is not a city");
+  if (!isInt(nation) || nation < 0 || nation > paletteLength) throw bad("has a nation colour that is not valid");
 
   let glyph = "";
   if (isSymbol) {
@@ -234,7 +246,7 @@ function checkMarker(m, paletteLength, designCount, glyphs, seen) {
     design = m.design ?? -1;
     if (!isInt(design) || design < -1 || design >= designCount) throw bad("uses a flag design that is not in the file");
   }
-  return { id: m.id, type: m.type, x: m.x, y: m.y, name: m.name, colour: m.colour, glyph, design, layer, tagDx, tagDy };
+  return { id: m.id, type: m.type, x: m.x, y: m.y, name: m.name, colour: m.colour, glyph, design, layer, tagDx, tagDy, capital, nation };
 }
 
 /**

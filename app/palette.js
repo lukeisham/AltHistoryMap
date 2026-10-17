@@ -1,5 +1,4 @@
-// The colour swatches. A click sets the colour, Shift-click the second colour (the other claimant on
-// the Conflict layer, and the second colour of a flag). The + button adds a colour from the system picker.
+// The colour swatches. A click sets the colour, Shift-click the second colour (the second colour of a flag). The + button adds a colour from the system picker.
 
 import { MAX_PALETTE } from "./model.js";
 

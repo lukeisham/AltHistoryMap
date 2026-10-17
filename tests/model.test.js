@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createModel, LAND, RIVER, LAKE, FIGHTING, PLANE_NAMES, project, unproject, pixelAt, N } from "../app/model.js";
+import { createModel, LAND, RIVER, LAKE, PLANE_NAMES, project, unproject, pixelAt, N } from "../app/model.js";
 
 const SIDE = 64;
 
@@ -68,21 +68,86 @@ test("a sea start does nothing and symbols can still sit at sea", () => {
   assert.equal(marker.x, 32);
 });
 
-test("conflict claim, fighting and erase use the right planes", () => {
+test("a stroke announces its pixels as it goes, and closing it only announces the history", () => {
   const m = smallModel();
-  m.beginStroke({ tool: "claim", layer: "conflict", colour: 1, colour2: 2 });
+  const notices = [];
+  m.onChange((notice) => notices.push(notice));
+  m.beginStroke({ tool: "paint", layer: "political", colour: 1 });
+  m.strokeTo(3, 3);
+  assert.deepEqual(notices, [{ layer: "political", rect: { x0: 3, y0: 3, x1: 3, y1: 3 }, markers: false }], "colour is announced before the stroke ends");
+  m.strokeTo(6, 3);
+  assert.deepEqual(notices.at(-1).rect, { x0: 3, y0: 3, x1: 6, y1: 3 }, "each move announces only the pixels it touched");
+  m.endStroke();
+  assert.deepEqual(notices.at(-1), { layer: "political", history: true });
+  assert.equal(m.canUndo(), true);
+});
+
+function paintBlock(m, x0, y0, x1, y1, colour) {
+  m.beginStroke({ tool: "paint", layer: "political", colour, size: 1 });
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) m.strokeTo(x, y);
+  m.endStroke();
+}
+
+test("a capital remembers the nation around it and goes back to a city when every side changes", () => {
+  const m = smallModel();
+  paintBlock(m, 9, 9, 13, 13, 1);
+  const rome = m.addMarker({ type: "city", x: 11, y: 11, name: "Rome", colour: 1, capital: true });
+  assert.deepEqual([rome.capital, rome.nation], [true, 1]);
+  assert.equal(m.addMarker({ type: "flag", x: 2, y: 2, name: "F", colour: 1, capital: true }).capital, false, "only a city can be a capital");
+
+  paintBlock(m, 11, 10, 11, 10, 2);
+  assert.equal(rome.capital, true, "one side changed");
+  paintBlock(m, 10, 11, 12, 11, 2);
+  assert.equal(rome.capital, true, "the pixel below it still has the nation's colour");
+  paintBlock(m, 11, 12, 11, 12, 2);
+  assert.equal(rome.capital, false, "its pixel and all four sides changed");
+  assert.equal(m.undo(), true);
+  assert.equal(rome.capital, true, "undoing the paint makes it a capital again");
+  m.redo();
+  assert.equal(rome.capital, false);
+});
+
+test("a fill that recolours a capital's surroundings turns it back into a city, and undo restores it", () => {
+  const m = smallModel();
+  m.fill("political", 5, 5, 1);
+  const city = m.addMarker({ type: "city", x: 5, y: 5, name: "A", colour: 1, capital: true });
+  assert.equal(city.nation, 1);
+  m.fill("political", 5, 5, 2);
+  assert.equal(city.capital, false);
+  m.undo();
+  assert.equal(city.capital, true);
+});
+
+test("a capital can be set and cleared as an edit, and moving one re-reads its nation", () => {
+  const m = smallModel();
+  paintBlock(m, 2, 2, 4, 4, 1);
+  paintBlock(m, 12, 2, 14, 4, 3);
+  const city = m.addMarker({ type: "city", x: 3, y: 3, name: "A", colour: 1 });
+  assert.equal(m.editMarker(city.id, { capital: true }), true);
+  assert.deepEqual([city.capital, city.nation], [true, 1]);
+  m.moveMarker(city.id, 13, 3);
+  assert.deepEqual([city.capital, city.nation], [true, 3]);
+  m.undo();
+  assert.deepEqual([city.x, city.nation], [3, 1]);
+  m.editMarker(city.id, { capital: false });
+  assert.equal(city.capital, false);
+});
+
+test("province paint, fill and erase use the province plane and leave the others alone", () => {
+  const m = smallModel();
+  m.planes.political[3 * SIDE + 3] = 4;
+  m.beginStroke({ tool: "paint", layer: "province", colour: 2 });
   m.strokeTo(3, 3);
   m.endStroke();
-  assert.deepEqual([at(m, "claimA", 3, 3), at(m, "claimB", 3, 3)], [1, 2]);
-  m.beginStroke({ tool: "fighting", layer: "conflict" });
+  assert.deepEqual([at(m, "province", 3, 3), at(m, "political", 3, 3), at(m, "culture", 3, 3)], [2, 4, 0]);
+  assert.ok(m.fill("province", 5, 5, 3) > 0);
+  assert.equal(at(m, "province", 6, 6), 3);
+  m.beginStroke({ tool: "erase", layer: "province" });
   m.strokeTo(3, 3);
   m.endStroke();
-  assert.deepEqual([at(m, "claimA", 3, 3), at(m, "claimB", 3, 3)], [FIGHTING, 0]);
-  m.beginStroke({ tool: "erase", layer: "conflict" });
-  m.strokeTo(3, 3);
-  m.endStroke();
-  assert.deepEqual([at(m, "claimA", 3, 3), at(m, "claimB", 3, 3)], [0, 0]);
-  assert.equal(m.beginStroke({ tool: "claim", layer: "culture", colour: 1, colour2: 2 }), false);
+  assert.deepEqual([at(m, "province", 3, 3), at(m, "political", 3, 3)], [0, 4], "erasing a province keeps Political");
+  assert.equal(m.beginStroke({ tool: "border", layer: "province" }), false);
+  assert.equal(m.beginStroke({ tool: "claim", layer: "province", colour: 1 }), false);
 });
 
 test("markers: add, move, edit, delete, undo; flag designs update every flag", () => {
@@ -141,8 +206,8 @@ function riverModel() {
 
 test("rivers and lakes are never painted by any stroke tool", () => {
   const m = riverModel();
-  for (const [tool, layer] of [["paint", "political"], ["border", "political"], ["claim", "conflict"], ["fighting", "conflict"], ["paint", "culture"]]) {
-    assert.ok(m.beginStroke({ tool, layer, colour: 1, colour2: 2, size: 5 }));
+  for (const [tool, layer] of [["paint", "political"], ["border", "political"], ["paint", "province"], ["paint", "culture"]]) {
+    assert.ok(m.beginStroke({ tool, layer, colour: 1, size: 5 }));
     m.strokeTo(10, 10);
     m.strokeTo(20, 5);
     m.strokeTo(25, 5);
@@ -155,16 +220,19 @@ test("rivers and lakes are never painted by any stroke tool", () => {
   assert.equal(at(m, "political", 22, 5), 1, "dry land beside the river is painted");
 });
 
-test("a fill crosses a river to both banks without colouring it, and a fill started on one does nothing", () => {
+test("a river is a wall to a fill: neither coloured nor crossed, and a fill started on one does nothing", () => {
   const m = riverModel();
   assert.equal(m.fill("political", 20, 5, 1), 0);
   const changed = m.fill("political", 5, 5, 1);
-  assert.equal(changed, 31 * SIDE - 1, "every dry land pixel west of the sea, the river and the lake pixel left out");
-  assert.equal(at(m, "political", 25, 5), 1);
+  assert.equal(changed, 20 * SIDE - 1, "every dry land pixel west of the river, the lake pixel left out");
+  assert.equal(at(m, "political", 19, 5), 1);
   assert.equal(at(m, "political", 20, 5), 0);
-  assert.equal(at(m, "political", 40, 5), 0, "the fill still stops at the sea");
+  assert.equal(at(m, "political", 25, 5), 0, "the far bank is not reached");
+  assert.equal(m.fill("political", 25, 5, 2), 11 * SIDE, "the far bank fills on its own, up to the sea");
+  assert.equal(at(m, "political", 19, 5), 1, "and does not spill back across");
   m.undo();
-  assert.equal(at(m, "political", 25, 5), 0);
+  m.undo();
+  assert.equal(at(m, "political", 5, 5), 0);
 });
 
 test("a map loaded with paint on rivers and lakes has that paint cleared", () => {

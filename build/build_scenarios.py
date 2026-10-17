@@ -2,7 +2,7 @@
 
 The output follows the map file format the browser reads (app/mapfile.js): gzip of the magic
 AHMAP001, a 4-byte big-endian header length, the JSON header, then the five planes of N*N
-bytes. A source that breaks a rule stops the run with its file name and the place in it.
+bytes (the fourth is reserved and stays zero). A source that breaks a rule stops the run with its file name and the place in it.
 
 Usage: python3 build/build_scenarios.py [id ...]   (every source when no id is given)
 """
@@ -29,11 +29,10 @@ GLYPHS_JS = APP / "glyphs.js"
 MAGIC = b"AHMAP001"
 BASE_MAGIC = b"AHBASE01"
 SAVED_WITH = "ahm-1"
-PLANE_NAMES = ("political", "culture", "claimA", "claimB", "border")
-LAYERS = ("political", "conflict", "culture")
+PLANE_NAMES = ("political", "culture", "province", "reserved", "border")
+LAYERS = ("political", "province", "culture")
 MARKER_TYPES = ("city", "flag", "label", "symbol")
 STARTERS = ("plain", "stripes-h", "stripes-v", "cross", "saltire")
-FIGHTING = 255
 LAND = 1
 FLAG_W, FLAG_H = 24, 16
 MAX_NAME = 60
@@ -48,9 +47,9 @@ HEX_PATTERN = re.compile(r"^#[0-9a-f]{6}$")
 GLYPH_ID_PATTERN = re.compile(r'"id":\s*"([a-z]+)"')
 
 TOP_KEYS = {"id", "title", "year", "note", "palette", "areas", "flagDesigns", "markers"}
-AREA_KEYS = {"layer", "kind", "colour", "colour2", "ring"}
+AREA_KEYS = {"layer", "colour", "ring"}
 STARTER_KEYS = {"starter", "colour", "colour2"}
-MARKER_KEYS = {"type", "name", "lon", "lat", "colour", "glyph", "layer", "design"}
+MARKER_KEYS = {"type", "name", "lon", "lat", "colour", "glyph", "layer", "design", "capital"}
 
 
 class SourceError(ValueError):
@@ -93,17 +92,8 @@ def _check_area(area: object, palette_size: int, where: str) -> None:
     _check_keys(area, AREA_KEYS, where)
     layer = area.get("layer")
     _require(layer in LAYERS, where, f"layer {layer!r} must be one of {', '.join(LAYERS)}")
-    if layer == "conflict":
-        kind = area.get("kind")
-        _require(kind in ("claim", "fighting"), where, f"conflict area needs kind \"claim\" or \"fighting\", got {kind!r}")
-        if kind == "claim":
-            _check_colour(area.get("colour"), palette_size, f"{where}.colour")
-            _check_colour(area.get("colour2"), palette_size, f"{where}.colour2")
-        else:
-            _require("colour" not in area and "colour2" not in area, where, "a fighting area takes no colour")
-    else:
-        _require("kind" not in area and "colour2" not in area, where, f"a {layer} area takes only a colour and a ring")
-        _check_colour(area.get("colour"), palette_size, f"{where}.colour", low=0)
+    _require("kind" not in area and "colour2" not in area, where, f"a {layer} area takes only a colour and a ring")
+    _check_colour(area.get("colour"), palette_size, f"{where}.colour", low=0)
     ring = area.get("ring")
     _require(isinstance(ring, list) and 3 <= len(ring) <= MAX_RING_POINTS, f"{where}.ring", f"needs 3 to {MAX_RING_POINTS} points")
     for index, point in enumerate(ring):
@@ -152,6 +142,8 @@ def _check_marker(marker: object, palette_size: int, design_count: int, glyph_id
         _require(ok, f"{where}.design", f"{design!r} must be -1 or the index of a design (0 to {design_count - 1})")
     else:
         _require("design" not in marker, where, f"a {kind} marker takes no design")
+    if "capital" in marker:
+        _require(kind == "city" and isinstance(marker["capital"], bool), f"{where}.capital", "only a city takes capital, and it must be true or false")
 
 
 def validate(data: object, expected_id: str) -> None:
@@ -242,12 +234,7 @@ def _write_masks(plane: bytearray, masks: dict[int, int], value: int) -> None:
 
 
 def _area_writes(area: dict) -> list[tuple[str, int]]:
-    layer = area["layer"]
-    if layer != "conflict":
-        return [(layer, area["colour"])]
-    if area["kind"] == "claim":
-        return [("claimA", area["colour"]), ("claimB", area["colour2"])]
-    return [("claimA", FIGHTING), ("claimB", 0)]
+    return [(area["layer"], area["colour"])]
 
 
 def _in_accent(kind: str, x: int, y: int) -> bool:
@@ -274,9 +261,22 @@ def _design_cells(design: dict) -> list[int]:
     return starter_cells(design["starter"], design["colour"], design["colour2"])
 
 
-def _marker_record(number: int, marker: dict) -> dict:
+def _nation_around(political: bytearray, x: int, y: int) -> int:
+    """The political colour a capital stands for, as app/model.js `nationAround`: its own pixel's, else the commonest of its four sides, else 0."""
+    if political[y * N + x]:
+        return political[y * N + x]
+    counts: dict[int, int] = {}
+    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        sx, sy = x + dx, y + dy
+        if 0 <= sx < N and 0 <= sy < N and political[sy * N + sx]:
+            counts[political[sy * N + sx]] = counts.get(political[sy * N + sx], 0) + 1
+    return min(counts, key=lambda colour: (-counts[colour], colour)) if counts else 0
+
+
+def _marker_record(number: int, marker: dict, political: bytearray) -> dict:
     x, y = pixel_at(marker["lon"], marker["lat"])
     kind = marker["type"]
+    capital = marker.get("capital", False)
     return {
         "id": number,
         "type": kind,
@@ -287,6 +287,8 @@ def _marker_record(number: int, marker: dict) -> dict:
         "glyph": marker["glyph"] if kind == "symbol" else "",
         "design": marker.get("design", -1) if kind == "flag" else -1,
         "layer": marker.get("layer", "political") if kind == "symbol" else "political",
+        "capital": capital,
+        "nation": _nation_around(political, x, y) if capital else 0,
     }
 
 
@@ -303,7 +305,7 @@ def compile_scenario(data: dict) -> bytes:
         "name": data["title"],
         "origin": data["id"],
         "palette": data["palette"],
-        "markers": [_marker_record(number, m) for number, m in enumerate(data["markers"], start=1)],
+        "markers": [_marker_record(number, m, planes["political"]) for number, m in enumerate(data["markers"], start=1)],
         "flags": [_design_cells(d) for d in data["flagDesigns"]],
         "savedWith": SAVED_WITH,
     }

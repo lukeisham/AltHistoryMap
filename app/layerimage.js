@@ -2,14 +2,13 @@
 // render.js owns the instance and calls rebuild/update from model notices; pixelColour is the
 // one definition of what each look shows. layers.js names the looks.
 
-import { LAND, RIVER, LAKE, COAST, FIGHTING } from "./model.js";
+import { LAND, RIVER, LAKE, COAST } from "./model.js";
 
 const TOKENS = {
   sea: "--map-sea",
   land: "--map-land",
   coast: "--map-coast",
   water: "--map-water",
-  danger: "--danger",
   border: "--border",
   ink: "--ink",
   flagWhite: "--flag-white",
@@ -18,7 +17,6 @@ const NUMBERS = {
   cultureTint: "--culture-tint",
   cultureBlend: "--culture-blend",
   politicalFade: "--political-fade",
-  hatchDeep: "--hatch-deep",
 };
 const FONT_TOKEN = "--font-map";
 const FONT_FALLBACK = "serif";
@@ -146,7 +144,6 @@ export function makeSource(model, theme) {
   // Index 0 stays 0, which every look reads as "no colour, show what is beneath".
   const palette = new Uint32Array(256);
   const pale = new Uint32Array(256);
-  const deep = new Uint32Array(256);
   const faded = new Uint32Array(256);
   model.palette.forEach((hex, i) => {
     const colour = parseColour(hex);
@@ -156,27 +153,22 @@ export function makeSource(model, theme) {
     }
     palette[i + 1] = colour;
     pale[i + 1] = mixColour(colour, WHITE, numbers.cultureTint);
-    deep[i + 1] = mixColour(colour, BLACK, numbers.hatchDeep);
     faded[i + 1] = mixColour(packed.land, colour, numbers.politicalFade);
   });
-  const { political, border, claimA, claimB, culture } = model.planes;
+  const { political, border, province, culture } = model.planes;
   return {
     n: model.n,
     base: model.base,
     ground,
     palette,
     pale,
-    deep,
     faded,
     political,
     border,
-    claimA,
-    claimB,
+    province,
     culture,
     borderColour: packed.border,
     fadedBorderColour: mixColour(packed.land, packed.border, numbers.politicalFade),
-    dangerColour: packed.danger,
-    dangerDeepColour: mixColour(packed.danger, BLACK, numbers.hatchDeep),
     cultureBlend: numbers.cultureBlend,
   };
 }
@@ -188,31 +180,8 @@ function politicalPixel(src, i) {
   return c !== 0 ? c : g;
 }
 
-// The hatching line colour at a pixel, or 0 when no line crosses it. First claimant on one
-// diagonal, second on the other, so a contested claim crosses; fighting is denser and red.
-function hatchColour(src, i, x, y, colours, danger) {
-  const a = src.claimA[i];
-  if (a === 0) return 0;
-  if (a === FIGHTING) return (x + y) % 3 === 0 || (x - y) % 3 === 0 ? danger : 0;
-  const b = src.claimB[i];
-  if (b !== 0 && (x - y) % 4 === 0) return colours[b];
-  return (x + y) % 4 === 0 ? colours[a] : 0;
-}
-
-function conflictPixel(src, i, x, y) {
-  return hatchColour(src, i, x, y, src.palette, src.dangerColour) || src.ground[src.base[i] & 15];
-}
-
-function politicalConflictPixel(src, i, x, y) {
-  return hatchColour(src, i, x, y, src.deep, src.dangerDeepColour) || politicalPixel(src, i);
-}
-
 function culturePixel(src, i) {
   return src.pale[src.culture[i]] || src.ground[src.base[i] & 15];
-}
-
-function conflictCulturePixel(src, i, x, y) {
-  return hatchColour(src, i, x, y, src.palette, src.dangerColour) || culturePixel(src, i);
 }
 
 function editCulturePixel(src, i) {
@@ -223,9 +192,23 @@ function editCulturePixel(src, i) {
   return c !== 0 ? mixColour(under, c, src.cultureBlend) : under;
 }
 
+// A province pixel is outlined in black when a side neighbour has a different province; the map
+// edge counts as the same province.
+function provincePixel(src, i) {
+  const { province, n } = src;
+  const p = province[i];
+  if (p !== 0) {
+    const x = i % n;
+    if ((x > 0 && province[i - 1] !== p) || (x < n - 1 && province[i + 1] !== p) || (i >= n && province[i - n] !== p) || (i < province.length - n && province[i + n] !== p)) {
+      return BLACK;
+    }
+  }
+  return src.palette[p] || src.ground[src.base[i] & 15];
+}
+
 /**
  * The colour of one grid pixel in a look.
- * @param {"political" | "conflict" | "political+conflict" | "culture" | "conflict+culture" | "editCulture"} look
+ * @param {"political" | "province" | "culture" | "editCulture"} look
  * @param {object} src From makeSource.
  * @param {number} i Plane index, y * n + x.
  * @param {number} x
@@ -236,14 +219,10 @@ export function pixelColour(look, src, i, x, y) {
   switch (look) {
     case "political":
       return politicalPixel(src, i);
-    case "conflict":
-      return conflictPixel(src, i, x, y);
-    case "political+conflict":
-      return politicalConflictPixel(src, i, x, y);
+    case "province":
+      return provincePixel(src, i);
     case "culture":
       return culturePixel(src, i);
-    case "conflict+culture":
-      return conflictCulturePixel(src, i, x, y);
     case "editCulture":
       return editCulturePixel(src, i);
     default:
@@ -260,17 +239,11 @@ function fillRect(look, src, rect, out) {
     case "political":
       for (let y = y0; y <= y1; y++) for (let x = x0, i = y * n + x0; x <= x1; x++, i++) out[i] = politicalPixel(src, i);
       break;
-    case "conflict":
-      for (let y = y0; y <= y1; y++) for (let x = x0, i = y * n + x0; x <= x1; x++, i++) out[i] = conflictPixel(src, i, x, y);
-      break;
-    case "political+conflict":
-      for (let y = y0; y <= y1; y++) for (let x = x0, i = y * n + x0; x <= x1; x++, i++) out[i] = politicalConflictPixel(src, i, x, y);
+    case "province":
+      for (let y = y0; y <= y1; y++) for (let x = x0, i = y * n + x0; x <= x1; x++, i++) out[i] = provincePixel(src, i);
       break;
     case "culture":
       for (let y = y0; y <= y1; y++) for (let x = x0, i = y * n + x0; x <= x1; x++, i++) out[i] = culturePixel(src, i);
-      break;
-    case "conflict+culture":
-      for (let y = y0; y <= y1; y++) for (let x = x0, i = y * n + x0; x <= x1; x++, i++) out[i] = conflictCulturePixel(src, i, x, y);
       break;
     case "editCulture":
       for (let y = y0; y <= y1; y++) for (let x = x0, i = y * n + x0; x <= x1; x++, i++) out[i] = editCulturePixel(src, i);
@@ -317,11 +290,13 @@ export function createLayerImage(n) {
       g.putImageData(image, 0, 0);
     },
     update(look, src, rect) {
+      // A province outline depends on the neighbours, so that look repaints one pixel wider on every side.
+      const pad = look === "province" ? 1 : 0;
       const clipped = {
-        x0: Math.max(0, rect.x0),
-        y0: Math.max(0, rect.y0),
-        x1: Math.min(n - 1, rect.x1),
-        y1: Math.min(n - 1, rect.y1),
+        x0: Math.max(0, rect.x0 - pad),
+        y0: Math.max(0, rect.y0 - pad),
+        x1: Math.min(n - 1, rect.x1 + pad),
+        y1: Math.min(n - 1, rect.y1 + pad),
       };
       if (clipped.x1 < clipped.x0 || clipped.y1 < clipped.y0) return;
       fillRect(look, src, clipped, pixels);

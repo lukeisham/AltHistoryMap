@@ -48,6 +48,7 @@ export function createAppState(initial) {
     brush: 1,
     design: -1,
     nameTag: true,
+    capital: false,
     cityColour: "neutral",
     selected: null,
     ...initial,

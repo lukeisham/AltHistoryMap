@@ -3,7 +3,7 @@
 
 export const TOOLS_BY_LAYER = {
   political: ["paint", "erase", "fill", "border", "city", "flag", "label", "symbol"],
-  conflict: ["claim", "fighting", "erase", "fill", "symbol"],
+  province: ["paint", "erase", "fill", "symbol"],
   culture: ["paint", "erase", "fill", "symbol"],
 };
 
@@ -16,8 +16,6 @@ export const TOOL_KEYS = {
   G: "flag",
   L: "label",
   S: "symbol",
-  K: "claim",
-  X: "fighting",
 };
 
 export const TOOL_LABELS = {
@@ -29,8 +27,6 @@ export const TOOL_LABELS = {
   flag: "Flag",
   label: "Label",
   symbol: "Symbol",
-  claim: "Claim",
-  fighting: "Fighting",
 };
 
 export const TOOL_HINTS = {
@@ -42,14 +38,12 @@ export const TOOL_HINTS = {
   flag: "Click the map to place a named flag",
   label: "Click the map to place free text",
   symbol: "Click the map to place the chosen symbol",
-  claim: "Hatching in the two chosen colours marks a disputed claim",
-  fighting: "A red cross-hatch marks active fighting",
 };
 
 /** Tools that colour pixels while the pointer drags. */
-export const STROKE_TOOLS = ["paint", "erase", "border", "claim", "fighting"];
+export const STROKE_TOOLS = ["paint", "erase", "border"];
 /** Stroke tools whose width follows the brush size. */
-export const BRUSH_TOOLS = ["paint", "erase", "claim", "fighting"];
+export const BRUSH_TOOLS = ["paint", "erase"];
 /** Tools that put a marker on the map. */
 export const PLACING_TOOLS = ["city", "flag", "label", "symbol"];
 /** Placing tools whose marker may go without a name tag; a label is its text. */

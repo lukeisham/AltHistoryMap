@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createModel, LAND, RIVER, LAKE, COAST, FIGHTING } from "../app/model.js";
+import { createModel, LAND, RIVER, LAKE, COAST } from "../app/model.js";
 import { createRenderer, pixelColour, clampViewport, fadeFactor, pngFileName } from "../app/render.js";
 import { makeSource, parseColour, packColour, readTheme, mixColour, riverScale, riverMask, createRiverOverview } from "../app/layerimage.js";
 import { fitScale, homeViewport, zoomViewport, resizeViewport, readoutText, brushOutline } from "../app/viewport.js";
@@ -12,7 +12,6 @@ const TOKENS = {
   "--map-land": "#202020",
   "--map-coast": "#303030",
   "--map-water": "#404040",
-  "--danger": "#ff0000",
   "--border": "#000001",
   "--ink": "#fafafa",
   "--flag-white": "#ffffff",
@@ -20,13 +19,11 @@ const TOKENS = {
   "--culture-tint": "0.5",
   "--culture-blend": "0.5",
   "--political-fade": "0.5",
-  "--hatch-deep": "0.5",
 };
 const SEA = parseColour(TOKENS["--map-sea"]);
 const LAND_C = parseColour(TOKENS["--map-land"]);
 const COAST_C = parseColour(TOKENS["--map-coast"]);
 const WATER_C = parseColour(TOKENS["--map-water"]);
-const DANGER_C = parseColour(TOKENS["--danger"]);
 const BORDER_C = parseColour(TOKENS["--border"]);
 const WHITE_C = packColour(255, 255, 255);
 const BLACK_C = packColour(0, 0, 0);
@@ -66,60 +63,46 @@ test("political: ground, painted colour, and border over paint", () => {
   assert.equal(at(4, 4), BORDER_C);
 });
 
-function claimBlock(m, a, b) {
-  for (let y = 0; y < 4; y++) {
-    for (let x = 0; x < 4; x++) {
-      m.planes.claimA[idx(x, y)] = a;
-      m.planes.claimB[idx(x, y)] = b;
-    }
-  }
+// A 4 x 4 block of land (x 4-7, y 8-11) painted with one province colour.
+function provinceBlock(m, colour) {
+  for (let y = 8; y < 12; y++) for (let x = 4; x < 8; x++) m.planes.province[idx(x, y)] = colour;
 }
 
-test("conflict: the first claimant hatches one diagonal, the second the other", () => {
+test("province: the full colour over bare land, outlined in black where the neighbour is another province", () => {
   const m = smallModel();
-  claimBlock(m, 1, 2);
+  provinceBlock(m, 2);
   const src = sourceOf(m);
-  const first = parseColour(m.palette[0]);
-  const second = parseColour(m.palette[1]);
-  for (let y = 0; y < 4; y++) {
-    for (let x = 0; x < 4; x++) {
-      const expected = (x - y) % 4 === 0 ? second : (x + y) % 4 === 0 ? first : LAND_C;
-      assert.equal(pixelColour("conflict", src, idx(x, y), x, y), expected, `(${x},${y})`);
+  const fill = parseColour(m.palette[1]);
+  for (let y = 8; y < 12; y++) {
+    for (let x = 4; x < 8; x++) {
+      const edge = x === 4 || x === 7 || y === 8 || y === 11;
+      assert.equal(pixelColour("province", src, idx(x, y), x, y), edge ? BLACK_C : fill, `(${x},${y})`);
     }
   }
+  assert.equal(pixelColour("province", src, idx(3, 9), 3, 9), LAND_C, "bare land outside is not outlined");
 });
 
-test("conflict: a claim with no second claimant hatches one diagonal only", () => {
+test("province: two neighbouring provinces share a black line; the map edge is not an outline", () => {
   const m = smallModel();
-  claimBlock(m, 1, 0);
+  for (const x of [1, 2, 3]) m.planes.province[idx(x, 1)] = 1;
+  m.planes.province[idx(2, 2)] = 1;
+  m.planes.province[idx(2, 3)] = 1;
+  m.planes.province[idx(4, 1)] = 2;
   const src = sourceOf(m);
-  const first = parseColour(m.palette[0]);
-  assert.equal(pixelColour("conflict", src, idx(1, 3), 1, 3), first);
-  assert.equal(pixelColour("conflict", src, idx(1, 1), 1, 1), LAND_C);
+  assert.equal(pixelColour("province", src, idx(3, 1), 3, 1), BLACK_C, "next to another province");
+  assert.equal(pixelColour("province", src, idx(4, 1), 4, 1), BLACK_C);
+  const c = createModel(new Uint8Array(SIDE * SIDE).fill(LAND), SIDE);
+  for (let y = 0; y < SIDE; y++) for (let x = 0; x < SIDE; x++) c.planes.province[idx(x, y)] = 1;
+  assert.equal(pixelColour("province", sourceOf(c), idx(0, 0), 0, 0), parseColour(c.palette[0]));
 });
 
-test("conflict: fighting is a denser red cross-hatch that replaces a claim", () => {
+test("province: Political paint and borders do not show", () => {
   const m = smallModel();
-  claimBlock(m, FIGHTING, 2);
+  m.planes.political[idx(5, 9)] = 3;
+  m.planes.border[idx(6, 10)] = 1;
   const src = sourceOf(m);
-  for (let y = 0; y < 4; y++) {
-    for (let x = 0; x < 4; x++) {
-      const hatched = (x + y) % 3 === 0 || (x - y) % 3 === 0;
-      assert.equal(pixelColour("conflict", src, idx(x, y), x, y), hatched ? DANGER_C : LAND_C, `(${x},${y})`);
-    }
-  }
-});
-
-test("political+conflict: lines are one shade deeper over the political fill", () => {
-  const m = smallModel();
-  claimBlock(m, 1, 0);
-  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) m.planes.political[idx(x, y)] = 1;
-  const src = sourceOf(m);
-  const fill = parseColour(m.palette[0]);
-  assert.equal(pixelColour("political+conflict", src, idx(1, 3), 1, 3), mixColour(fill, BLACK_C, 0.5));
-  assert.equal(pixelColour("political+conflict", src, idx(1, 1), 1, 1), fill);
-  claimBlock(m, FIGHTING, 0);
-  assert.equal(pixelColour("political+conflict", sourceOf(m), idx(0, 0), 0, 0), mixColour(DANGER_C, BLACK_C, 0.5));
+  assert.equal(pixelColour("province", src, idx(5, 9), 5, 9), LAND_C);
+  assert.equal(pixelColour("province", src, idx(6, 10), 6, 10), LAND_C);
 });
 
 test("culture: a solid pale tint of the culture colour, ground elsewhere", () => {
@@ -131,23 +114,14 @@ test("culture: a solid pale tint of the culture colour, ground elsewhere", () =>
   assert.equal(pixelColour("culture", src, idx(7, 7), 7, 7), LAND_C);
 });
 
-test("only the layers on screen show: political paint and claims are absent on culture", () => {
+test("only the layers on screen show: political paint and provinces are absent on culture", () => {
   const m = smallModel();
   m.planes.political[idx(1, 1)] = 2;
-  m.planes.claimA[idx(1, 3)] = 1;
+  m.planes.province[idx(1, 3)] = 1;
   const src = sourceOf(m);
   assert.equal(pixelColour("culture", src, idx(1, 1), 1, 1), LAND_C);
-  assert.equal(pixelColour("culture", src, idx(1, 3), 1, 3), LAND_C, "a hatched claim pixel is invisible on Culture");
-  assert.equal(pixelColour("conflict", src, idx(1, 1), 1, 1), LAND_C, "no claim at (1,1)");
-});
-
-test("conflict+culture: lines in true colours over the tint", () => {
-  const m = smallModel();
-  claimBlock(m, 1, 0);
-  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) m.planes.culture[idx(x, y)] = 4;
-  const src = sourceOf(m);
-  assert.equal(pixelColour("conflict+culture", src, idx(1, 3), 1, 3), parseColour(m.palette[0]));
-  assert.equal(pixelColour("conflict+culture", src, idx(1, 1), 1, 1), mixColour(parseColour(m.palette[3]), WHITE_C, 0.5));
+  assert.equal(pixelColour("culture", src, idx(1, 3), 1, 3), LAND_C, "a province pixel is invisible on Culture");
+  assert.equal(pixelColour("political", src, idx(1, 3), 1, 3), LAND_C, "and on Political");
 });
 
 test("editCulture: political faded toward the land, culture laid over it", () => {
@@ -191,8 +165,8 @@ test("look numbers are read from tokens; a missing or out-of-range one warns and
   const original = console.warn;
   console.warn = (...args) => warnings.push(args.join(" "));
   try {
-    const theme = readTheme(fakeStyle({ ...TOKENS, "--hatch-deep": "", "--political-fade": "2" }));
-    assert.equal(theme.numbers.hatchDeep, 0.5);
+    const theme = readTheme(fakeStyle({ ...TOKENS, "--culture-blend": "", "--political-fade": "2" }));
+    assert.equal(theme.numbers.cultureBlend, 0.5);
     assert.equal(theme.numbers.politicalFade, 0.5);
   } finally {
     console.warn = original;
@@ -247,8 +221,7 @@ test("fadeFactor ramps from 0 to 1 between its bounds", () => {
 });
 
 test("pngFileName strips path characters and names the layers on screen", () => {
-  assert.equal(pngFileName("Roman Empire AD 117", "conflict"), "Roman Empire AD 117-conflict.png");
-  assert.equal(pngFileName("Rome", "political+conflict"), "Rome-political+conflict.png");
+  assert.equal(pngFileName("Roman Empire AD 117", "province"), "Roman Empire AD 117-province.png");
   assert.equal(pngFileName("Rome", "editCulture"), "Rome-culture.png");
   assert.equal(pngFileName('a/b:c*"d', "culture"), "abcd-culture.png");
   assert.equal(pngFileName("  ", "political"), "map-political.png");
@@ -272,9 +245,8 @@ test("markers show with their own layer on screen; the hit test uses the same ru
   const city = { id: 1, type: "city", x: 10, y: 10, layer: "political" };
   const symbol = { id: 2, type: "symbol", x: 10, y: 10, layer: "culture" };
   assert.equal(markerVisible(city, ["political"]), true);
-  assert.equal(markerVisible(city, ["political", "conflict"]), true);
-  assert.equal(markerVisible(city, ["conflict", "culture"]), false);
-  assert.equal(markerVisible(symbol, ["conflict", "culture"]), true);
+  assert.equal(markerVisible(city, ["province"]), false);
+  assert.equal(markerVisible(symbol, ["culture"]), true);
   assert.equal(markerVisible(symbol, ["political"]), false);
 
   const vp = { x: 0, y: 0, k: 10 };
@@ -401,6 +373,24 @@ test("createRenderer draws, follows model changes, zooms and exports", async () 
     assert.equal(put.length, 1);
     assert.deepEqual(put[0].slice(4), [2, 3, 1, 1], "only the edited rectangle is uploaded");
     assert.equal(canvas.log.some(([name]) => name === "drawImage"), true);
+
+    layerLog.length = 0;
+    model.beginStroke({ tool: "paint", layer: "political", colour: 1, size: 1 });
+    model.strokeTo(6, 6);
+    fakes.flush();
+    assert.equal(layerLog.filter(([name]) => name === "putImageData").length, 1, "a stroke shows its colour before it ends");
+    model.endStroke();
+    fakes.flush();
+
+    layerLog.length = 0;
+    renderer.setLook("province");
+    fakes.flush();
+    layerLog.length = 0;
+    model.beginStroke({ tool: "paint", layer: "province", colour: 1, size: 1 });
+    model.strokeTo(5, 6);
+    model.endStroke();
+    fakes.flush();
+    assert.deepEqual(layerLog.filter(([name]) => name === "putImageData")[0].slice(4), [4, 5, 3, 3], "a province edit repaints its neighbours' outlines");
 
     layerLog.length = 0;
     renderer.setLook("culture");
@@ -607,7 +597,7 @@ test("hitTag finds the tag under a point, honours the offset, and ignores tags t
   assert.equal(hitTag([city, label], ["political"], vp, 130, y, measure)?.id, 1);
   assert.equal(hitTag([city, label], ["political"], vp, 200, y, measure), null);
   assert.equal(hitTag([moved], ["political"], vp, 230, y + 30, measure)?.id, 2);
-  assert.equal(hitTag([city], ["conflict"], vp, 130, y, measure), null, "a hidden layer's tags cannot be grabbed");
+  assert.equal(hitTag([city], ["province"], vp, 130, y, measure), null, "a hidden layer's tags cannot be grabbed");
   assert.equal(hitTag([city], ["political"], { ...vp, k: 1 }, 130, y, measure), null, "a tag that has faded out cannot be grabbed");
 });
 

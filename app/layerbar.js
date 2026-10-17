@@ -4,7 +4,7 @@
 
 import { LAYERS } from "./model.js";
 
-const LABELS = { political: "Political", conflict: "Conflict", culture: "Culture" };
+const LABELS = { political: "Political", province: "Province", culture: "Culture" };
 
 /**
  * @param {{

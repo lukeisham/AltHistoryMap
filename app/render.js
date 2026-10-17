@@ -266,7 +266,7 @@ export function createRenderer({ canvas, model, glyphs }) {
     } else if (notice.rect) {
       if (!layersDrawn(look).includes(notice.layer)) return;
       if (!needsRebuild) dirty = dirty ? unionRect(dirty, notice.rect) : { ...notice.rect };
-    } else if (!notice.markers) {
+    } else if (!notice.markers && !notice.history) {
       console.warn("render: unknown model notice", notice);
     }
     scheduleFrame();
@@ -541,15 +541,6 @@ export function createRenderer({ canvas, model, glyphs }) {
     disposers.push(() => observer.disconnect());
   } else {
     console.warn("render: no ResizeObserver; the map will not follow stage size changes");
-  }
-
-  const scheme = globalThis.matchMedia?.("(prefers-color-scheme: dark)");
-  if (scheme) listen(scheme, "change", refreshTheme);
-  const root = globalThis.document?.documentElement;
-  if (root && typeof MutationObserver !== "undefined") {
-    const themeWatcher = new MutationObserver(refreshTheme);
-    themeWatcher.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
-    disposers.push(() => themeWatcher.disconnect());
   }
 
   syncSize();

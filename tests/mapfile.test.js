@@ -31,11 +31,8 @@ function paintTypicalMap(model) {
   model.beginStroke({ tool: "paint", layer: "culture", colour: 3, size: 12 });
   for (let k = 0; k < 40; k++) model.strokeTo(500 + k * 20, 900 + (k % 5) * 30);
   model.endStroke();
-  model.beginStroke({ tool: "claim", layer: "conflict", colour: 2, colour2: 5, size: 6 });
+  model.beginStroke({ tool: "paint", layer: "province", colour: 2, size: 6 });
   for (let k = 0; k < 20; k++) model.strokeTo(1200 + k * 10, 1200);
-  model.endStroke();
-  model.beginStroke({ tool: "fighting", layer: "conflict", size: 6 });
-  model.strokeTo(1500, 1500);
   model.endStroke();
   model.beginStroke({ tool: "border", layer: "political" });
   for (let k = 0; k < 60; k++) model.strokeTo(800 + k, 800 + k);
@@ -51,7 +48,7 @@ function populate(model) {
   model.addMarker({ type: "flag", x: 30, y: 40, name: "Banner", colour: 2, design });
   model.addMarker({ type: "label", x: 50, y: 60, name: "Mare Nostrum", colour: 3 });
   model.addMarker({ type: "city", x: 90, y: 100, name: "", colour: 1, tagDx: -12, tagDy: 7 });
-  model.addMarker({ type: "symbol", x: 70, y: 80, name: "Siege", colour: 4, glyph: "sword", layer: "conflict" });
+  model.addMarker({ type: "symbol", x: 70, y: 80, name: "Siege", colour: 4, glyph: "sword", layer: "province" });
 }
 
 const zeroPlane = new Uint8Array(N * N);
@@ -110,7 +107,7 @@ test("AC-1: save then open restores planes, palette, markers and designs exactly
   assert.ok(after.designs.every((d) => d instanceof Uint8Array && d.length === 384));
   for (const name of PLANE_NAMES) assert.ok(sameBytes(after.planes[name], before.planes[name]), `plane ${name}`);
   assert.equal(after.planes.political.buffer, after.planes.border.buffer, "planes share one buffer");
-  assert.ok(after.planes.claimA.includes(255), "fighting survives");
+  assert.ok(after.planes.province.some((v) => v === 2), "province paint survives");
 
   const target = fullModel();
   target.replace(after);
@@ -169,16 +166,37 @@ test("lengths must add up exactly", async () => {
 
 test("illegal plane values are rejected, legal extremes accepted", async () => {
   await assertRejected(await craft({ planes: { political: planeWith(100, 3) } }), /colour in this file's map/);
-  await assertRejected(await craft({ planes: { claimB: planeWith(100, 255) } }), /colour in this file's map/);
+  await assertRejected(await craft({ planes: { reserved: planeWith(100, 255) } }), /colour in this file's map/);
   await assertRejected(await craft({ planes: { border: planeWith(100, 2) } }), /borders/);
-  const ok = await decodeMap(await craft({ planes: { claimA: planeWith(7, 255), political: planeWith(8, 2), border: planeWith(9, 1) } }), GLYPHS);
-  assert.equal(ok.planes.claimA[7], 255);
+  const ok = await decodeMap(await craft({ planes: { province: planeWith(7, 2), political: planeWith(8, 2), border: planeWith(9, 1) } }), GLYPHS);
+  assert.equal(ok.planes.province[7], 2);
+});
+
+test("an older file's fighting and second claimant are cleared; its Conflict markers move to Province", async () => {
+  const old = await decodeMap(
+    await craft({
+      planes: { province: planeWith(7, 255), reserved: planeWith(8, 1) },
+      header: validHeader({ markers: [{ id: 1, type: "symbol", x: 1, y: 1, name: "Siege", colour: 1, glyph: "sword", design: -1, layer: "conflict" }] }),
+    }),
+    GLYPHS,
+  );
+  assert.equal(old.planes.province[7], 0);
+  assert.equal(old.planes.reserved[8], 0);
+  assert.equal(old.markers[0].layer, "province");
+});
+
+test("a capital and its nation survive a save; a capital that is not a city is refused", async () => {
+  const city = { id: 1, type: "city", x: 1, y: 1, name: "A", colour: 1, glyph: "", design: -1, layer: "political", capital: true, nation: 2 };
+  const kept = await decodeMap(await craft({ header: validHeader({ markers: [city] }) }), GLYPHS);
+  assert.deepEqual([kept.markers[0].capital, kept.markers[0].nation], [true, 2]);
+  await assertRejected(await craft({ header: validHeader({ markers: [{ ...city, type: "label" }] }) }), /capital but is not a city/);
+  await assertRejected(await craft({ header: validHeader({ markers: [{ ...city, nation: 99 }] }) }), /nation colour/);
 });
 
 test("marker rules: glyph, duplicate id, layer, colour, flag design", async () => {
   const base = { id: 1, type: "city", x: 1, y: 1, name: "A", colour: 1, glyph: "", design: -1, layer: "political" };
   const withMarkers = (markers, extra = {}) => craft({ header: validHeader({ markers, ...extra }) });
-  await assertRejected(await withMarkers([{ ...base, type: "symbol", glyph: "nope", layer: "conflict" }]), /symbol that is not known/);
+  await assertRejected(await withMarkers([{ ...base, type: "symbol", glyph: "nope", layer: "province" }]), /symbol that is not known/);
   await assertRejected(await withMarkers([base, { ...base }]), /repeated number/);
   await assertRejected(await withMarkers([{ ...base, layer: "culture" }]), /layer it cannot be on/);
   await assertRejected(await withMarkers([{ ...base, colour: 3 }]), /colour that is not valid/);

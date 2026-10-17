@@ -4,6 +4,7 @@
   top: calc(var(--at-y, 0) * 1px);
   gap: var(--s-1);
   max-width: 100%;
+  margin: var(--s-1) 0;
   padding: var(--s-2);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);

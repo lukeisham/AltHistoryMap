@@ -1,6 +1,6 @@
 """Draws a built scenario as a 1024 x 1024 PNG so its shapes can be checked by eye.
 
-Usage: python3 build/preview_scenario.py <id> <out.png> [political|conflict|culture]
+Usage: python3 build/preview_scenario.py <id> <out.png> [political|province|culture]
 Each output pixel samples the middle of a 4 x 4 block of the map. Cities show as 3 x 3 squares.
 Four more numbers (lon0 lat0 lon1 lat1, west/north then east/south corner) crop and zoom in;
 a small crop is enlarged in whole pixels up to about 1024 wide.
@@ -21,14 +21,12 @@ BASEMAP = APP / "data" / "basemap.bin"
 
 STEP = 4
 SIZE = N // STEP
-PLANE_ORDER = ("political", "culture", "claimA", "claimB", "border")
-LAYERS = ("political", "conflict", "culture")
-FIGHTING = 255
+PLANE_ORDER = ("political", "culture", "province", "reserved", "border")
+LAYERS = ("political", "province", "culture")
 
 SEA = bytes((196, 214, 230))
 LAND = bytes((238, 232, 214))
 LAKE = bytes((170, 195, 220))
-FIGHT = bytes((200, 30, 30))
 CITY = bytes((20, 20, 20))
 
 
@@ -62,14 +60,6 @@ def _png(width: int, height: int, rows: list[bytearray]) -> bytes:
     )
 
 
-def _claim_pixel(a: int, b: int, ground: bytes, parity: int, colours: list[bytes]) -> bytes:
-    if a == FIGHTING:
-        return FIGHT
-    if not a:
-        return ground
-    return colours[a] if parity == 0 or not b else colours[b]
-
-
 def _box(corners: list[float] | None) -> tuple[int, int, int, int, int]:
     """Pixel box (x0, y0, width, height) and sampling step for a lon/lat crop, or the whole map."""
     if corners is None:
@@ -88,7 +78,6 @@ def render(scenario_id: str, layer: str, corners: list[float] | None = None) -> 
     base = zlib.decompress(BASEMAP.read_bytes()[8:])
     terrain = _terrain_table()
     colours = [SEA] + [_rgb(c) for c in header["palette"]] + [SEA] * (255 - len(header["palette"]))
-    colours[FIGHTING] = FIGHT
     x0, y0, width, height, step = _box(corners)
     out_w, out_h = width // step, height // step
     rows: list[bytearray] = []
@@ -96,12 +85,8 @@ def render(scenario_id: str, layer: str, corners: list[float] | None = None) -> 
         start = (y0 + j * step + step // 2) * N + x0 + step // 2
         end = start - step // 2 + width
         ground = [terrain[g] for g in base[start:end:step]]
-        if layer == "conflict":
-            first, second = planes["claimA"][start:end:step], planes["claimB"][start:end:step]
-            pixels = [_claim_pixel(a, b, g, (i + j) % 2, colours) for i, (a, b, g) in enumerate(zip(first, second, ground))]
-        else:
-            plane = planes[layer][start:end:step]
-            pixels = [colours[v] if v else g for v, g in zip(plane, ground)]
+        plane = planes[layer][start:end:step]
+        pixels = [colours[v] if v else g for v, g in zip(plane, ground)]
         rows.append(bytearray(b"".join(pixels)))
     zoom = max(1, SIZE // max(out_w, out_h))
     if zoom > 1:

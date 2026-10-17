@@ -86,7 +86,7 @@ function setup(mode) {
     },
     cancel() {},
   };
-  const markerInfo = { show() {}, hide: () => false, isOpen: () => false, onRename() {}, onDelete() {} };
+  const markerInfo = { show() {}, hide: () => false, isOpen: () => false, onRename() {}, onCapital() {}, onDelete() {} };
   const designs = { editFlag() {} };
   const keys = createKeys({ state, editor, dismiss: () => false });
   const button = listenerBox();
@@ -171,7 +171,7 @@ test("every editor operation refuses outside Edit mode", () => {
 
 test("the tools offered by each layer match the spec, and every tool has one key", () => {
   assert.deepEqual(TOOLS_BY_LAYER.political, ["paint", "erase", "fill", "border", "city", "flag", "label", "symbol"]);
-  assert.deepEqual(TOOLS_BY_LAYER.conflict, ["claim", "fighting", "erase", "fill", "symbol"]);
+  assert.deepEqual(TOOLS_BY_LAYER.province, ["paint", "erase", "fill", "symbol"]);
   assert.deepEqual(TOOLS_BY_LAYER.culture, ["paint", "erase", "fill", "symbol"]);
   const offered = new Set(Object.values(TOOLS_BY_LAYER).flat());
   assert.deepEqual(new Set(Object.values(TOOL_KEYS)), offered);
@@ -183,8 +183,8 @@ test("the tools offered by each layer match the spec, and every tool has one key
 test("a layer switch repairs the tool; Escape then picks no tool", () => {
   const state = createAppState({ mode: "edit", layer: "political", glyph: "crown" });
   state.set({ tool: "border", selected: 4 });
-  state.set({ layer: "conflict" });
-  assert.equal(state.get().tool, "claim");
+  state.set({ layer: "province" });
+  assert.equal(state.get().tool, "paint");
   assert.equal(state.get().selected, null);
   state.set({ tool: "symbol" });
   state.set({ layer: "culture" });
@@ -203,13 +203,13 @@ test("keys pick tools that the layer offers, switch layers, and ignore typing", 
     assert.equal(state.get().tool, TOOLS_BY_LAYER.political.includes(tool) ? tool : "paint", key);
   }
   press("2");
-  assert.equal(state.get().layer, "conflict");
-  press("k");
-  assert.equal(state.get().tool, "claim");
+  assert.equal(state.get().layer, "province");
+  press("e");
+  assert.equal(state.get().tool, "erase");
   press("b");
-  assert.equal(state.get().tool, "claim", "Border is not offered on Conflict");
+  assert.equal(state.get().tool, "erase", "Border is not offered on Province");
   press("3", { tagName: "INPUT", type: "text" });
-  assert.equal(state.get().layer, "conflict", "typing in a field is left alone");
+  assert.equal(state.get().layer, "province", "typing in a field is left alone");
   assert.equal(isTypingTarget({ tagName: "BUTTON", closest: (s) => (s === "dialog" ? {} : null) }), true);
   assert.equal(isTypingTarget({ tagName: "INPUT", type: "range" }), false);
 });
@@ -237,20 +237,20 @@ test("choices outside the map's colours and designs are pulled back", () => {
 test("state: a layer is shown alone in View mode, the view is kept in Edit mode, and entering View keeps the edited layer on screen", () => {
   const state = createAppState({ mode: "view", layer: "political", glyph: "crown" });
   assert.deepEqual(state.get().view, ["political"]);
-  assert.equal(state.toggleView("conflict"), "");
-  assert.deepEqual(state.get().view, ["political", "conflict"]);
-  assert.equal(state.toggleView("culture"), "Political hidden: Culture never shares a view with it.");
-  assert.deepEqual(state.get().view, ["conflict", "culture"]);
-  assert.equal(state.get().layer, "conflict", "the edited layer follows the view");
+  assert.equal(state.toggleView("province"), "Political hidden: Province never shares a view.");
+  assert.deepEqual(state.get().view, ["province"]);
+  assert.equal(state.get().layer, "province", "the edited layer follows the view");
+  assert.equal(state.toggleView("culture"), "Province hidden: Culture never shares a view.");
+  assert.deepEqual(state.get().view, ["culture"]);
 
-  state.set({ layer: "culture" });
-  assert.deepEqual(state.get().view, ["culture"], "a name in View mode shows that layer alone");
+  state.set({ layer: "province" });
+  assert.deepEqual(state.get().view, ["province"], "a name in View mode shows that layer alone");
 
-  state.set({ view: ["political", "conflict"], layer: "political" });
+  state.set({ view: ["political"], layer: "political" });
   state.set({ mode: "edit" });
   state.set({ layer: "culture" });
-  assert.deepEqual(state.get().view, ["political", "conflict"], "Edit mode leaves the view alone");
-  assert.equal(state.toggleView("conflict"), "", "eyes do nothing in Edit mode");
+  assert.deepEqual(state.get().view, ["political"], "Edit mode leaves the view alone");
+  assert.equal(state.toggleView("province"), "", "eyes do nothing in Edit mode");
   state.set({ mode: "view" });
   assert.deepEqual(state.get().view, ["culture"], "back in View, the edited layer is on screen");
 });
@@ -258,9 +258,9 @@ test("state: a layer is shown alone in View mode, the view is kept in Edit mode,
 test("state: the selection is kept while every layer stays on screen and cleared when one leaves", () => {
   const state = createAppState({ mode: "view", layer: "political", glyph: "crown" });
   state.set({ selected: 7 });
-  state.toggleView("conflict");
-  assert.equal(state.get().selected, 7, "Political is still on screen");
   state.toggleView("political");
+  assert.equal(state.get().selected, 7, "Political is still on screen");
+  state.toggleView("province");
   assert.equal(state.get().selected, null, "Political left the screen, and a city with it");
 });
 
@@ -272,10 +272,10 @@ test("keys: Shift with a digit toggles that layer's eye in View mode and does no
   press({ key: "!", code: "Digit1", shiftKey: true });
   assert.deepEqual(state.get().view, ["political"], "the last layer stays on");
   press({ key: "@", code: "Digit2", shiftKey: true });
-  assert.deepEqual(state.get().view, ["political", "conflict"]);
+  assert.deepEqual(state.get().view, ["province"]);
   press({ key: "#", code: "Digit3", shiftKey: true });
-  assert.deepEqual(state.get().view, ["conflict", "culture"]);
-  assert.deepEqual(said.at(-1), "Political hidden: Culture never shares a view with it.");
+  assert.deepEqual(state.get().view, ["culture"]);
+  assert.deepEqual(said.at(-1), "Province hidden: Culture never shares a view.");
   press({ key: "1" });
   assert.deepEqual(state.get().view, ["political"], "a plain digit shows that layer alone");
   state.set({ mode: "edit" });
@@ -314,7 +314,7 @@ test("layer bar: eyes and names follow the state, and an eye that drops a layer 
   assert.equal(eyes.political.title, "At least one layer stays on");
   assert.equal(chips.culture.dataset.on, "false");
   eyes.culture.fire("click");
-  assert.equal(said.at(-1), "Political hidden: Culture never shares a view with it.");
+  assert.equal(said.at(-1), "Political hidden: Culture never shares a view.");
   assert.equal(chips.culture.dataset.on, "true");
   assert.equal(eyes.political.attrs["aria-pressed"], "false");
   assert.equal("aria-pressed" in names.culture.attrs, false, "View-mode names are not toggles");
@@ -322,14 +322,14 @@ test("layer bar: eyes and names follow the state, and an eye that drops a layer 
   state.set({ mode: "edit" });
   assert.equal(chips.culture.dataset.edit, "true");
   assert.equal(names.culture.attrs["aria-pressed"], "true");
-  names.conflict.fire("click");
-  assert.equal(state.get().layer, "conflict");
-  assert.equal(chips.conflict.dataset.edit, "true");
+  names.province.fire("click");
+  assert.equal(state.get().layer, "province");
+  assert.equal(chips.province.dataset.edit, "true");
 });
 
 test("state: the first state repairs the tool, and keeps an edited layer that the saved view lacks", () => {
-  const edit = createAppState({ mode: "edit", layer: "conflict", glyph: "crown" });
-  assert.equal(edit.get().tool, "claim", "Paint is not offered on Conflict");
+  const edit = createAppState({ mode: "edit", layer: "province", glyph: "crown" });
+  assert.equal(edit.get().tool, "paint");
   const narrow = createAppState({ mode: "view", layer: "culture", view: ["political"], glyph: "crown" });
   assert.equal(narrow.get().layer, "culture");
   assert.deepEqual(narrow.get().view, ["culture"]);

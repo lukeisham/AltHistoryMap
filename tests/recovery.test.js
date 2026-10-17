@@ -128,8 +128,8 @@ test("prefs default, round-trip, and survive a localStorage that throws", (t) =>
   stubGlobal(t, "localStorage", { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) });
   const defaults = { mode: "view", layer: "political", view: ["political"], cityColour: "neutral" };
   assert.deepEqual(loadPrefs(), defaults);
-  savePrefs({ mode: "edit", layer: "conflict", view: ["conflict", "culture"], cityColour: "nation" });
-  assert.deepEqual(loadPrefs(), { mode: "edit", layer: "conflict", view: ["conflict", "culture"], cityColour: "nation" });
+  savePrefs({ mode: "edit", layer: "province", view: ["culture"], cityColour: "nation" });
+  assert.deepEqual(loadPrefs(), { mode: "edit", layer: "province", view: ["culture"], cityColour: "nation" });
   store.set("ahm.prefs", JSON.stringify({ mode: "view", layer: "culture" }));
   assert.deepEqual(loadPrefs(), { mode: "view", layer: "culture", view: ["culture"], cityColour: "neutral" }, "an older save has no view: the layer alone");
   store.set("ahm.prefs", JSON.stringify({ mode: "view", layer: "culture", view: ["political", "culture"] }));
@@ -148,6 +148,6 @@ test("FR-10: every localStorage access may throw", (t) => {
   };
   stubGlobal(t, "localStorage", { getItem: boom, setItem: boom });
   assert.deepEqual(loadPrefs(), { mode: "view", layer: "political", view: ["political"], cityColour: "neutral" });
-  assert.doesNotThrow(() => savePrefs({ mode: "edit", layer: "conflict", view: ["conflict"] }));
+  assert.doesNotThrow(() => savePrefs({ mode: "edit", layer: "province", view: ["province"] }));
   assert.equal(warn.mock.callCount(), 2);
 });

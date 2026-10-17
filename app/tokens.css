@@ -2,11 +2,9 @@
    !HouseStyle — the Lukeatron token layer.
 
    THE GROUND CONTRACT (the one rule to read before anything else)
-     :root is LIGHT. Dark is the override, declared BOTH ways:
-       @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }
-       :root[data-theme="dark"]
-     One mechanism. Never a `:root.light` override class — that inverts the base
-     and makes paper the exception, which breaks print.
+     :root is LIGHT, and this app has no dark override (app-decisions.md,
+     Rule exceptions). Never a `:root.light` override class — that inverts the
+     base and makes paper the exception, which breaks print.
 
      Why light is the base: paper is always light. A light :root makes the print
      path the BASE path — no inversion, no ink substitution, nothing to undo.
@@ -54,9 +52,7 @@
   --danger-wash: #FBE3E1;
 
   /* ── ground-relative: shading ─────────────────────────────────────────── */
-  /* On light, depth is a shadow. On dark, shadow is invisible — depth becomes
-     LIGHTNESS. Same token, two physics. This is why --shade-* is ground-relative
-     and not a shared constant. Two-part shadows read crisper than one. */
+  /* Depth is a shadow. Two-part shadows read crisper than one. */
   --shade-raised: 0 1px 2px rgba(22,19,13,.06), 0 2px 6px rgba(22,19,13,.05);
   --shade-float:  0 2px 4px rgba(22,19,13,.07), 0 8px 24px rgba(22,19,13,.09);
   --shade-edge:   inset 0 0 0 1px var(--line);
@@ -133,65 +129,6 @@
   --print-measure:   32rem;
 }
 
-/* ═══ THE DARK OVERRIDE — both directions, per the ground contract ═══════ */
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg:          #15171B;
-    --bg-sunk:     #1C1F25;
-    --bg-raised:   #1E2128;
-
-    --ink:         #F3EFE4;
-    --ink-2:       #A9B2BF;
-    --ink-3:       #79818D;
-
-    --line:        #2E333B;
-    --line-faint:  #23272E;
-    --line-strong: #3C424C;
-
-    --acc:         #6AA6FF;
-    --acc-wash:    #16253C;
-    --acc-ink:     #0F1115;
-    --danger:      #E5484D;
-    --danger-wash: #3A1B1D;
-
-    /* Depth by lightness, not shadow — see the note above */
-    --shade-raised: none;
-    --shade-float:  0 8px 28px rgba(0,0,0,.55);
-    --shade-edge:   inset 0 0 0 1px var(--line);
-
-    --focus:       #C6A768;
-    --focus-ring:  0 0 0 3px rgba(198,167,104,.34);
-  }
-}
-
-:root[data-theme="dark"] {
-  --bg:          #15171B;
-  --bg-sunk:     #1C1F25;
-  --bg-raised:   #1E2128;
-
-  --ink:         #F3EFE4;
-  --ink-2:       #A9B2BF;
-  --ink-3:       #79818D;
-
-  --line:        #2E333B;
-  --line-faint:  #23272E;
-  --line-strong: #3C424C;
-
-  --acc:         #6AA6FF;
-  --acc-wash:    #16253C;
-  --acc-ink:     #0F1115;
-  --danger:      #E5484D;
-  --danger-wash: #3A1B1D;
-
-  --shade-raised: none;
-  --shade-float:  0 8px 28px rgba(0,0,0,.55);
-  --shade-edge:   inset 0 0 0 1px var(--line);
-
-  --focus:       #C6A768;
-  --focus-ring:  0 0 0 3px rgba(198,167,104,.34);
-}
-
 /* ═══ THE MOTION FLOOR — not optional, not a preference ═════════════════ */
 /* WCAG 2.2. Every animation in the house style is decorative by definition:
    if removing it loses information, it was carrying information it should not. */
@@ -220,32 +157,11 @@
 
   /* Looks: shares from 0 to 1. Culture is mixed toward white by --culture-tint; in Edit mode
      on Culture, Political keeps --political-fade of its strength and Culture lies over it at
-     --culture-blend; conflict lines over a political fill are mixed toward black by --hatch-deep. */
+     --culture-blend. */
   --culture-tint:   0.6;
   --culture-blend:  0.7;
   --political-fade: 0.35;
-  --hatch-deep:     0.5;
 
   --panel-w:   200px;
   --stage-pad: 12px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --map-sea:   #182C42;
-    --map-land:  #2A2F38;
-    --map-coast: #6F7480;
-    --map-water: #4E83AE;
-    --border:    #F3EFE4;
-    --culture-tint: 0.32;
-  }
-}
-
-:root[data-theme="dark"] {
-  --map-sea:   #182C42;
-  --map-land:  #2A2F38;
-  --map-coast: #6F7480;
-  --map-water: #4E83AE;
-  --border:    #F3EFE4;
-  --culture-tint: 0.32;
 }

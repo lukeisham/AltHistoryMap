@@ -3,7 +3,7 @@
 
 /**
  * @param {{form: HTMLFormElement, input: HTMLInputElement, submit: HTMLButtonElement, cancelButton: HTMLButtonElement, stage: HTMLElement}} parts
- * @returns {{ask: (options: {x: number, y: number, value: string, confirmLabel: string, allowEmpty?: boolean}) => Promise<string | null>, cancel: () => void, isOpen: () => boolean}}
+ * @returns {{ask: (options: {x: number, y: number, value: string, confirmLabel: string, allowEmpty?: boolean, avoid?: {x: number, y: number, width: number, height: number}}) => Promise<string | null>, cancel: () => void, isOpen: () => boolean}}
  */
 export function createNameField({ form, input, submit, cancelButton, stage }) {
   let pending = null;
@@ -17,9 +17,16 @@ export function createNameField({ form, input, submit, cancelButton, stage }) {
     resolve(result);
   }
 
-  function position(x, y) {
+  // With a box to avoid, the entry sits just below it, or just above when there is no room below.
+  function position(x, y, avoid) {
     const room = stage.getBoundingClientRect();
     const box = form.getBoundingClientRect();
+    if (avoid) {
+      const gap = Number.parseFloat(getComputedStyle(form).marginTop) || 0;
+      x = avoid.x;
+      y = avoid.y + avoid.height + gap;
+      if (y + box.height > room.height) y = avoid.y - box.height - gap;
+    }
     form.style.setProperty("--at-x", String(Math.max(0, Math.min(x, room.width - box.width))));
     form.style.setProperty("--at-y", String(Math.max(0, Math.min(y, room.height - box.height))));
   }
@@ -42,14 +49,14 @@ export function createNameField({ form, input, submit, cancelButton, stage }) {
   });
 
   return {
-    ask({ x, y, value, confirmLabel, allowEmpty: emptyOk = false }) {
+    ask({ x, y, value, confirmLabel, avoid, allowEmpty: emptyOk = false }) {
       settle(null);
       allowEmpty = emptyOk;
       input.required = !emptyOk;
       submit.textContent = confirmLabel;
       input.value = value;
       form.hidden = false;
-      position(x, y);
+      position(x, y, avoid);
       input.focus();
       input.select();
       return new Promise((resolve) => {

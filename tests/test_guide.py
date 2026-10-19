@@ -265,7 +265,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertTrue(imports("viewport.js", "model.js") and "discOffsets" in app_source("viewport.js"))
 
     def test_no_interface_module_edits_the_map_except_through_the_editor(self) -> None:
-        mutators = "beginStroke|strokeTo|endStroke|fill|addColour|addMarker|moveMarker|editMarker|deleteMarker|addDesign|updateDesign|addCrest|updateCrest"
+        mutators = "beginStroke|strokeTo|endStroke|fill|addColour|addMarker|moveMarker|editMarker|deleteMarker|addDesign|updateDesign|addCrest|updateCrest|setCountry"
         direct = [path.name for path in sorted(APP.glob("*.js")) if path.name not in ("model.js", "editor.js") and re.search(rf"\bmodel\.({mutators})\(", path.read_text(encoding="utf-8"))]
         self.assertEqual(direct, [])
         self.assertIn("function editGate()", app_source("editor.js"))
@@ -290,9 +290,58 @@ class GuideBoundaryTest(unittest.TestCase):
         row = row_starting(self.section, "`mapfile.js` | `model.js`")
         self.assertIn("`crests`", row)
         self.assertIn("h.crests ?? []", app_source("mapfile.js"))
+        self.assertIn("`countries`", row)
+        self.assertIn("h.countries ?? []", app_source("mapfile.js"))
         for number in (js_constant(APP / "mapfile.js", "MAGIC"), "(1)"):
             self.assertIn(number, row)
         self.assertIn("format: 1", app_source("mapfile.js"))
+
+    def test_countries_are_validated_by_the_one_validator_and_keep_the_fields_the_guide_names(self) -> None:
+        row = row_starting(self.section, "`countrydata.js`")
+        for name in ("model.js", "mapfile.js", "countries.js", "countryfacts.js", "normaliseCountry", "colourNameFor", "alignmentpools.js", "stampCrest"):
+            self.assertIn(f"`{name}`", row)
+        blank = re.search(r"return \{ colour, (.+) \};", app_source("countrydata.js"))
+        self.assertIsNotNone(blank, "blankCountry no longer returns its fields in one line")
+        for key in ("colour", "name", "ruler", "government", "motto", "currency", "demonym", "alignment", "flag", "crest"):
+            self.assertIn(f"`{key}`", row)
+            self.assertIn(key, "colour, " + blank.group(1))
+        self.assertTrue(imports("model.js", "countrydata.js") and imports("mapfile.js", "countrydata.js"))
+        self.assertIn("normaliseCountry({", app_source("model.js"))
+        self.assertIn("normaliseCountry(country, palette.length", app_source("mapfile.js"))
+        self.assertIn("setCountry(colour, patch)", row_starting(self.section, "`model.js`"))
+
+    def test_the_nine_alignment_ids_and_the_generators_are_named_and_driven_by_the_dialog(self) -> None:
+        ids = re.findall(r'\{ id: "([a-z-]+)", label: "', app_source("alignmentpools.js"))
+        self.assertEqual(len(ids), 9)
+        pools = row_starting(self.section, "`alignmentpools.js`")
+        for alignment in ids:
+            self.assertIn(f"`{alignment}`", pools)
+        self.assertTrue(imports("namegen.js", "alignmentpools.js") and imports("countrydata.js", "alignmentpools.js"))
+        generators = row_starting(self.section, "`namegen.js`")
+        for name in ("makeGovernment", "makeName", "makeRuler", "makeMotto", "makeDemonym", "generateAll", "rng", "Math.random"):
+            self.assertIn(name, generators)
+            if name.startswith("make") or name == "generateAll":
+                self.assertIn(f"export function {name}(", app_source("namegen.js"))
+        for shape in ("A et B", "Pro B", "A ante omnia"):
+            self.assertIn(f"`{shape}`", generators)
+        self.assertTrue(imports("countryfacts.js", "namegen.js"))
+        self.assertIn("rng: Math.random", app_source("main.js"))
+
+    def test_countries_open_from_three_places_and_take_drops_from_two(self) -> None:
+        row = row_starting(self.section, "`countries.js`")
+        for name in ("main.js", "stage.js", "palette.js", "dropOnLand", "dropOnColour", "editor.setCountry", "country-facts-open", str(js_constant(APP / "stage.js", "FACTS_DELAY_MS"))):
+            self.assertIn(name, row)
+        main = app_source("main.js")
+        self.assertIn("createCountries({", main)
+        self.assertEqual(main.count("countries,"), 2, "main.js must hand countries to the stage and the palette")
+        self.assertIn('part("country-facts-open")', main)
+        self.assertIn('data-role="country-facts-open"', (APP / "index.html").read_text(encoding="utf-8"))
+        self.assertIn('data-role="country-facts"', (APP / "index.html").read_text(encoding="utf-8"))
+        self.assertIn('href="countryfacts.css"', (APP / "index.html").read_text(encoding="utf-8"))
+        for source, call in (("stage.js", "countries.showAt("), ("stage.js", "countries.dropOnLand("), ("palette.js", "countries.dropOnColour("), ("palette.js", "countries.open(")):
+            self.assertIn(call, app_source(source))
+        self.assertIn("editor.setCountry(", app_source("countries.js"))
+        self.assertIn("setCountry(colour, patch)", app_source("editor.js"))
 
     def test_picked_colours_and_pictures_reach_the_page_through_main(self) -> None:
         row = next(line for line in self.section.splitlines() if line.startswith("| `flagdesigner.js`, `crestmaker.js`"))
@@ -326,7 +375,7 @@ class GuideBoundaryTest(unittest.TestCase):
         for name in ("termtip.js", "crestmaker.js", "flagdesigner.js", "termFor", "bindTermTips(dialog)", "data-term"):
             self.assertIn(f"`{name}`" if name.endswith(".js") else name, row)
         self.assertTrue(imports("termtip.js", "terms.js"))
-        for dialog in ("flagdesigner.js", "crestmaker.js"):
+        for dialog in ("flagdesigner.js", "crestmaker.js", "countryfacts.js"):
             self.assertTrue(imports(dialog, "termtip.js"))
             self.assertIn("bindTermTips(dialog)", app_source(dialog))
         groups = set(re.findall(r'^  "(\w+):', app_source("terms.js"), re.MULTILINE))
@@ -377,9 +426,10 @@ class GuideBoundaryTest(unittest.TestCase):
 
     def test_the_drag_payload_module_is_used_by_both_ends(self) -> None:
         row = next(line for line in self.section.splitlines() if "`dragitem.js`" in line)
-        for name in ("symbols.js", "flagstrip.js", "stage.js"):
+        for name in ("symbols.js", "flagstrip.js", "creststrip.js", "stage.js", "palette.js", "countryfacts.js"):
             self.assertIn(f"`{name}`", row)
             self.assertTrue(imports(name, "dragitem.js"), f"{name} does not import dragitem.js")
+        self.assertIn('kind: "crest"', app_source("creststrip.js"))
 
     def test_glyphs_reach_the_modules_the_row_names(self) -> None:
         row = row_starting(self.section, "`app/glyphs.js`")

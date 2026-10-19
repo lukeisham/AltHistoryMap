@@ -8,6 +8,7 @@ import { createKeys, isTypingTarget } from "../app/keys.js";
 import { bindLayerBar } from "../app/layerbar.js";
 import { createStage, intentFor, cursorFor } from "../app/stage.js";
 import { ITEM_TYPE } from "../app/dragitem.js";
+import { defaultCrest } from "../app/crestcells.js";
 
 const SIDE = 16;
 const CELL = 10;
@@ -104,6 +105,11 @@ function setup(mode) {
     onDelete() {},
   };
   const designs = { editFlag() {} };
+  const countryCalls = { shown: [], dropped: [] };
+  const countries = {
+    showAt: (pixel) => (countryCalls.shown.push(pixel), true),
+    dropOnLand: (pixel, item) => countryCalls.dropped.push([pixel, item]),
+  };
   const zoom = { shown: [], hidden: 0 };
   const flagZoom = {
     show: (flag) => zoom.shown.push(flag),
@@ -120,6 +126,7 @@ function setup(mode) {
     nameField,
     markerInfo,
     designs,
+    countries,
     flagZoom,
     say,
     glyphIds: ["crown", "shape-circle"],
@@ -127,7 +134,7 @@ function setup(mode) {
     readout: { coord: {}, zoom: {} },
     zoomButtons: { zoomIn: button, zoomOut: button, home: button },
   });
-  return { model, state, editor, canvas, keys, stage, messages, renderer, info, zoom, asked: () => asked, answer: (text) => (answer = text) };
+  return { model, state, editor, canvas, keys, stage, messages, renderer, info, zoom, countryCalls, asked: () => asked, answer: (text) => (answer = text) };
 }
 
 const click = (canvas, x, y, extra = {}) => {
@@ -546,4 +553,39 @@ test("no flag zoom while a drag is in progress", () => {
   t.canvas.fire("pointerdown", { pointerId: 1, button: 0, clientX: 100, clientY: 100 });
   moveTo(t.canvas, 1, 35, 35);
   assert.equal(t.zoom.shown.length, 0);
+});
+
+test("a crest dropped on the map goes to the country under the drop and places no marker; View mode refuses it", async () => {
+  const env = setup("edit");
+  env.model.addCrest(defaultCrest(1, 2));
+  env.canvas.fire("drop", dropOf({ kind: "crest", crest: 0 }, 61, 41));
+  env.canvas.fire("drop", dropOf({ kind: "crest", crest: 5 }, 61, 41));
+  await settle();
+  assert.deepEqual(env.countryCalls.dropped, [[{ x: 6, y: 4, inside: true }, { kind: "crest", crest: 0 }]]);
+  assert.equal(env.model.markers.length, 0);
+
+  const view = setup("view");
+  view.model.addCrest(defaultCrest(1, 2));
+  view.canvas.fire("drop", dropOf({ kind: "crest", crest: 0 }, 61, 41));
+  assert.deepEqual(view.countryCalls.dropped, []);
+});
+
+test("a click on the map in View mode opens the country pop-up after a short wait, and a double-click zooms instead", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const view = setup("view");
+  click(view.canvas, 61, 41);
+  assert.equal(view.countryCalls.shown.length, 0, "not yet: it might be a double-click");
+  t.mock.timers.tick(300);
+  assert.deepEqual(view.countryCalls.shown, [{ x: 6, y: 4, inside: true }]);
+
+  click(view.canvas, 61, 41);
+  view.canvas.fire("dblclick", { clientX: 61, clientY: 41 });
+  t.mock.timers.tick(600);
+  assert.equal(view.countryCalls.shown.length, 1);
+
+  const edit = setup("edit");
+  edit.state.set({ tool: null });
+  click(edit.canvas, 61, 41);
+  t.mock.timers.tick(600);
+  assert.equal(edit.countryCalls.shown.length, 0, "Edit mode opens it from the palette, not from a click");
 });

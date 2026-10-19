@@ -1,19 +1,23 @@
 // The colour swatches. A click sets the colour, Shift-click the second colour (the second colour of a flag). The + button adds a colour from the system picker.
+// A swatch is also a country: double-click opens its Key Facts, and a crest or flag design dropped on it is given to the country.
 
 import { MAX_PALETTE } from "./model.js";
+import { hasDragItem, readDragItem } from "./dragitem.js";
 
 /**
  * @param {{
  *   container: HTMLElement,
  *   colourInput: HTMLInputElement,
  *   state: {get: () => object, set: (patch: object) => void, subscribe: Function},
- *   model: {palette: string[], onChange: Function},
- *   editor: {addColour: (hex: string) => number | null},
+ *   model: {palette: string[], designs: unknown[], crests: unknown[], onChange: Function},
+ *   glyphIds: string[],
+ *   editor: {addColour: (hex: string) => number | null, editGate: () => boolean},
+ *   countries: {open: (colour: number) => void, dropOnColour: (colour: number, item: object) => void},
  *   say: (text: string) => void
  * }} deps
  * @returns {{render: () => void}}
  */
-export function bindPalette({ container, colourInput, state, model, editor, say }) {
+export function bindPalette({ container, colourInput, state, model, editor, countries, glyphIds, say }) {
   const doc = container.ownerDocument;
   let swatches = [];
 
@@ -26,6 +30,16 @@ export function bindPalette({ container, colourInput, state, model, editor, say 
     node.addEventListener("click", (event) => {
       if (event.shiftKey) state.set({ colour2: index });
       else state.set({ colour: index });
+    });
+    node.addEventListener("dblclick", () => countries.open(index));
+    node.addEventListener("dragover", (event) => {
+      if (hasDragItem(event) && editor.editGate()) event.preventDefault();
+    });
+    node.addEventListener("drop", (event) => {
+      if (!hasDragItem(event)) return;
+      event.preventDefault();
+      const item = readDragItem(event, { glyphIds, designCount: model.designs.length, crestCount: model.crests.length });
+      if (item && (item.kind === "crest" || item.kind === "flag")) countries.dropOnColour(index, item);
     });
     return node;
   }

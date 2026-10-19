@@ -302,3 +302,41 @@ test("replace and snapshot carry the crests", () => {
   other.replace({ ...copy, crests: [] });
   assert.equal(other.crests.length, 0);
 });
+
+test("countries: setting facts is one undo step, a country left empty is removed, and a bad colour, alignment or index is refused", () => {
+  const m = smallModel();
+  m.addCrest(CREST);
+  assert.equal(m.setCountry(3, { name: "Aurea", alignment: "lawful-good", crest: 0 }), true);
+  assert.deepEqual(m.countries, [{ colour: 3, name: "Aurea", ruler: "", government: "", motto: "", currency: "", demonym: "", alignment: "lawful-good", flag: -1, crest: 0 }]);
+  assert.equal(m.setCountry(1, { ruler: "Queen Ona" }), true);
+  assert.deepEqual(m.countries.map((c) => c.colour), [1, 3], "kept in colour order");
+
+  assert.equal(m.setCountry(9, { name: "No such colour" }), false);
+  assert.equal(m.setCountry(3, { alignment: "good-ish" }), false);
+  assert.equal(m.setCountry(3, { crest: 4 }), false);
+  assert.equal(m.setCountry(3, { flag: 0 }), false, "no flag designs yet");
+
+  m.undo();
+  assert.deepEqual(m.countries.map((c) => c.colour), [3]);
+  m.redo();
+  assert.equal(m.countries.length, 2);
+  assert.equal(m.setCountry(1, { ruler: "" }), true);
+  assert.deepEqual(m.countries.map((c) => c.colour), [3], "nothing set, so the country is removed");
+  m.undo();
+  assert.equal(m.countries.find((c) => c.colour === 1).ruler, "Queen Ona");
+});
+
+test("setting the facts a country already has pushes no undo step; replace and snapshot carry countries", () => {
+  const m = smallModel();
+  m.setCountry(2, { name: "Bora" });
+  const revision = m.revision;
+  assert.equal(m.setCountry(2, { name: "Bora" }), true);
+  assert.equal(m.revision, revision);
+  const copy = m.snapshot();
+  assert.equal(copy.countries, m.countries);
+  const other = smallModel();
+  other.replace({ ...copy, countries: copy.countries });
+  assert.equal(other.countries[0].name, "Bora");
+  other.replace({ ...copy, countries: undefined });
+  assert.deepEqual(other.countries, []);
+});

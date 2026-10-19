@@ -1,5 +1,5 @@
-// What the heraldic and flag words on the crest maker and flag designer mean, for the pop-ups in
-// termtip.js. Keys are `<group>:<id>`; the crest maker builds them from the id lists in crestcells.js
+// What the heraldic and flag words on the crest maker and flag designer, and the nine philosophy squares
+// of the Key Facts dialog, mean, for the pop-ups in termtip.js. Keys are `<group>:<id>`; the crest maker builds them from the id lists in crestcells.js
 // and supporters.js, and the flag designer from its own tool and starter lists, so every option has
 // a definition (terms.test.js checks that none is missing).
 
@@ -80,6 +80,16 @@ const TERMS = {
   "flag:hoist": ["Hoist", "The edge of the flag nearest the pole. Here, the left edge."],
   "flag:fly": ["Fly", "The free end of the flag, farthest from the pole. Here, the right edge."],
   "flag:canton": ["Canton", "The top corner nearest the pole, here the top left. Many flags put a small flag or emblem there, as Australia's flag does with the Union Jack."],
+
+  "alignment:lawful-good": ["Lawful good", "A country that keeps strict laws and uses them to protect people: honest, orderly and kind. Typical of a just kingdom or a well-run commonwealth."],
+  "alignment:neutral-good": ["Neutral good", "A country that simply tries to do right by its people, with or without strict rules. Typical of a friendly federation or a peaceful free city."],
+  "alignment:chaotic-good": ["Chaotic good", "A country that values freedom and kindness above rules. Typical of a loose league of free towns or a land of wandering clans."],
+  "alignment:lawful-neutral": ["Lawful neutral", "A country ruled by law, tradition or duty, without caring much whether the results are kind or cruel. Typical of a vast, orderly empire."],
+  "alignment:true-neutral": ["True neutral", "A country that takes no side and keeps a balance, trading and bargaining rather than preaching or conquering."],
+  "alignment:chaotic-neutral": ["Chaotic neutral", "A country that follows its own whims and prizes independence over order or mercy. Typical of restless clans and shifting alliances."],
+  "alignment:lawful-evil": ["Lawful evil", "A country that uses strict law, hierarchy and discipline to serve those in power. Typical of a harsh empire or a ruthless junta."],
+  "alignment:neutral-evil": ["Neutral evil", "A country that pursues wealth and power by any means, with no regard for others. Typical of scheming oligarchies."],
+  "alignment:chaotic-evil": ["Chaotic evil", "A country that lives by plunder and violence, with no use for law. Typical of a marauding horde or a warlord's realm."],
 };
 
 /**

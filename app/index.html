@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="dialogs.css">
   <link rel="stylesheet" href="flagdesigner.css">
   <link rel="stylesheet" href="crestmaker.css">
+  <link rel="stylesheet" href="countryfacts.css">
   <link rel="stylesheet" href="flagzoom.css">
   <link rel="stylesheet" href="termtip.css">
   <script type="module" src="main.js"></script>
@@ -101,7 +102,10 @@
   <section class="panel-section">
     <h2 class="panel-heading">Colours</h2>
     <div class="palette" role="group" aria-label="Colours. Click for the colour, Shift-click for the second colour." data-role="palette"></div>
-    <p class="panel-hint">Click sets the colour. Shift-click sets the second colour.</p>
+    <p class="panel-hint">Click sets the colour. Shift-click sets the second colour. Double-click a colour for its country's key facts.</p>
+    <div class="flag-actions">
+      <button class="btn" type="button" data-role="country-facts-open">Key facts</button>
+    </div>
     <input class="visually-hidden" type="color" data-role="colour-input" tabindex="-1" aria-hidden="true">
   </section>
   <section class="panel-section">
@@ -157,6 +161,7 @@
 
 <dialog data-role="flag-designer"></dialog>
 <dialog data-role="crest-maker"></dialog>
+<dialog data-role="country-facts"></dialog>
 <dialog data-role="app-dialog"></dialog>
 <div class="flag-zoom" data-role="flag-zoom" hidden><canvas class="flag-zoom-canvas" data-role="flag-zoom-canvas" aria-hidden="true"></canvas></div>
 </body>

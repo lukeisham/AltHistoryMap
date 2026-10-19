@@ -1,13 +1,14 @@
-// What a symbol, shape or flag design carries when it is dragged from the tool panel onto the map.
-// symbols.js and flagstrip.js start the drag; stage.js reads the drop. The map file accepts any
-// glyph id and design index it is given, so the reader here checks them before anything is placed.
+// What a symbol, shape, flag design or crest carries when it is dragged from the tool panel. symbols.js,
+// flagstrip.js and creststrip.js start the drag; stage.js, palette.js and countryfacts.js read the drop.
+// The map file accepts any glyph id, design index and crest index it is given, so the reader here
+// checks them before anything is placed or linked.
 
 export const ITEM_TYPE = "application/x-althistorymap-item";
 
 /**
  * Starts a drag that carries a panel item.
  * @param {DragEvent} event
- * @param {{kind: "symbol", glyph: string} | {kind: "flag", design: number}} item
+ * @param {{kind: "symbol", glyph: string} | {kind: "flag", design: number} | {kind: "crest", crest: number}} item
  */
 export function setDragItem(event, item) {
   event.dataTransfer.setData(ITEM_TYPE, JSON.stringify(item));
@@ -25,10 +26,10 @@ export function hasDragItem(event) {
 /**
  * Reads and checks a dropped panel item.
  * @param {DragEvent} event
- * @param {{glyphIds: string[], designCount: number}} known What the map can place.
- * @returns {{kind: "symbol", glyph: string} | {kind: "flag", design: number} | null} Null when nothing valid was dropped.
+ * @param {{glyphIds: string[], designCount: number, crestCount: number}} known What the map holds.
+ * @returns {{kind: "symbol", glyph: string} | {kind: "flag", design: number} | {kind: "crest", crest: number} | null} Null when nothing valid was dropped.
  */
-export function readDragItem(event, { glyphIds, designCount }) {
+export function readDragItem(event, { glyphIds, designCount, crestCount }) {
   const text = event.dataTransfer?.getData(ITEM_TYPE);
   if (!text) return null;
   let item;
@@ -41,6 +42,9 @@ export function readDragItem(event, { glyphIds, designCount }) {
   if (item?.kind === "symbol" && glyphIds.includes(item.glyph)) return { kind: "symbol", glyph: item.glyph };
   if (item?.kind === "flag" && Number.isInteger(item.design) && item.design >= -1 && item.design < designCount) {
     return { kind: "flag", design: item.design };
+  }
+  if (item?.kind === "crest" && Number.isInteger(item.crest) && item.crest >= 0 && item.crest < crestCount) {
+    return { kind: "crest", crest: item.crest };
   }
   console.warn("dragitem: the dropped item is not one the map can place", item);
   return null;

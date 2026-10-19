@@ -18,6 +18,7 @@ import {
 } from "./model.js";
 import { collectBounded, StreamLimitError } from "./streams.js";
 import { normaliseCrest } from "./crestcells.js";
+import { normaliseCountry } from "./countrydata.js";
 import { upscaleLegacyFlag } from "./flagcells.js";
 
 export const MAGIC = "AHMAP001";
@@ -39,7 +40,7 @@ const DAMAGED = "This file is damaged or cut short";
 
 /**
  * Turns a map into a gzip-compressed .ahmap Blob.
- * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests?: object[], planes: object}} data
+ * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests?: object[], countries?: object[], planes: object}} data
  *   The shape of model.snapshot().
  * @returns {Promise<Blob>}
  */
@@ -84,6 +85,7 @@ function buildHeader(data) {
     })),
     flags: data.designs.map((d) => Array.from(d)),
     crests: (data.crests ?? []).map((crest) => ({ ...crest })),
+    countries: (data.countries ?? []).map((country) => ({ ...country })),
     savedWith: SAVED_WITH,
   };
   try {
@@ -99,7 +101,7 @@ function buildHeader(data) {
  * Reads and validates a map file. Nothing is returned unless the whole file is valid.
  * @param {Blob | ArrayBuffer | Uint8Array} source The gzip bytes.
  * @param {string[]} glyphIds Every valid symbol glyph id.
- * @returns {Promise<{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests: object[], planes: object}>}
+ * @returns {Promise<{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests: object[], countries: object[], planes: object}>}
  *   Ready for model.replace(); the planes are views of one buffer.
  * @throws {MapFileError} On any problem with the file.
  */
@@ -222,11 +224,21 @@ function checkHeader(h, glyphs) {
     return clean;
   });
 
+  // Files saved before countries existed have no such key.
+  const countryList = h.countries ?? [];
+  if (!Array.isArray(countryList) || countryList.length > palette.length) throw new MapFileError("The countries in this file are not valid");
+  const countries = countryList.map((country) => {
+    const clean = normaliseCountry(country, palette.length, designs.length, crests.length);
+    if (!clean) throw new MapFileError("A country in this file is not valid");
+    return clean;
+  });
+  if (new Set(countries.map((country) => country.colour)).size !== countries.length) throw new MapFileError("A country in this file is listed twice");
+
   if (!Array.isArray(h.markers)) throw new MapFileError("The markers in this file are not valid");
   const seen = new Set();
   const markers = h.markers.map((m) => checkMarker(m, palette.length, designs.length, glyphs, seen));
 
-  return { name, origin, palette: [...palette], markers, designs, crests };
+  return { name, origin, palette: [...palette], markers, designs, crests, countries };
 }
 
 function checkMarker(m, paletteLength, designCount, glyphs, seen) {

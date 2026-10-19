@@ -1,8 +1,10 @@
 // The Crests list in the tool panel: one thumbnail per saved crest. Clicking one picks it for the
-// Edit button; double-clicking it, or the Edit button, opens the crest maker.
+// Edit button; double-clicking it, or the Edit button, opens the crest maker. Dragging one onto a
+// country (the map or a colour swatch) gives that country the crest.
 
 import { CREST_W, CREST_H, renderCrest } from "./crestcells.js";
 import { drawCells } from "./pngexport.js";
+import { setDragItem } from "./dragitem.js";
 
 /** CSS pixels per crest cell in a thumbnail. */
 const THUMB_CELL = 1.5;
@@ -28,7 +30,7 @@ export function bindCrestStrip({ container, newButton, editButton, state, model,
     button.className = "crest-thumb";
     button.dataset.crest = String(index);
     button.setAttribute("aria-label", `Crest ${index + 1}`);
-    button.title = `Crest ${index + 1}. Double-click to edit.`;
+    button.title = `Crest ${index + 1}. Double-click to edit. Drag it onto a country.`;
     const canvas = doc.createElement("canvas");
     canvas.className = "crest-thumb-canvas";
     const scale = doc.defaultView?.devicePixelRatio || 1;
@@ -40,6 +42,8 @@ export function bindCrestStrip({ container, newButton, editButton, state, model,
     const white = doc.defaultView.getComputedStyle(doc.documentElement).getPropertyValue("--flag-white").trim();
     drawCells(canvas.getContext("2d"), renderCrest(crest), CREST_W, model.palette, white, canvas.width / CREST_W);
     button.append(canvas);
+    button.draggable = true;
+    button.addEventListener("dragstart", (event) => setDragItem(event, { kind: "crest", crest: index }));
     button.addEventListener("click", () => state.set({ crest: index }));
     button.addEventListener("dblclick", () => crests.edit(index));
     return button;

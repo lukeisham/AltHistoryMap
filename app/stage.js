@@ -7,6 +7,8 @@ import { hasDragItem, readDragItem } from "./dragitem.js";
 
 const CLICK_SLOP = 4;
 const DOUBLE_CLICK_ZOOM = 2;
+// A click that opens a country's pop-up waits this long, so the first click of a double-click (zoom) does not open it.
+const FACTS_DELAY_MS = 300;
 const MIDDLE_BUTTON = 1;
 const RIGHT_BUTTON = 2;
 const BORDER_BRUSH = 1;
@@ -48,6 +50,7 @@ export function cursorFor({ mode, tool }, interaction) {
  *   nameField: {ask: Function, cancel: () => void},
  *   markerInfo: {show: Function, hide: () => boolean, isOpen: () => boolean, onRename: Function, onDelete: Function},
  *   designs: {editFlag: (marker: object) => void},
+ *   countries: {showAt: Function, dropOnLand: Function},
  *   flagZoom: {show: (flag: {cells: Uint8Array | null, colour: string, x: number, y: number}) => void, hide: () => void},
  *   say: (text: string) => void,
  *   glyphIds: string[],
@@ -59,10 +62,11 @@ export function cursorFor({ mode, tool }, interaction) {
  *   `dismiss` clears the selection and popover, returning true when there was one.
  */
 export function createStage(deps) {
-  const { canvas, renderer, model, state, editor, nameField, markerInfo, designs, flagZoom, say, glyphIds, isPanHeld, readout, zoomButtons } = deps;
+  const { canvas, renderer, model, state, editor, nameField, markerInfo, designs, countries, flagZoom, say, glyphIds, isPanHeld, readout, zoomButtons } = deps;
   let drag = null;
   let hover = null;
   let readoutQueued = false;
+  let factsTimer = null;
 
   const local = (event) => {
     const box = canvas.getBoundingClientRect();
@@ -180,6 +184,7 @@ export function createStage(deps) {
 
   function onPointerDown(event) {
     flagZoom.hide();
+    clearTimeout(factsTimer);
     if (drag) finish(drag.pointerId, false);
     if (renderer.pinching) return;
     const panning = event.button === MIDDLE_BUTTON || event.button === RIGHT_BUTTON || isPanHeld();
@@ -274,6 +279,9 @@ export function createStage(deps) {
     }
     dismiss();
     if (done.kind === "place") nameThenPlace(done.start);
+    else if (done.kind === "pan" && state.get().mode === "view") {
+      factsTimer = setTimeout(() => countries.showAt(pixelAt(done.start)), FACTS_DELAY_MS);
+    }
   }
 
   function onPointerUp(event) {
@@ -285,6 +293,7 @@ export function createStage(deps) {
   }
 
   function onDoubleClick(event) {
+    clearTimeout(factsTimer);
     const point = local(event);
     if (state.get().mode !== "edit") {
       renderer.zoomAt(DOUBLE_CLICK_ZOOM, point.x, point.y);
@@ -307,8 +316,12 @@ export function createStage(deps) {
     if (!hasDragItem(event)) return;
     event.preventDefault();
     if (!editor.editGate()) return;
-    const item = readDragItem(event, { glyphIds, designCount: model.designs.length });
+    const item = readDragItem(event, { glyphIds, designCount: model.designs.length, crestCount: model.crests.length });
     if (!item) return;
+    if (item.kind === "crest") {
+      countries.dropOnLand(pixelAt(local(event)), item);
+      return;
+    }
     const tool = item.kind;
     state.set(item.kind === "symbol" ? { tool, glyph: item.glyph } : { tool, design: item.design });
     if (state.get().tool !== tool) {
@@ -326,6 +339,7 @@ export function createStage(deps) {
   }
 
   function onViewChange() {
+    clearTimeout(factsTimer);
     flagZoom.hide();
     markerInfo.hide();
     scheduleReadout();

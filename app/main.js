@@ -9,6 +9,8 @@ import { GLYPHS } from "./glyphs.js";
 import { createRenderer } from "./render.js";
 import { createFlagDesigner } from "./flagdesigner.js";
 import { createCrestMaker } from "./crestmaker.js";
+import { createCountryFacts } from "./countryfacts.js";
+import { createCountries } from "./countries.js";
 import { renderCrest } from "./crestcells.js";
 import { downloadBlob } from "./filesave.js";
 import { createFlagZoom } from "./flagzoom.js";
@@ -110,6 +112,14 @@ async function main() {
   const designs = createDesigns({ designer, model, state, editor, say });
   const maker = createCrestMaker({ dialog: part("crest-maker"), getPalette, addColour, saveBlob: downloadBlob });
   const crests = createCrests({ maker, model, state, editor, say });
+  const facts = createCountryFacts({
+    dialog: part("country-facts"),
+    getPalette,
+    getDesigns: () => model.designs,
+    getCrests: () => model.crests,
+    rng: Math.random,
+  });
+  const countries = createCountries({ facts, model, editor, say });
   const flagZoom = createFlagZoom({ box: part("flag-zoom"), canvas: part("flag-zoom-canvas"), getPalette });
   const stageBox = part("stage");
 
@@ -141,6 +151,7 @@ async function main() {
     nameField,
     markerInfo,
     designs,
+    countries,
     flagZoom,
     say,
     glyphIds,
@@ -171,7 +182,8 @@ async function main() {
     capitalInput: part("capital"),
     state,
   });
-  bindPalette({ container: part("palette"), colourInput: part("colour-input"), state, model, editor, say });
+  bindPalette({ container: part("palette"), colourInput: part("colour-input"), state, model, editor, countries, glyphIds, say });
+  part("country-facts-open").addEventListener("click", () => countries.open(state.get().colour));
   bindSymbols({ container: part("symbols"), glyphs: GLYPHS, state });
   bindFlagStrip({
     container: part("flags"),

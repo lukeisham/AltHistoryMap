@@ -1,5 +1,5 @@
-// A small fake DOM shared by the dialog tests: only what flagdesigner.js, crestmaker.js and
-// dialogparts.js touch. Not a test file (the runner looks for *.test.js).
+// A small fake DOM shared by the dialog tests: only what flagdesigner.js, crestmaker.js,
+// countryfacts.js, palette.js and dialogparts.js touch. Not a test file (the runner looks for *.test.js).
 
 export class FakeElement {
   constructor(tag, doc) {
@@ -7,6 +7,7 @@ export class FakeElement {
     this.ownerDocument = doc;
     this.children = [];
     this.attrs = {};
+    this.dataset = {};
     this.listeners = {};
     this.style = { setProperty() {} };
     this.className = "";

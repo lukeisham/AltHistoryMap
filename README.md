@@ -16,3 +16,4 @@ Visit [althistorymap.pages.dev/app](https://althistorymap.pages.dev/app/) in a c
 - **Flags** are drawn in the flag designer: pick any colour with the **+** swatch, or stamp a whole coat of arms onto the flag. Rest the pointer on a flag to see it larger.
 - **Crests** are built in the crest maker from shield shapes, divisions, ordinaries and charges, with an animal on either side of the shield like a coat of arms. Both open from the panel on the left in Edit mode, and both have **Save PNG**.
 - Rest the pointer on any heraldic or flag word in either designer to see what it means.
+- Every colour is a country. Drag a crest from the Crests list onto land or a colour to give it to that country. Double-click a colour, press **Key facts**, or click land in View mode to see its flag, crest, philosophy, ruler, government, Latin motto, currency and demonym. Pick a square on the philosophy grid, then **Generate** to suggest names that fit it.

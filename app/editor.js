@@ -183,6 +183,16 @@ export function createEditor({ model, state, say }) {
       return editGate() && model.updateCrest(index, crest);
     },
 
+    /**
+     * Sets facts on a country (a political palette colour).
+     * @param {number} colour 1-based palette index
+     * @param {object} patch fields of the country record
+     * @returns {boolean}
+     */
+    setCountry(colour, patch) {
+      return editGate() && model.setCountry(colour, patch);
+    },
+
     /** @returns {boolean} */
     undo() {
       return editGate() && model.undo();

@@ -322,6 +322,7 @@ test("every bundled scenario still opens, with its flags and no crests", async (
   for (const name of files) {
     const data = await decodeMap(new Blob([await readFile(folder + name)]), ["sword", "crown"].concat(await glyphIdsFromApp()));
     assert.deepEqual(data.crests, [], name);
+    assert.deepEqual(data.countries, [], name);
     const model = fullModel();
     model.replace(data);
     assert.equal(model.isDirty(), false, name);
@@ -332,3 +333,34 @@ async function glyphIdsFromApp() {
   const { GLYPHS: all } = await import("../app/glyphs.js");
   return all.map((glyph) => glyph.id);
 }
+
+const COUNTRY = { colour: 2, name: "Aurea", ruler: "Queen Ona", government: "Monarchy", motto: "Lex et Ordo", currency: "Mark", demonym: "Aurean", alignment: "chaotic-neutral", flag: -1, crest: 0 };
+
+test("countries survive a save and open, and the model takes them back", async () => {
+  const model = fullModel();
+  model.addCrest(CREST);
+  model.setCountry(COUNTRY.colour, COUNTRY);
+  const after = await decodeMap(await encodeMap(model.snapshot()), GLYPHS);
+  assert.deepEqual(after.countries, model.countries);
+  const target = fullModel();
+  target.replace(after);
+  assert.deepEqual(target.countries, model.countries);
+});
+
+test("a map saved before countries existed opens with none", async () => {
+  assert.equal("countries" in validHeader(), false);
+  const old = await decodeMap(await craft({ header: validHeader() }), GLYPHS);
+  assert.deepEqual(old.countries, []);
+});
+
+test("a bad country is refused: unknown alignment, colour outside the palette, a crest the map lacks, a colour listed twice", async () => {
+  const bad = async (countries) => assertRejected(await craft({ header: validHeader({ countries }) }), /countr/i);
+  const blank = { colour: 1, name: "", ruler: "", government: "", motto: "", currency: "", demonym: "", alignment: "", flag: -1, crest: -1 };
+  await bad([{ ...blank, alignment: "evil-lawful" }]);
+  await bad([{ ...blank, colour: 3 }]);
+  await bad([{ ...blank, crest: 0 }]);
+  await bad([blank, blank]);
+  await bad("not a list");
+  const fine = await decodeMap(await craft({ header: validHeader({ countries: [{ ...blank, name: "Fine" }] }) }), GLYPHS);
+  assert.equal(fine.countries[0].name, "Fine");
+});

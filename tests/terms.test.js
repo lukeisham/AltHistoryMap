@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { termFor } from "../app/terms.js";
+import { ALIGNMENT_IDS } from "../app/alignmentpools.js";
 import { SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS } from "../app/crestcells.js";
 
 const LISTS = { shape: SHAPES, division: DIVISIONS, ordinary: ORDINARIES, charge: CHARGES, supporter: SUPPORTERS };
@@ -27,4 +28,12 @@ test("the crest parts, colour roles, flag tools, starters and flag parts are def
   }
   assert.equal(termFor("shape:kite"), null);
   assert.equal(termFor("constructor"), null);
+});
+
+test("every philosophy square has a name and a definition", () => {
+  assert.equal(ALIGNMENT_IDS.length, 9);
+  for (const id of ALIGNMENT_IDS) {
+    const term = termFor(`alignment:${id}`);
+    assert.ok(term && term.text.length > 20, `alignment:${id} has no definition`);
+  }
 });

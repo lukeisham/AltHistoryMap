@@ -15,12 +15,15 @@
   <link rel="stylesheet" href="palette.css">
   <link rel="stylesheet" href="symbols.css">
   <link rel="stylesheet" href="flagstrip.css">
+  <link rel="stylesheet" href="creststrip.css">
   <link rel="stylesheet" href="stage.css">
   <link rel="stylesheet" href="namefield.css">
   <link rel="stylesheet" href="markerinfo.css">
   <link rel="stylesheet" href="footer.css">
   <link rel="stylesheet" href="dialogs.css">
   <link rel="stylesheet" href="flagdesigner.css">
+  <link rel="stylesheet" href="crestmaker.css">
+  <link rel="stylesheet" href="flagzoom.css">
   <script type="module" src="main.js"></script>
 </head>
 <body data-mode="view">
@@ -111,6 +114,12 @@
       <button class="btn" type="button" data-role="flag-new">+ New design</button>
       <button class="btn" type="button" data-role="flag-edit">Edit design</button>
     </div>
+    <h2 class="panel-heading">Crests</h2>
+    <div class="crest-strip" role="group" aria-label="Crests" data-role="crests"></div>
+    <div class="crest-actions">
+      <button class="btn" type="button" data-role="crest-new">+ New crest</button>
+      <button class="btn" type="button" data-role="crest-edit">Edit crest</button>
+    </div>
   </section>
 </aside>
 
@@ -146,6 +155,8 @@
 </footer>
 
 <dialog data-role="flag-designer"></dialog>
+<dialog data-role="crest-maker"></dialog>
 <dialog data-role="app-dialog"></dialog>
+<div class="flag-zoom" data-role="flag-zoom" hidden><canvas class="flag-zoom-canvas" data-role="flag-zoom-canvas" aria-hidden="true"></canvas></div>
 </body>
 </html>

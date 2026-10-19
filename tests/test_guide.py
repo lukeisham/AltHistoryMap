@@ -310,7 +310,8 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("secrets.PUBLIC_REPO_TOKEN", workflow)
         self.assertIn("repository: lukeisham/AltHistoryMap", workflow)
         for excluded in ("issues.md", "index.html", ".nojekyll"):
-            self.assertIn(f"--exclude {excluded}", workflow)
+            self.assertIn(f"--exclude /{excluded}", workflow)
+        self.assertNotRegex(workflow, r"--exclude (?!/)(issues\.md|index\.html|\.nojekyll)", "an unanchored exclude would also skip app/index.html")
         self.assertLess(workflow.index("node --test"), workflow.index("rsync"), "the tests must run before anything is mirrored")
         self.assertIn('paths: ["System/Apps/AltHistoryMap/**"]', workflow)
 

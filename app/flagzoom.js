@@ -6,8 +6,8 @@
 import { FLAG_W, FLAG_H } from "./model.js";
 import { drawCells } from "./pngexport.js";
 
-/** CSS pixels per design cell in the enlarged picture: 24 cells wide makes it 192 px. */
-export const ZOOM_CELL = 8;
+/** CSS pixels per design cell in the enlarged picture: 120 cells wide makes it 480 px. */
+export const ZOOM_CELL = 4;
 const GAP = 16;
 
 /**

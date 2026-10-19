@@ -9,8 +9,10 @@ export const RIVER = 2;
 export const LAKE = 4;
 export const COAST = 8;
 export const WATER = RIVER | LAKE;
-export const FLAG_W = 24;
-export const FLAG_H = 16;
+export const FLAG_W = 120;
+export const FLAG_H = 80;
+/** Flags saved at 24 x 16 are scaled up by this factor on opening, so every old design still fits. */
+export const LEGACY_FLAG_SCALE = 5;
 export const MAX_PALETTE = 254;
 export const MAX_DESIGNS = 64;
 export const MAX_CRESTS = 32;
@@ -841,7 +843,7 @@ export function createModel(base, n = N) {
   }
 
   function checkedDesign(cells) {
-    if (!cells || cells.length !== FLAG_W * FLAG_H) return warn("design must have 384 cells", cells?.length);
+    if (!cells || cells.length !== FLAG_W * FLAG_H) return warn(`design must have ${FLAG_W * FLAG_H} cells`, cells?.length);
     const design = Uint8Array.from(cells);
     if (design.some((v) => v > model.palette.length)) return warn("design colour not in palette", null);
     return design;

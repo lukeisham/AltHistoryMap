@@ -2,7 +2,7 @@
 // render.js calls drawMarkers once per frame and hitMarker from renderer.hitTest, so both use
 // the same visibility rule and the same screen geometry.
 
-import { FLAG_W, FLAG_H } from "./model.js";
+import { BLOCK_COLS, BLOCK_ROWS, flagBlocks } from "./flagblocks.js";
 import { fadeFactor } from "./viewport.js";
 import { parseColour, unpackColour } from "./layerimage.js";
 
@@ -24,6 +24,7 @@ const NATION_REACH = 2;
 const CITY_RING = 1.5;
 const CAPITAL_GAP = 2.5;
 const CAPITAL_RING = 1;
+// Screen pixels per block of a flag design (flagblocks.js): 24 blocks across make a 36 pixel cloth.
 const FLAG_CELL = 1.5;
 const POLE_HEIGHT = 32;
 const POLE_WIDTH = 1.5;
@@ -41,8 +42,8 @@ const CULL_MARGIN = 120;
 
 // Design cell 0 is white in the map file, so this is map data and not a theme colour.
 
-const FLAG_CLOTH_W = FLAG_W * FLAG_CELL;
-const FLAG_CLOTH_H = FLAG_H * FLAG_CELL;
+const FLAG_CLOTH_W = BLOCK_COLS * FLAG_CELL;
+const FLAG_CLOTH_H = BLOCK_ROWS * FLAG_CELL;
 
 /**
  * Whether a marker shows: cities, flags and labels when Political is on screen, a symbol when
@@ -195,10 +196,10 @@ function drawFlagCloth(ctx, scene, marker, left, top) {
     ctx.fill();
     return;
   }
-  for (let row = 0; row < FLAG_H; row++) {
-    for (let col = 0; col < FLAG_W; col++) {
-      const v = design[row * FLAG_W + col];
-      ctx.fillStyle = v === 0 ? scene.theme.css.flagWhite : scene.palette[v - 1];
+  const blocks = flagBlocks(design, scene.palette, scene.theme.css.flagWhite);
+  for (let row = 0; row < BLOCK_ROWS; row++) {
+    for (let col = 0; col < BLOCK_COLS; col++) {
+      ctx.fillStyle = blocks[row * BLOCK_COLS + col];
       ctx.fillRect(left + col * FLAG_CELL, top + row * FLAG_CELL, FLAG_CELL, FLAG_CELL);
     }
   }

@@ -12,17 +12,20 @@ import {
   MAX_TAG_OFFSET,
   FLAG_W,
   FLAG_H,
+  LEGACY_FLAG_SCALE,
   LAYERS,
   MARKER_TYPES,
 } from "./model.js";
 import { collectBounded, StreamLimitError } from "./streams.js";
 import { normaliseCrest } from "./crestcells.js";
+import { upscaleLegacyFlag } from "./flagcells.js";
 
 export const MAGIC = "AHMAP001";
 export const SAVED_WITH = "ahm-1";
 const MAGIC_BYTES = new TextEncoder().encode(MAGIC);
 const PLANE_BYTES = N * N;
 const DESIGN_CELLS = FLAG_W * FLAG_H;
+const LEGACY_DESIGN_CELLS = DESIGN_CELLS / LEGACY_FLAG_SCALE ** 2;
 const MAX_HEADER = 4 * 1024 * 1024;
 const HEX = /^#[0-9a-f]{6}$/;
 const DEFAULT_NAME = "Untitled map";
@@ -199,14 +202,15 @@ function checkHeader(h, glyphs) {
   const flags = h.flags ?? [];
   if (!Array.isArray(flags) || flags.length > MAX_DESIGNS) throw new MapFileError("The flag designs in this file are not valid");
   const designs = flags.map((cells) => {
-    if (!Array.isArray(cells) || cells.length !== DESIGN_CELLS) throw new MapFileError("A flag design in this file is not valid");
-    const design = new Uint8Array(DESIGN_CELLS);
-    for (let i = 0; i < DESIGN_CELLS; i++) {
+    const isLegacy = Array.isArray(cells) && cells.length === LEGACY_DESIGN_CELLS;
+    if (!Array.isArray(cells) || (cells.length !== DESIGN_CELLS && !isLegacy)) throw new MapFileError("A flag design in this file is not valid");
+    const design = new Uint8Array(cells.length);
+    for (let i = 0; i < cells.length; i++) {
       const v = cells[i];
       if (!isInt(v) || v < 0 || v > palette.length) throw new MapFileError("A flag design in this file uses a colour that is not valid");
       design[i] = v;
     }
-    return design;
+    return isLegacy ? upscaleLegacyFlag(design) : design;
   });
 
   // Files saved before crests existed have no such key.

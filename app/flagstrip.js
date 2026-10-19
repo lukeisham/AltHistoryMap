@@ -3,15 +3,15 @@
 // Dragging one onto the map places a flag with that design where it is dropped.
 // Resting the pointer on one shows it enlarged (flagzoom.js).
 
-import { FLAG_W, FLAG_H } from "./model.js";
+import { BLOCK_COLS, BLOCK_ROWS, flagBlocks } from "./flagblocks.js";
 import { setDragItem } from "./dragitem.js";
 
-/** CSS pixels per design cell in a thumbnail: 24 cells wide makes it 36 px, the size a placed flag is drawn at. */
+/** CSS pixels per block of a design in a thumbnail: 24 blocks wide makes it 36 px, the size a placed flag is drawn at. */
 const THUMB_CELL = 1.5;
 
 /**
  * Paints a design (or, with cells null, a solid plain flag) onto a canvas.
- * @param {HTMLCanvasElement} canvas Sized by the caller to FLAG_W x FLAG_H cells.
+ * @param {HTMLCanvasElement} canvas Sized by the caller to BLOCK_COLS x BLOCK_ROWS blocks.
  * @param {Uint8Array | null} cells
  * @param {string[]} palette
  * @param {string} white The colour of palette index 0.
@@ -19,16 +19,16 @@ const THUMB_CELL = 1.5;
  */
 export function drawThumb(canvas, cells, palette, white, plain) {
   const ctx = canvas.getContext("2d");
-  const cell = canvas.width / FLAG_W;
+  const cell = canvas.width / BLOCK_COLS;
   if (!cells) {
     ctx.fillStyle = plain;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     return;
   }
-  for (let y = 0; y < FLAG_H; y++) {
-    for (let x = 0; x < FLAG_W; x++) {
-      const index = cells[y * FLAG_W + x];
-      ctx.fillStyle = index === 0 ? white : palette[index - 1];
+  const blocks = flagBlocks(cells, palette, white);
+  for (let y = 0; y < BLOCK_ROWS; y++) {
+    for (let x = 0; x < BLOCK_COLS; x++) {
+      ctx.fillStyle = blocks[y * BLOCK_COLS + x];
       ctx.fillRect(x * cell, y * cell, cell, cell);
     }
   }
@@ -61,8 +61,8 @@ export function bindFlagStrip({ container, newButton, editButton, state, model, 
     const canvas = doc.createElement("canvas");
     canvas.className = "flag-thumb-canvas";
     const scale = doc.defaultView?.devicePixelRatio || 1;
-    canvas.width = Math.round(FLAG_W * THUMB_CELL * scale);
-    canvas.height = Math.round(FLAG_H * THUMB_CELL * scale);
+    canvas.width = Math.round(BLOCK_COLS * THUMB_CELL * scale);
+    canvas.height = Math.round(BLOCK_ROWS * THUMB_CELL * scale);
     canvas.setAttribute("aria-hidden", "true");
     button.append(canvas);
     button.draggable = true;

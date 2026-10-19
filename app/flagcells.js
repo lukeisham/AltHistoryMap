@@ -2,7 +2,7 @@
 // indexes, row-major, 0 = white. Every function returns a new array and never touches its input,
 // so flagdesigner.js can keep earlier arrays as undo history without copying them again.
 
-import { FLAG_W, FLAG_H } from "./model.js";
+import { FLAG_W, FLAG_H, LEGACY_FLAG_SCALE } from "./model.js";
 import { CREST_W, CREST_H, TRANSPARENT } from "./crestcells.js";
 
 const CELL_COUNT = FLAG_W * FLAG_H;
@@ -30,8 +30,8 @@ export function blankCells() {
 /**
  * A copy of the design with one cell set.
  * @param {Uint8Array} cells
- * @param {number} x column, 0 to 23
- * @param {number} y row, 0 to 15
+ * @param {number} x column, 0 to FLAG_W - 1
+ * @param {number} y row, 0 to FLAG_H - 1
  * @param {number} v palette index, 0 = white
  * @returns {Uint8Array}
  */
@@ -64,18 +64,23 @@ export function starterLayout(kind, colour, colour2) {
 }
 
 // Whether a cell takes the second colour. Bands are thirds; the Nordic cross sits left of centre
-// like a real one; the saltire follows both diagonals about two and a half cells wide.
+// like a real one, its bars one twelfth of the flag wide; the saltire follows both diagonals.
+// Positions are worked out on the 24 x 16 grid that older flags use, so a starter looks the same at any size.
 function inStarterAccent(kind, x, y) {
   switch (kind) {
     case "stripes-h":
       return Math.floor((y * 3) / FLAG_H) === 1;
     case "stripes-v":
       return Math.floor((x * 3) / FLAG_W) === 1;
-    case "cross":
-      return x === 7 || x === 8 || y === 7 || y === 8;
+    case "cross": {
+      const column = Math.floor(x / LEGACY_FLAG_SCALE);
+      const row = Math.floor(y / LEGACY_FLAG_SCALE);
+      return column === 7 || column === 8 || row === 7 || row === 8;
+    }
     case "saltire": {
       const slope = (FLAG_H - 1) / (FLAG_W - 1);
-      return Math.abs(y - x * slope) < 0.8 || Math.abs(y - (FLAG_H - 1 - x * slope)) < 0.8;
+      const half = 0.8 * LEGACY_FLAG_SCALE;
+      return Math.abs(y - x * slope) < half || Math.abs(y - (FLAG_H - 1 - x * slope)) < half;
     }
     default:
       return false;
@@ -167,6 +172,22 @@ export function pencilLine(cells, x0, y0, x1, y1, v, mirror) {
       y += sy;
     }
   }
+}
+
+/**
+ * A flag saved at 24 x 16, scaled up to the current grid: each old cell becomes a square of cells.
+ * @param {ArrayLike<number>} cells 384 palette indexes
+ * @returns {Uint8Array} FLAG_W * FLAG_H palette indexes
+ */
+export function upscaleLegacyFlag(cells) {
+  const oldW = FLAG_W / LEGACY_FLAG_SCALE;
+  const next = new Uint8Array(CELL_COUNT);
+  for (let y = 0; y < FLAG_H; y++) {
+    for (let x = 0; x < FLAG_W; x++) {
+      next[y * FLAG_W + x] = cells[Math.floor(y / LEGACY_FLAG_SCALE) * oldW + Math.floor(x / LEGACY_FLAG_SCALE)];
+    }
+  }
+  return next;
 }
 
 /**

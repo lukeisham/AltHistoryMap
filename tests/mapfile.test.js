@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { createModel, LAND, N, PLANE_NAMES } from "../app/model.js";
+import { createModel, LAND, N, PLANE_NAMES, FLAG_W, FLAG_H } from "../app/model.js";
 import { encodeMap, decodeMap, asScenarioCopy, MapFileError, MAGIC } from "../app/mapfile.js";
 
 const GLYPHS = ["sword", "crown"];
@@ -43,7 +43,7 @@ function populate(model) {
   paintTypicalMap(model);
   model.name = "Test world";
   model.addColour("#123456");
-  const design = model.addDesign(Uint8Array.from({ length: 384 }, (_, i) => i % 3));
+  const design = model.addDesign(Uint8Array.from({ length: FLAG_W * FLAG_H }, (_, i) => i % 3));
   model.addMarker({ type: "city", x: 10, y: 20, name: "Roma", colour: 1 });
   model.addMarker({ type: "flag", x: 30, y: 40, name: "Banner", colour: 2, design });
   model.addMarker({ type: "label", x: 50, y: 60, name: "Mare Nostrum", colour: 3 });
@@ -104,7 +104,7 @@ test("AC-1: save then open restores planes, palette, markers and designs exactly
   assert.deepEqual(after.palette, before.palette);
   assert.deepEqual(after.markers, before.markers);
   assert.deepEqual(after.designs, before.designs);
-  assert.ok(after.designs.every((d) => d instanceof Uint8Array && d.length === 384));
+  assert.ok(after.designs.every((d) => d instanceof Uint8Array && d.length === FLAG_W * FLAG_H));
   for (const name of PLANE_NAMES) assert.ok(sameBytes(after.planes[name], before.planes[name]), `plane ${name}`);
   assert.equal(after.planes.political.buffer, after.planes.border.buffer, "planes share one buffer");
   assert.ok(after.planes.province.some((v) => v === 2), "province paint survives");
@@ -214,7 +214,7 @@ test("marker rules: glyph, duplicate id, layer, colour, flag design", async () =
   const older = await decodeMap(await withMarkers([base]), GLYPHS);
   assert.deepEqual([older.markers[0].tagDx, older.markers[0].tagDy], [0, 0], "a file saved before name tags moved still opens");
   await assertRejected(await withMarkers([{ ...base, type: "flag", design: 0 }]), /flag design that is not in the file/);
-  const good = await decodeMap(await withMarkers([{ ...base, type: "flag", design: 0 }], { flags: [new Array(384).fill(1)] }), GLYPHS);
+  const good = await decodeMap(await withMarkers([{ ...base, type: "flag", design: 0 }], { flags: [new Array(FLAG_W * FLAG_H).fill(1)] }), GLYPHS);
   assert.equal(good.markers[0].design, 0);
   assert.equal(good.designs[0][5], 1);
 });
@@ -282,7 +282,7 @@ test("a map saved before crests existed opens with none, and saves again with an
 });
 
 test("a file with flag designs and markers but no crests key keeps all of them", async () => {
-  const cells = Array.from({ length: 384 }, (_, i) => i % 3);
+  const cells = Array.from({ length: FLAG_W * FLAG_H }, (_, i) => i % 3);
   const header = validHeader({
     flags: [cells],
     markers: [{ id: 1, type: "flag", x: 5, y: 5, name: "Old banner", colour: 1, design: 0, layer: "political" }],
@@ -291,6 +291,19 @@ test("a file with flag designs and markers but no crests key keeps all of them",
   assert.deepEqual(Array.from(data.designs[0]), cells);
   assert.equal(data.markers[0].name, "Old banner");
   assert.deepEqual(data.crests, []);
+});
+
+test("a flag saved at 24 x 16 opens scaled up to the current grid, colours in place", async () => {
+  const old = Array.from({ length: 24 * 16 }, (_, i) => (i === 0 ? 2 : i === 24 * 16 - 1 ? 1 : 0));
+  const data = await decodeMap(await craft({ header: validHeader({ flags: [old] }) }), GLYPHS);
+  const [design] = data.designs;
+  assert.equal(design.length, FLAG_W * FLAG_H);
+  assert.deepEqual([design[0], design[4 * FLAG_W + 4], design[5], design[FLAG_W * FLAG_H - 1]], [2, 2, 0, 1]);
+  assert.equal(design.filter((v) => v === 2).length, 25);
+});
+
+test("a flag design of any other size is refused", async () => {
+  await assertRejected(await craft({ header: validHeader({ flags: [new Array(500).fill(1)] }) }), /flag design/);
 });
 
 test("a bad crest is refused: unknown part, colour outside the palette, wrong type, too many", async () => {

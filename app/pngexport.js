@@ -4,10 +4,10 @@
 
 import { TRANSPARENT } from "./crestcells.js";
 
-/** Pixels per cell in a saved flag: 24 cells wide makes a 384 pixel picture. */
-export const FLAG_PNG_CELL = 16;
-/** Pixels per cell in a saved crest. */
-export const CREST_PNG_CELL = 24;
+/** Pixels per cell in a saved flag: 120 cells wide makes a 960 pixel picture. */
+export const FLAG_PNG_CELL = 8;
+/** Pixels per cell in a saved crest: 58 cells wide makes a 928 pixel picture. */
+export const CREST_PNG_CELL = 16;
 
 /**
  * Paints a cell grid onto a canvas context, one filled square per cell.

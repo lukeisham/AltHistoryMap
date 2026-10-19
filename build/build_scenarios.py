@@ -34,7 +34,10 @@ LAYERS = ("political", "province", "culture")
 MARKER_TYPES = ("city", "flag", "label", "symbol")
 STARTERS = ("plain", "stripes-h", "stripes-v", "cross", "saltire")
 LAND = 1
-FLAG_W, FLAG_H = 24, 16
+FLAG_W, FLAG_H = 120, 80
+# Scenario sources draw a flag on a 24 x 16 grid of rows; each source cell becomes a square of this many cells.
+SOURCE_SCALE = 5
+SOURCE_W, SOURCE_H = FLAG_W // SOURCE_SCALE, FLAG_H // SOURCE_SCALE
 MAX_NAME = 60
 MAX_PALETTE = 16
 MAX_DESIGNS = 8
@@ -107,9 +110,9 @@ def _check_design(design: object, palette_size: int, where: str) -> None:
     if "rows" in design:
         _check_keys(design, {"rows"}, where)
         rows = design["rows"]
-        _require(isinstance(rows, list) and len(rows) == FLAG_H, f"{where}.rows", f"needs exactly {FLAG_H} rows")
+        _require(isinstance(rows, list) and len(rows) == SOURCE_H, f"{where}.rows", f"needs exactly {SOURCE_H} rows")
         for y, row in enumerate(rows):
-            _require(isinstance(row, list) and len(row) == FLAG_W, f"{where}.rows[{y}]", f"needs exactly {FLAG_W} numbers")
+            _require(isinstance(row, list) and len(row) == SOURCE_W, f"{where}.rows[{y}]", f"needs exactly {SOURCE_W} numbers")
             for x, cell in enumerate(row):
                 _check_colour(cell, palette_size, f"{where}.rows[{y}][{x}]", low=0)
         return
@@ -243,10 +246,11 @@ def _in_accent(kind: str, x: int, y: int) -> bool:
     if kind == "stripes-v":
         return (x * 3) // FLAG_W == 1
     if kind == "cross":
-        return x in (7, 8) or y in (7, 8)
+        return x // SOURCE_SCALE in (7, 8) or y // SOURCE_SCALE in (7, 8)
     if kind == "saltire":
         slope = (FLAG_H - 1) / (FLAG_W - 1)
-        return abs(y - x * slope) < 0.8 or abs(y - (FLAG_H - 1 - x * slope)) < 0.8
+        half = 0.8 * SOURCE_SCALE
+        return abs(y - x * slope) < half or abs(y - (FLAG_H - 1 - x * slope)) < half
     return False
 
 
@@ -257,7 +261,7 @@ def starter_cells(kind: str, colour: int, colour2: int) -> list[int]:
 
 def _design_cells(design: dict) -> list[int]:
     if "rows" in design:
-        return [cell for row in design["rows"] for cell in row]
+        return [cell for row in design["rows"] for _line in range(SOURCE_SCALE) for cell in row for _column in range(SOURCE_SCALE)]
     return starter_cells(design["starter"], design["colour"], design["colour2"])
 
 

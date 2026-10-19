@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createModel, LAND, LAYERS } from "../app/model.js";
+import { createModel, LAND, LAYERS, FLAG_W, FLAG_H } from "../app/model.js";
 import { TOOLS_BY_LAYER, TOOL_KEYS, toolForLayer, keyForTool, STROKE_TOOLS, PLACING_TOOLS } from "../app/tools.js";
 import { createAppState, keepSelectionsValid } from "../app/state.js";
 import { createEditor } from "../app/editor.js";
@@ -185,7 +185,7 @@ test("every editor operation refuses outside Edit mode", () => {
   assert.equal(editor.fill({ x: 1, y: 1 }), 0);
   assert.equal(editor.place({ x: 1, y: 1 }, "x"), null);
   assert.equal(editor.addColour("#123456"), null);
-  assert.equal(editor.addDesign(new Uint8Array(384)), null);
+  assert.equal(editor.addDesign(new Uint8Array(FLAG_W * FLAG_H)), null);
   assert.equal(editor.undo(), false);
   assert.equal(editor.deleteSelected(), false);
   assert.equal(model.revision, before);
@@ -476,7 +476,7 @@ test("dropping a symbol or shape from the panel places it at the drop; a bad ite
 
 test("dropping a flag design places a flag with that design, unnamed when Name tag is off", async () => {
   const env = setup("edit");
-  env.model.addDesign(new Uint8Array(384).fill(1));
+  env.model.addDesign(new Uint8Array(FLAG_W * FLAG_H).fill(1));
   env.state.set({ nameTag: false });
   env.canvas.fire("drop", dropOf({ kind: "flag", design: 0 }, 91, 91));
   await settle();
@@ -518,7 +518,7 @@ test("a committed rename closes the popover and clears the selection; a cancelle
 test("resting the pointer on a placed flag shows it enlarged; leaving, pressing or moving the view hides it", () => {
   const t = setup("view");
   t.model.palette = ["#ff0000", "#00ff00"];
-  t.model.designs = [new Uint8Array(24 * 16).fill(2)];
+  t.model.designs = [new Uint8Array(FLAG_W * FLAG_H).fill(2)];
   t.model.markers.push({ id: 1, type: "flag", x: 3, y: 3, name: "", colour: 1, glyph: "", design: 0, layer: "political", tagDx: 0, tagDy: 0, capital: false, nation: 0 });
   t.model.markers.push({ id: 2, type: "flag", x: 9, y: 9, name: "", colour: 2, glyph: "", design: -1, layer: "political", tagDx: 0, tagDy: 0, capital: false, nation: 0 });
 

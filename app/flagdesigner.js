@@ -8,11 +8,12 @@ import { blankCells, floodFill, pencilLine, starterLayout, stampCrest } from "./
 import { CREST_W, CREST_H } from "./crestcells.js";
 import { cellsToPng, drawCells, FLAG_PNG_CELL } from "./pngexport.js";
 import { dialogParts } from "./dialogparts.js";
+import { bindTermTips } from "./termtip.js";
 
 /** CSS pixels per design pixel on the editing canvas. */
-export const GRID_PX = 16;
+export const GRID_PX = 6;
 /** CSS pixels per design pixel in the preview: the size a placed flag is shown at. */
-export const PREVIEW_PX = 1.5;
+export const PREVIEW_PX = 0.3;
 export const HISTORY_LIMIT = 50;
 /** CSS pixels per crest cell in the crest picker. */
 const CREST_THUMB_PX = 2;
@@ -82,10 +83,12 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
     const toolGroup = group("Tool", "fd-group");
     const toolButtons = TOOLS.map(({ id, label }) => {
       const node = button(label, () => setTool(id));
+      node.setAttribute("data-term", `tool:${id}`);
       toolGroup.append(node);
       return { id, node };
     });
     const mirrorBtn = button("Mirror", () => setMirror(!mirror));
+    mirrorBtn.setAttribute("data-term", "tool:mirror");
     const undoBtn = button("Undo", undo);
     const clearBtn = button("Clear", () => commit(blankCells()));
     toolRow.append(toolGroup, mirrorBtn, undoBtn, clearBtn);
@@ -100,7 +103,13 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
     const preview = canvasFor(FLAG_W * PREVIEW_PX, FLAG_H * PREVIEW_PX, "fd-preview");
     preview.node.setAttribute("role", "img");
     preview.node.setAttribute("aria-label", "Preview at placed size");
-    side.append(el("span", "fd-caption", "Preview"), preview.node);
+    const parts = el("p", "fd-parts");
+    for (const [id, label] of [["hoist", "Hoist"], ["fly", "Fly"], ["canton", "Canton"]]) {
+      const part = el("span", "fd-caption", label);
+      part.setAttribute("data-term", `flag:${id}`);
+      parts.append(part);
+    }
+    side.append(el("span", "fd-caption", "Preview"), preview.node, parts);
     stage.append(main.node, side);
 
     const status = el("p", "fd-status");
@@ -115,7 +124,9 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
 
     const starterGroup = group("Starter layouts, using the pen colour and the second colour", "fd-group");
     for (const { kind, label } of STARTERS) {
-      starterGroup.append(button(label, () => commit(starterLayout(kind, pen, pen2))));
+      const node = button(label, () => commit(starterLayout(kind, pen, pen2)));
+      node.setAttribute("data-term", `starter:${kind}`);
+      starterGroup.append(node);
     }
 
     const actions = el("div", "fd-actions");
@@ -127,6 +138,7 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
     body.append(heading, toolRow, crestRow, stage, status, swatchRow, colourInput, starterGroup, actions);
     dialog.className = "fd";
     dialog.append(body);
+    bindTermTips(dialog);
 
     main.node.addEventListener("pointerdown", onPointerDown);
     main.node.addEventListener("pointermove", onPointerMove);
@@ -169,11 +181,15 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
     return hex;
   }
 
+  // Each row is painted as runs of equal cells, so a mostly plain flag costs a few rectangles per row.
   function paintCells(ctx, px, withGrid) {
     for (let y = 0; y < FLAG_H; y++) {
-      for (let x = 0; x < FLAG_W; x++) {
-        ctx.fillStyle = colourOf(cells[y * FLAG_W + x]);
-        ctx.fillRect(x * px, y * px, px, px);
+      let start = 0;
+      for (let x = 1; x <= FLAG_W; x++) {
+        if (x < FLAG_W && cells[y * FLAG_W + x] === cells[y * FLAG_W + start]) continue;
+        ctx.fillStyle = colourOf(cells[y * FLAG_W + start]);
+        ctx.fillRect(start * px, y * px, (x - start) * px, px);
+        start = x;
       }
     }
     if (!withGrid) return;

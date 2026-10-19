@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createModel, LAND, RIVER, LAKE, PLANE_NAMES, MAX_CRESTS, project, unproject, pixelAt, N } from "../app/model.js";
+import { createModel, LAND, RIVER, LAKE, PLANE_NAMES, MAX_CRESTS, FLAG_W, FLAG_H, project, unproject, pixelAt, N } from "../app/model.js";
 
 const SIDE = 64;
 
@@ -165,10 +165,10 @@ test("markers: add, move, edit, delete, undo; flag designs update every flag", (
   m.undo();
   assert.equal(m.markers.length, 1);
 
-  const cells = new Uint8Array(384).fill(1);
+  const cells = new Uint8Array(FLAG_W * FLAG_H).fill(1);
   const d = m.addDesign(cells);
   const flag = m.addMarker({ type: "flag", x: 1, y: 1, name: "Flag", colour: 1, design: d });
-  const next = new Uint8Array(384).fill(2);
+  const next = new Uint8Array(FLAG_W * FLAG_H).fill(2);
   m.updateDesign(d, next);
   assert.equal(m.designs[flag.design][0], 2);
 });
@@ -267,7 +267,7 @@ test("name tags: a city or symbol may have no name, a label may not; the offset 
   }
 });
 
-const CREST = { shape: "heater", division: "pale", ordinary: "cross", charge: "star", field: 1, field2: 2, ordinaryColour: 3, chargeColour: 4, outline: 5 };
+const CREST = { shape: "heater", division: "pale", ordinary: "cross", charge: "star", field: 1, field2: 2, ordinaryColour: 3, chargeColour: 4, outline: 5, supporterLeft: "lion", supporterRight: "unicorn", supporterLeftColour: 2, supporterRightColour: 1 };
 
 test("crests: add, update, undo and redo; a colour outside the palette or an unknown choice is refused; the library is capped", () => {
   const m = smallModel();

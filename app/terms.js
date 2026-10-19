@@ -1,0 +1,92 @@
+// What the heraldic and flag words on the crest maker and flag designer mean, for the pop-ups in
+// termtip.js. Keys are `<group>:<id>`; the crest maker builds them from the id lists in crestcells.js
+// and supporters.js, and the flag designer from its own tool and starter lists, so every option has
+// a definition (terms.test.js checks that none is missing).
+
+const TERMS = {
+  "part:shield": ["Shield", "The main part of a coat of arms; its shape is a matter of style. Everything else on the arms is drawn on its face."],
+  "part:division": ["Field", "The background of the shield. A division splits it into two colours along a line."],
+  "part:ordinary": ["Ordinary", "A bold, simple band or shape laid across the shield, such as a cross or a chevron."],
+  "part:charge": ["Charge", "Any emblem placed on the shield, such as a star, a crown or an animal."],
+  "part:supporterLeft": ["Supporter, left", "Figures, usually animals, that stand beside the shield as if holding it up. This one is on the viewer's left, which heraldry calls the dexter side. Rampant means reared up on the hind legs."],
+  "part:supporterRight": ["Supporter, right", "Figures, usually animals, that stand beside the shield as if holding it up. This one is on the viewer's right, which heraldry calls the sinister side. It faces the shield as a mirror image of the left one."],
+
+  "role:field": ["Field colour", "The main background colour of the shield."],
+  "role:field2": ["Second field colour", "The colour of the second part when the field is divided."],
+  "role:ordinaryColour": ["Ordinary colour", "The colour of the bold band or shape laid over the field."],
+  "role:chargeColour": ["Charge colour", "The colour of the emblem at the centre of the shield."],
+  "role:outline": ["Outline", "The line round the shield and round each animal. It also colours the animals' eyes."],
+  "role:supporterLeftColour": ["Left animal colour", "The body colour of the animal on the left. Heraldry calls a colour a tincture."],
+  "role:supporterRightColour": ["Right animal colour", "The body colour of the animal on the right. Heraldry calls a colour a tincture."],
+
+  "shape:heater": ["Heater", "The classic flat-topped shield narrowing to a point, like the base of a flat iron. Common in medieval arms."],
+  "shape:french": ["French", "Straight sides and a rounded base ending in a short point. Also called the French escutcheon."],
+  "shape:oval": ["Oval", "An egg-shaped shield, also called a cartouche. Popular in decorated arms of the 1600s and 1700s."],
+  "shape:lozenge": ["Lozenge", "A diamond shape. In British and many European customs, unmarried women and widows show their arms on a lozenge."],
+
+  "division:plain": ["Plain", "The field is one colour."],
+  "division:pale": ["Per pale", "Split down the middle by a vertical line. A pale is a vertical stripe."],
+  "division:fess": ["Per fess", "Split across the middle by a horizontal line. A fess is a horizontal band."],
+  "division:bend": ["Per bend", "Split by a diagonal line from the top left to the bottom right, as you look at it."],
+  "division:bend-sinister": ["Per bend sinister", "Split by a diagonal line from the top right to the bottom left. Sinister means the left of the person carrying the shield, which is the viewer's right."],
+  "division:quarterly": ["Quarterly", "Split into four equal parts by a vertical and a horizontal line, with the colours alternating."],
+  "division:saltire": ["Per saltire", "Split by both diagonals, so the top and bottom share one colour and the two sides share the other."],
+
+  "ordinary:none": ["No ordinary", "Nothing is laid over the field."],
+  "ordinary:cross": ["Cross", "An upright bar and a crossbar meeting at the centre of the shield."],
+  "ordinary:saltire": ["Saltire", "A diagonal cross shaped like an X. St Andrew's cross is a saltire."],
+  "ordinary:pale": ["Pale", "A broad vertical stripe down the middle of the shield."],
+  "ordinary:fess": ["Fess", "A broad horizontal band across the middle of the shield."],
+  "ordinary:bend": ["Bend", "A broad diagonal band from the top left to the bottom right."],
+  "ordinary:chevron": ["Chevron", "A band bent into an upward-pointing V, like the gable of a roof."],
+  "ordinary:chief": ["Chief", "A broad band across the top of the shield."],
+  "ordinary:bordure": ["Bordure", "A border running round the inside edge of the shield."],
+
+  "charge:none": ["No charge", "No emblem at the centre of the shield."],
+  "charge:star": ["Star", "A many-pointed star. In heraldry, a star with straight points is a mullet and one with wavy points is an estoile."],
+  "charge:crescent": ["Crescent", "A crescent moon with its horns pointing up."],
+  "charge:fleur": ["Fleur-de-lis", "A stylised lily with three petals. A long-standing emblem of the kings of France."],
+  "charge:castle": ["Castle", "A tower with battlements, standing for strength or a fortified place."],
+  "charge:crown": ["Crown", "A ruler's headdress: a band with raised points. It marks royal or sovereign authority."],
+  "charge:sword": ["Sword", "A blade with a cross-guard. It stands for justice, war or honour."],
+  "charge:tree": ["Tree", "A leafy tree. It stands for life, growth or a place named after one."],
+  "charge:heart": ["Heart", "A heart shape, standing for love, loyalty or courage."],
+  "charge:anchor": ["Anchor", "A ship's anchor, standing for the sea, hope or steadiness."],
+  "charge:roundel": ["Roundel", "A plain filled circle. Its heraldic name follows its colour: a gold one is a bezant, a silver one a plate, a red one a torteau and a black one a pellet."],
+
+  "supporter:none": ["No supporter", "Nothing stands on this side of the shield."],
+  "supporter:lion": ["Lion", "Shown rampant, reared up with the forepaws raised. The lion is the commonest animal in heraldry and stands for courage and royalty."],
+  "supporter:unicorn": ["Unicorn", "A horse with a single spiral horn, shown rampant. It stands for purity and power, and it is the national animal of Scotland."],
+  "supporter:horse": ["Horse", "Shown rampant. It often stands for speed, readiness and service."],
+  "supporter:stag": ["Stag", "A male deer with branching antlers, also called a hart. It often stands for a hunter's skill or for peace."],
+  "supporter:bear": ["Bear", "A heavy animal reared on its hind legs. It often stands for strength and protectiveness."],
+  "supporter:wolf": ["Wolf", "A lean hunter, shown rampant. It often stands for fierceness and loyalty to the pack."],
+  "supporter:eagle": ["Eagle", "A bird of prey with a raised wing, drawn from the side. It often stands for authority, sharp sight and empire."],
+  "supporter:dragon": ["Dragon", "A winged beast of legend, shown rampant. It often stands for power and watchfulness."],
+  "supporter:griffin": ["Griffin", "A legendary creature with the head and wings of an eagle and the body of a lion. It stands for strength and watchfulness."],
+
+  "tool:pencil": ["Pencil", "Paints one cell at a time in the pen colour. Drag to paint a line."],
+  "tool:erase": ["Erase", "Paints cells white."],
+  "tool:fill": ["Fill", "Floods the connected area of one colour with the pen colour."],
+  "tool:crest": ["Crest", "Stamps the chosen coat of arms onto the flag, centred on the cell you click. A coat of arms or badge on a flag is called a charge."],
+  "tool:mirror": ["Mirror", "Copies each cell you paint to the opposite side, left to right, so the design is symmetrical."],
+
+  "starter:plain": ["Plain", "The whole flag in one colour. Flag designers call the background of a flag its field."],
+  "starter:stripes-h": ["Stripes (horizontal)", "Three equal horizontal bands, called a triband. A tricolour is a triband in three different colours."],
+  "starter:stripes-v": ["Stripes (vertical)", "Three equal vertical bands, as on the flags of France and Italy."],
+  "starter:cross": ["Cross", "A Nordic cross: the upright is set toward the hoist, as on the flags of Denmark, Sweden and Norway."],
+  "starter:saltire": ["Saltire", "A diagonal cross reaching the corners, as on the flags of Scotland and Jamaica."],
+
+  "flag:hoist": ["Hoist", "The edge of the flag nearest the pole. Here, the left edge."],
+  "flag:fly": ["Fly", "The free end of the flag, farthest from the pole. Here, the right edge."],
+  "flag:canton": ["Canton", "The top corner nearest the pole, here the top left. Many flags put a small flag or emblem there, as Australia's flag does with the Union Jack."],
+};
+
+/**
+ * @param {string} key `<group>:<id>`, for example `division:pale`
+ * @returns {{name: string, text: string} | null} null when the key has no definition
+ */
+export function termFor(key) {
+  const entry = Object.hasOwn(TERMS, key) ? TERMS[key] : null;
+  return entry ? { name: entry[0], text: entry[1] } : null;
+}

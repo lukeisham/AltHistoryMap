@@ -1,27 +1,34 @@
 // The crest maker dialog. index.html holds the <dialog>; this module fills it on first use and
-// resolves open() with the chosen crest (shield shape, division, ordinary, charge and five palette
-// colours, see crestcells.js), or null when the person backs out.
+// resolves open() with the chosen crest (shield shape, division, ordinary, charge, a supporter on each
+// side and the palette colours that paint them, see crestcells.js), or null when the person backs out.
 // It shares the dialog chrome classes of flagdesigner.css and adds crestmaker.css. All DOM comes
 // from dialog.ownerDocument, so a test can hand it a fake document.
 
-import { SHAPES, DIVISIONS, ORDINARIES, CHARGES, CREST_W, CREST_H, renderCrest } from "./crestcells.js";
+import { SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS, CREST_W, CREST_H, renderCrest } from "./crestcells.js";
 import { cellsToPng, drawCells, CREST_PNG_CELL } from "./pngexport.js";
 import { dialogParts } from "./dialogparts.js";
+import { bindTermTips } from "./termtip.js";
 
 /** CSS pixels per crest cell in the large preview. */
-export const PREVIEW_PX = 16;
+export const PREVIEW_PX = 10;
 
 const CHOICES = [
   { key: "shape", label: "Shield", options: SHAPES },
   { key: "division", label: "Field", options: DIVISIONS },
   { key: "ordinary", label: "Ordinary", options: ORDINARIES },
   { key: "charge", label: "Charge", options: CHARGES },
+  { key: "supporterLeft", label: "Left supporter", options: SUPPORTERS },
+  { key: "supporterRight", label: "Right supporter", options: SUPPORTERS },
 ];
+// Both supporter rows list the same animals, so they share the `supporter:` definitions in terms.js.
+const OPTION_TERM_GROUP = { supporterLeft: "supporter", supporterRight: "supporter" };
 const ROLES = [
   { key: "field", label: "Field" },
   { key: "field2", label: "Second field" },
   { key: "ordinaryColour", label: "Ordinary" },
   { key: "chargeColour", label: "Charge" },
+  { key: "supporterLeftColour", label: "Left animal" },
+  { key: "supporterRightColour", label: "Right animal" },
   { key: "outline", label: "Outline" },
 ];
 
@@ -60,6 +67,7 @@ export function createCrestMaker({ dialog, getPalette, addColour, saveBlob }) {
       const row = group(label, "fd-group");
       const buttons = options.map(({ id, label: optionLabel }) => {
         const node = button(optionLabel, () => choose(key, id));
+        node.setAttribute("data-term", `${OPTION_TERM_GROUP[key] ?? key}:${id}`);
         row.append(node);
         return { id, node };
       });
@@ -71,7 +79,11 @@ export function createCrestMaker({ dialog, getPalette, addColour, saveBlob }) {
     preview.node.setAttribute("role", "img");
     preview.node.setAttribute("aria-label", "Preview of the crest");
     const choices = el("div", "cm-choices");
-    for (const { label, row } of choiceRows) choices.append(el("span", "fd-caption", label), row);
+    for (const { key, label, row } of choiceRows) {
+      const caption = el("span", "fd-caption", label);
+      caption.setAttribute("data-term", `part:${key === "shape" ? "shield" : key}`);
+      choices.append(caption, row);
+    }
     stage.append(preview.node, choices);
 
     const status = el("p", "fd-status");
@@ -80,6 +92,7 @@ export function createCrestMaker({ dialog, getPalette, addColour, saveBlob }) {
     const roleRow = group("Which part to colour", "fd-group");
     const roleButtons = ROLES.map(({ key, label }) => {
       const node = button(label, () => setRole(key));
+      node.setAttribute("data-term", `role:${key}`);
       const dot = el("span", "cm-role-dot");
       node.append(dot);
       roleRow.append(node);
@@ -101,6 +114,7 @@ export function createCrestMaker({ dialog, getPalette, addColour, saveBlob }) {
     body.append(heading, stage, status, roleRow, swatchRow, colourInput, actions);
     dialog.className = "fd";
     dialog.append(body);
+    bindTermTips(dialog);
 
     dialog.addEventListener("close", () => settle(null));
     // The padding-free dialog is covered by .fd-body, so a click that lands on the dialog itself hit the backdrop.

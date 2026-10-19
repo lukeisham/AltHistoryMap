@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCrestMaker } from "../app/crestmaker.js";
-import { defaultCrest } from "../app/crestcells.js";
+import { defaultCrest, CREST_W, CREST_H } from "../app/crestcells.js";
+import { CREST_PNG_CELL } from "../app/pngexport.js";
 import { fakeDocument, fakeDialog } from "./fakedom.js";
 
 function setup(palette = ["#ff0000", "#00ff00", "#0000ff"]) {
@@ -46,8 +47,37 @@ test("choosing parts and a colour for the chosen part changes the crest that is 
   t.byText("Add to library").dispatch("click");
   assert.deepEqual(await result, {
     shape: "french", division: "bend", ordinary: "cross", charge: "crown",
-    field: 1, field2: 3, ordinaryColour: 0, chargeColour: 0, outline: 1,
+    supporterLeft: "lion", supporterRight: "lion",
+    field: 1, field2: 3, ordinaryColour: 0, chargeColour: 0, supporterLeftColour: 0, supporterRightColour: 0, outline: 1,
   });
+});
+
+test("each side takes its own supporter and its own colour, and None removes one", async () => {
+  const t = setup();
+  const result = t.maker.open(START());
+  const unicornButtons = t.dialog.findAll((n) => n.tagName === "button" && n.textContent === "Unicorn");
+  assert.equal(unicornButtons.length, 2, "one Unicorn button per side");
+  unicornButtons[1].dispatch("click");
+  t.dialog.findAll((n) => n.tagName === "button" && n.textContent === "None")[2].dispatch("click");
+  t.byText("Right animal").dispatch("click");
+  t.dialog.findAll((n) => n.className === "fd-swatch")[2].dispatch("click");
+  t.byText("Add to library").dispatch("click");
+  const crest = await result;
+  assert.equal(crest.supporterLeft, "none");
+  assert.equal(crest.supporterRight, "unicorn");
+  assert.equal(crest.supporterRightColour, 2);
+  assert.equal(crest.supporterLeftColour, 0);
+});
+
+test("every option button carries a term for the pop-up", () => {
+  const t = setup();
+  t.maker.open(START());
+  const optionButtons = t.dialog.findAll((n) => n.tagName === "button" && n.attrs["data-term"]);
+  assert.ok(optionButtons.length > 40, "shapes, divisions, ordinaries, charges, animals and colour parts all have terms");
+  const pressedOnes = t.byText("Heater").getAttribute("data-term");
+  assert.equal(pressedOnes, "shape:heater");
+  assert.equal(t.byText("Right animal").getAttribute("data-term"), "role:supporterRightColour");
+  t.maker.close();
 });
 
 test("Cancel and the native close event resolve null and return focus; editing relabels the confirm button", async () => {
@@ -81,14 +111,14 @@ test("a picked colour joins the palette and colours the chosen part; a full pale
   assert.equal((await result).chargeColour, 4);
 });
 
-test("Save PNG sends a 12 x 14 cell picture at 24 px per cell under the given file name", async () => {
+test("Save PNG sends a whole-crest picture at CREST_PNG_CELL px per cell under the given file name", async () => {
   const t = setup();
   const result = t.maker.open(START());
   t.byText("Save PNG").dispatch("click");
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(t.saved.length, 1);
   assert.equal(t.saved[0].name, "Map-crest.png");
-  assert.equal(await t.saved[0].blob.text(), "png 288x336");
+  assert.equal(await t.saved[0].blob.text(), `png ${CREST_W * CREST_PNG_CELL}x${CREST_H * CREST_PNG_CELL}`);
   t.maker.close();
   await result;
 });

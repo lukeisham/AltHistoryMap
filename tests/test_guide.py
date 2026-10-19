@@ -18,6 +18,7 @@ LUKEATRON = ROOT.parents[2]
 APP = ROOT / "app"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "build"))
+import build_scenarios  # noqa: E402
 import raster  # noqa: E402
 import serve  # noqa: E402
 
@@ -92,6 +93,14 @@ def js_default(source: Path, function: str) -> str:
     return match.group(1)
 
 
+def supporter_ids() -> list[str]:
+    """The animal ids in supporters.js, read from source because the browser module cannot be imported here."""
+    ids = re.findall(r'id: "(\w+)", label: "', app_source("supporters.js"))
+    if not ids:
+        raise AssertionError("no supporter ids found in supporters.js")
+    return ids
+
+
 def serve_options() -> list[str]:
     """The command-line flags serve.py accepts, read from its source because its parser is built inside run()."""
     flags = re.findall(r'add_argument\("(--[\w-]+)"', (ROOT / "serve.py").read_text(encoding="utf-8"))
@@ -156,11 +165,17 @@ class GuideBoundaryTest(unittest.TestCase):
             "crest transparent cell": f"`TRANSPARENT` ({js_constant(APP / 'crestcells.js', 'TRANSPARENT')})",
             "crest size": f"{js_constant(APP / 'crestcells.js', 'CREST_W')} x {js_constant(APP / 'crestcells.js', 'CREST_H')} cells",
             "crest limit": "`MAX_CRESTS`",
+            "flag size": f"{js_constant(model, 'FLAG_W')} x {js_constant(model, 'FLAG_H')}",
+            "legacy flag scale": f"`LEGACY_FLAG_SCALE` ({js_constant(model, 'LEGACY_FLAG_SCALE')})",
+            "saved flag cells": str(js_constant(model, "FLAG_W") * js_constant(model, "FLAG_H")),
+            "legacy flag cells": str(js_constant(model, "FLAG_W") * js_constant(model, "FLAG_H") // js_constant(model, "LEGACY_FLAG_SCALE") ** 2),
+            "scenario source scale": f"`SOURCE_SCALE`",
             "flag picture scale": f"`FLAG_PNG_CELL` ({js_constant(APP / 'pngexport.js', 'FLAG_PNG_CELL')})",
             "crest picture scale": f"`CREST_PNG_CELL` ({js_constant(APP / 'pngexport.js', 'CREST_PNG_CELL')})",
             "flag zoom element": 'data-role="flag-zoom"',
             "map file crests key": "`crests`",
         }
+        values.update({f"supporter {name}": f"`{name}`" for name in supporter_ids()})
         values.update({f"launcher {name}": f"`{name}`" for name in LAUNCHERS})
         values.update({f"server option {flag}": flag for flag in serve_options()})
         missing = {label: value for label, value in values.items() if value not in self.section}
@@ -169,6 +184,11 @@ class GuideBoundaryTest(unittest.TestCase):
     def test_the_grid_and_projection_numbers_match_in_both_languages(self) -> None:
         self.assertEqual(js_constant(APP / "model.js", "N"), raster.N)
         self.assertEqual(js_constant(APP / "model.js", "MAX_LAT"), raster.MAX_LAT)
+
+    def test_the_flag_grid_and_its_scale_match_in_both_languages(self) -> None:
+        model = APP / "model.js"
+        self.assertEqual((js_constant(model, "FLAG_W"), js_constant(model, "FLAG_H")), (build_scenarios.FLAG_W, build_scenarios.FLAG_H))
+        self.assertEqual(js_constant(model, "LEGACY_FLAG_SCALE"), build_scenarios.SOURCE_SCALE)
 
     def test_lukeatron_files_that_point_at_the_app_agree_with_serve(self) -> None:
         ports = json.loads((LUKEATRON / "System/Apps/ports.json").read_text(encoding="utf-8"))["ports"]
@@ -259,8 +279,11 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("normaliseCrest(crest, model.palette.length)", app_source("model.js"))
         self.assertIn("normaliseCrest(crest, palette.length)", app_source("mapfile.js"))
         self.assertIn("stampCrest(cells, crests[crestIndex]", app_source("flagdesigner.js"))
-        for key in js_constant(APP / "crestcells.js", "COLOUR_KEYS") + js_constant(APP / "crestcells.js", "CHOICE_KEYS"):
+        supporter_keys = [f"supporter{side}{suffix}" for side in ("Left", "Right") for suffix in ("", "Colour")]
+        for key in js_constant(APP / "crestcells.js", "COLOUR_KEYS") + js_constant(APP / "crestcells.js", "CHOICE_KEYS") + supporter_keys:
             self.assertIn(f"`{key}`", row)
+        for key in supporter_keys:
+            self.assertIn(f"supporter${{side}}", app_source("crestcells.js"), f"normaliseCrest no longer handles {key}")
         self.assertIn("`MAX_CRESTS`", row_starting(self.section, "`model.js`"))
 
     def test_a_map_file_without_crests_still_opens(self) -> None:
@@ -289,6 +312,43 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertTrue(imports("flagzoom.js", "pngexport.js") and imports("creststrip.js", "pngexport.js"))
         self.assertIn("-flag", app_source("designs.js"))
         self.assertIn("-crest", app_source("crests.js"))
+
+    def test_supporters_reach_crestcells_and_the_crest_maker_lists_them(self) -> None:
+        row = row_starting(self.section, "`supporters.js`")
+        for name in ("crestcells.js", "SUPPORTERS", "rasterSupporter(id)", "BODY", "EYE", *supporter_ids()):
+            self.assertIn(f"`{name}`", row)
+        self.assertTrue(imports("crestcells.js", "supporters.js"))
+        self.assertIn("rasterSupporter(animalId)", app_source("crestcells.js"))
+        self.assertIn("options: SUPPORTERS", app_source("crestmaker.js"))
+
+    def test_term_pop_ups_are_bound_by_both_dialogs_and_every_group_is_named(self) -> None:
+        row = row_starting(self.section, "`terms.js`")
+        for name in ("termtip.js", "crestmaker.js", "flagdesigner.js", "termFor", "bindTermTips(dialog)", "data-term"):
+            self.assertIn(f"`{name}`" if name.endswith(".js") else name, row)
+        self.assertTrue(imports("termtip.js", "terms.js"))
+        for dialog in ("flagdesigner.js", "crestmaker.js"):
+            self.assertTrue(imports(dialog, "termtip.js"))
+            self.assertIn("bindTermTips(dialog)", app_source(dialog))
+        groups = set(re.findall(r'^  "(\w+):', app_source("terms.js"), re.MULTILINE))
+        self.assertGreater(len(groups), 8, "the group scan found almost nothing")
+        for group in groups:
+            self.assertIn(f"`{group}`", row)
+        self.assertIn('href="termtip.css"', (APP / "index.html").read_text(encoding="utf-8"))
+
+    def test_placed_flags_and_thumbnails_draw_from_flag_blocks(self) -> None:
+        row = row_starting(self.section, "`flagblocks.js`")
+        for name in ("markers.js", "flagstrip.js", "flagzoom.js"):
+            self.assertIn(f"`{name}`", row)
+        self.assertTrue(imports("markers.js", "flagblocks.js") and imports("flagstrip.js", "flagblocks.js"))
+        self.assertIn("flagBlocks(", app_source("markers.js"))
+        self.assertIn("flagBlocks(", app_source("flagstrip.js"))
+
+    def test_an_older_flag_is_scaled_up_when_a_map_opens(self) -> None:
+        row = next(line for line in self.section.splitlines() if line.startswith("| `FLAG_W`, `FLAG_H`"))
+        for name in ("mapfile.js", "flagcells.js", "upscaleLegacyFlag"):
+            self.assertIn(name, row)
+        self.assertTrue(imports("mapfile.js", "flagcells.js"))
+        self.assertIn("upscaleLegacyFlag(design)", app_source("mapfile.js"))
 
     def test_the_flag_zoom_is_shown_by_the_stage_and_the_flag_list_and_hidden_again(self) -> None:
         row = row_starting(self.section, "`flagzoom.js`")

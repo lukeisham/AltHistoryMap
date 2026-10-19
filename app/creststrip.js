@@ -5,7 +5,7 @@ import { CREST_W, CREST_H, renderCrest } from "./crestcells.js";
 import { drawCells } from "./pngexport.js";
 
 /** CSS pixels per crest cell in a thumbnail. */
-const THUMB_CELL = 2.5;
+const THUMB_CELL = 1.5;
 
 /**
  * @param {{

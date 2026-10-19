@@ -1,13 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createFlagDesigner } from "../app/flagdesigner.js";
-import { TRANSPARENT } from "../app/crestcells.js";
+import { TRANSPARENT, CREST_W, CREST_H } from "../app/crestcells.js";
+import { FLAG_W, FLAG_H } from "../app/model.js";
+import { FLAG_PNG_CELL } from "../app/pngexport.js";
 import { fakeDocument, fakeDialog } from "./fakedom.js";
 
-// A 12 x 14 crest of colour 3 with its four corner cells transparent, as renderCrest leaves a shield's surround.
+// A whole-crest grid of colour 3 with its four corner cells transparent, as renderCrest leaves the surround.
 function cornerlessCrest() {
-  const cells = new Uint8Array(12 * 14).fill(3);
-  for (const i of [0, 11, 12 * 13, 12 * 13 + 11]) cells[i] = TRANSPARENT;
+  const cells = new Uint8Array(CREST_W * CREST_H).fill(3);
+  for (const i of [0, CREST_W - 1, CREST_W * (CREST_H - 1), CREST_W * CREST_H - 1]) cells[i] = TRANSPARENT;
   return cells;
 }
 
@@ -33,8 +35,9 @@ function setup({ palette = ["#ff0000", "#00ff00", "#0000ff"], crests = [] } = {}
   const byText = (text) => dialog.find((n) => n.tagName === "button" && n.textContent === text);
   const canvas = () => dialog.find((n) => n.tagName === "canvas" && n.className === "fd-canvas");
   const click = (text) => byText(text).dispatch("click", {});
-  // The 384 x 256 canvas holds 16 px cells, so cell (x, y) is centred at (16x + 8, 16y + 8).
-  const pointer = (type, x, y) => canvas().dispatch(type, { clientX: x * 16 + 8, clientY: y * 16 + 8, pointerId: 1 });
+  // The fake canvas reports 384 x 256 pixels, so a cell is 384 / FLAG_W wide and cell (x, y) is centred half a cell in.
+  const cellPx = 384 / FLAG_W;
+  const pointer = (type, x, y) => canvas().dispatch(type, { clientX: (x + 0.5) * cellPx, clientY: (y + 0.5) * cellPx, pointerId: 1 });
   const swatchButtons = () => {
     const nodes = [];
     dialog.walk((n) => { if (n.className === "fd-swatch") nodes.push(n); });
@@ -65,7 +68,7 @@ test("Escape (the native close event) also resolves null", async () => {
   assert.equal(await result, null);
 });
 
-test("painting one cell and confirming resolves 384 cells; the label follows editing", async () => {
+test("painting one cell and confirming resolves a full grid of cells; the label follows editing", async () => {
   const t = setup();
   const result = t.designer.open({ cells: null, colour: 3, colour2: 1, editing: false });
   assert.ok(t.byText("Add to library"));
@@ -73,8 +76,8 @@ test("painting one cell and confirming resolves 384 cells; the label follows edi
   t.pointer("pointerup", 5, 4);
   t.click("Add to library");
   const cells = await result;
-  assert.equal(cells.length, 384);
-  assert.equal(cells[4 * 24 + 5], 3);
+  assert.equal(cells.length, FLAG_W * FLAG_H);
+  assert.equal(cells[4 * FLAG_W + 5], 3);
   assert.equal(painted(cells), 1);
 
   const again = t.designer.open({ cells, colour: 1, colour2: 2, editing: true });
@@ -103,7 +106,7 @@ test("a drag paints a gapless stroke and Undo takes the whole stroke back", asyn
 
 test("Clear blanks the canvas and can be undone; Mirror writes both halves", async () => {
   const t = setup();
-  const start = new Uint8Array(384).fill(2);
+  const start = new Uint8Array(FLAG_W * FLAG_H).fill(2);
   const result = t.designer.open({ cells: start, colour: 1, colour2: 2, editing: true });
   t.click("Clear");
   t.click("Undo");
@@ -115,8 +118,8 @@ test("Clear blanks the canvas and can be undone; Mirror writes both halves", asy
   t.click("Save changes");
   const cells = await result;
   assert.equal(painted(cells), 2);
-  assert.equal(cells[3 * 24 + 2], 1);
-  assert.equal(cells[3 * 24 + 21], 1);
+  assert.equal(cells[3 * FLAG_W + 2], 1);
+  assert.equal(cells[3 * FLAG_W + FLAG_W - 3], 1);
 });
 
 test("Erase writes white, Fill fills a region, a starter replaces the canvas", async () => {
@@ -127,13 +130,13 @@ test("Erase writes white, Fill fills a region, a starter replaces the canvas", a
   t.pointer("pointerdown", 0, 0);
   t.pointer("pointerup", 0, 0);
   t.click("Fill");
-  t.pointer("pointerdown", 23, 15);
-  t.pointer("pointerup", 23, 15);
+  t.pointer("pointerdown", FLAG_W - 1, FLAG_H - 1);
+  t.pointer("pointerup", FLAG_W - 1, FLAG_H - 1);
   t.click("Add to library");
   const cells = await result;
   assert.equal(cells[0], 0);
-  assert.equal(cells[15 * 24 + 23], 1);
-  assert.equal(cells[8 * 24], 2);
+  assert.equal(cells[(FLAG_H - 1) * FLAG_W + FLAG_W - 1], 1);
+  assert.equal(cells[(FLAG_H / 2) * FLAG_W], 2);
 });
 
 test("keyboard: arrows move the cursor, Space paints, Shift-click sets the second colour", async () => {
@@ -152,7 +155,7 @@ test("keyboard: arrows move the cursor, Space paints, Shift-click sets the secon
   t.click("Add to library");
   const cells = await result;
   assert.equal(cells[0], 1);
-  assert.equal(cells[12], 3);
+  assert.equal(cells[FLAG_W / 2], 3);
 });
 
 test("the + swatch opens the colour picker; a picked colour joins the palette and becomes the pen colour", async () => {
@@ -173,7 +176,7 @@ test("the + swatch opens the colour picker; a picked colour joins the palette an
   t.pointer("pointerdown", 1, 1);
   t.pointer("pointerup", 1, 1);
   t.click("Add to library");
-  assert.equal((await result)[1 * 24 + 1], 4);
+  assert.equal((await result)[1 * FLAG_W + 1], 4);
 });
 
 test("a full palette says so and leaves the pen colour alone", () => {
@@ -190,23 +193,27 @@ test("a full palette says so and leaves the pen colour alone", () => {
 
 test("the Crest tool stamps the chosen crest centred on the clicked cell, skips its transparent corners, and Undo takes it back", async () => {
   const t = setup({ crests: [cornerlessCrest()] });
-  const result = t.designer.open({ cells: new Uint8Array(384).fill(1), colour: 1, colour2: 2, editing: true, fileName: "x.png" });
+  const result = t.designer.open({ cells: new Uint8Array(FLAG_W * FLAG_H).fill(1), colour: 1, colour2: 2, editing: true, fileName: "x.png" });
   assert.equal(t.dialog.find((n) => n.className === "fd-crests").hidden, true, "the crest picker shows only for the Crest tool");
   t.click("Crest");
   assert.equal(t.dialog.find((n) => n.className === "fd-crests").hidden, false);
   assert.equal(t.dialog.find((n) => n.className === "fd-crest").getAttribute("aria-pressed"), "true");
 
-  t.pointer("pointerdown", 12, 8);
-  t.pointer("pointerup", 12, 8);
+  const cx = FLAG_W / 2;
+  const cy = FLAG_H / 2;
+  t.pointer("pointerdown", cx, cy);
+  t.pointer("pointerup", cx, cy);
   t.click("Undo");
-  t.pointer("pointerdown", 12, 8);
-  t.pointer("pointerup", 12, 8);
+  t.pointer("pointerdown", cx, cy);
+  t.pointer("pointerup", cx, cy);
   t.click("Save changes");
   const cells = await result;
-  assert.equal(cells[8 * 24 + 12], 3);
-  assert.equal(cells[1 * 24 + 6], 1, "the crest's top-left corner is transparent, so the flag shows through");
-  assert.equal(cells[1 * 24 + 7], 3, "the cell beside it is crest");
-  assert.equal(cells.filter((c) => c === 3).length, 12 * 14 - 4);
+  const left = cx - CREST_W / 2;
+  const top = cy - CREST_H / 2;
+  assert.equal(cells[cy * FLAG_W + cx], 3);
+  assert.equal(cells[top * FLAG_W + left], 1, "the crest's top-left corner is transparent, so the flag shows through");
+  assert.equal(cells[top * FLAG_W + left + 1], 3, "the cell beside it is crest");
+  assert.equal(cells.filter((c) => c === 3).length, CREST_W * CREST_H - 4);
 });
 
 test("the Crest tool with no saved crests changes nothing and says how to make one", async () => {
@@ -228,7 +235,7 @@ test("Save PNG hands the picture and the file name to the page, and a failure is
   assert.equal(t.saved.length, 1);
   assert.equal(t.saved[0].name, "My map-flag-2.png");
   assert.equal(t.saved[0].blob.type, "image/png");
-  assert.equal(await t.saved[0].blob.text(), "png 384x256", "24 cells at 16 px by 16 cells");
+  assert.equal(await t.saved[0].blob.text(), `png ${FLAG_W * FLAG_PNG_CELL}x${FLAG_H * FLAG_PNG_CELL}`, "the whole grid at FLAG_PNG_CELL pixels per cell");
 
   t.canvas().ownerDocument.createElement = () => { throw new Error("no canvas"); };
   t.click("Save PNG");
@@ -237,4 +244,15 @@ test("Save PNG hands the picture and the file name to the page, and a failure is
   assert.equal(t.saved.length, 1);
   t.designer.close();
   await result;
+});
+
+test("tools, Mirror, starter layouts and the flag-part captions each carry a term for the pop-up", () => {
+  const t = setup();
+  t.designer.open({ cells: null, colour: 1, colour2: 2, editing: false, fileName: "x.png" });
+  const terms = [];
+  t.dialog.walk((n) => { if (n.attrs["data-term"]) terms.push(n.attrs["data-term"]); });
+  for (const expected of ["tool:pencil", "tool:erase", "tool:fill", "tool:crest", "tool:mirror", "starter:stripes-h", "starter:saltire", "flag:hoist", "flag:fly", "flag:canton"]) {
+    assert.ok(terms.includes(expected), `${expected} has no term`);
+  }
+  t.designer.close();
 });

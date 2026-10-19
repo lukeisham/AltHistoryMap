@@ -13,5 +13,6 @@ Visit [althistorymap.pages.dev/app](https://althistorymap.pages.dev/app/) in a c
 - Switch to **Edit** to paint, fill, draw borders and place cities, flags, symbols and labels. Undo with Ctrl/Cmd-Z.
 - **Cities by nation** colours each city's dot by the nation that holds it.
 - **Save** downloads your map as a file; **Open** (or dropping the file on the page) loads it again. **PNG** saves a picture.
-- **Flags** are drawn in the flag designer: pick any colour with the **+** swatch, or stamp a crest onto the flag. Rest the pointer on a flag to see it larger.
-- **Crests** are built in the crest maker from shield shapes, divisions, ordinaries and charges. Both open from the panel on the left in Edit mode, and both have **Save PNG**.
+- **Flags** are drawn in the flag designer: pick any colour with the **+** swatch, or stamp a whole coat of arms onto the flag. Rest the pointer on a flag to see it larger.
+- **Crests** are built in the crest maker from shield shapes, divisions, ordinaries and charges, with an animal on either side of the shield like a coat of arms. Both open from the panel on the left in Edit mode, and both have **Save PNG**.
+- Rest the pointer on any heraldic or flag word in either designer to see what it means.

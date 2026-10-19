@@ -8,6 +8,10 @@ import { loadPrefs, savePrefs, readRecovery, clearRecovery, startRecovery } from
 import { GLYPHS } from "./glyphs.js";
 import { createRenderer } from "./render.js";
 import { createFlagDesigner } from "./flagdesigner.js";
+import { createCrestMaker } from "./crestmaker.js";
+import { renderCrest } from "./crestcells.js";
+import { downloadBlob } from "./filesave.js";
+import { createFlagZoom } from "./flagzoom.js";
 import { createAppState, keepSelectionsValid } from "./state.js";
 import { createEditor } from "./editor.js";
 import { createKeys } from "./keys.js";
@@ -18,6 +22,7 @@ import { createDialogs } from "./dialogs.js";
 import { createMessages } from "./messages.js";
 import { createActions } from "./actions.js";
 import { createDesigns } from "./designs.js";
+import { createCrests } from "./crests.js";
 import { bindHeader } from "./header.js";
 import { bindLayerBar } from "./layerbar.js";
 import { lookFor } from "./layers.js";
@@ -25,6 +30,7 @@ import { bindToolPanel } from "./toolpanel.js";
 import { bindPalette } from "./palette.js";
 import { bindSymbols } from "./symbols.js";
 import { bindFlagStrip } from "./flagstrip.js";
+import { bindCrestStrip } from "./creststrip.js";
 import { bindFileDrop } from "./filedrop.js";
 import { bindScenarios } from "./scenarios.js";
 
@@ -92,8 +98,19 @@ async function main() {
 
   const dialogs = createDialogs(part("app-dialog"));
   const editor = createEditor({ model, state, say });
-  const designer = createFlagDesigner({ dialog: part("flag-designer"), getPalette: () => model.palette });
+  const getPalette = () => model.palette;
+  const addColour = (hex) => editor.addColour(hex);
+  const designer = createFlagDesigner({
+    dialog: part("flag-designer"),
+    getPalette,
+    addColour,
+    getCrests: () => model.crests.map(renderCrest),
+    saveBlob: downloadBlob,
+  });
   const designs = createDesigns({ designer, model, state, editor, say });
+  const maker = createCrestMaker({ dialog: part("crest-maker"), getPalette, addColour, saveBlob: downloadBlob });
+  const crests = createCrests({ maker, model, state, editor, say });
+  const flagZoom = createFlagZoom({ box: part("flag-zoom"), canvas: part("flag-zoom-canvas"), getPalette });
   const stageBox = part("stage");
 
   const nameField = createNameField({
@@ -124,6 +141,7 @@ async function main() {
     nameField,
     markerInfo,
     designs,
+    flagZoom,
     say,
     glyphIds,
     isPanHeld: keys.isPanHeld,
@@ -162,6 +180,15 @@ async function main() {
     state,
     model,
     designs,
+    flagZoom,
+  });
+  bindCrestStrip({
+    container: part("crests"),
+    newButton: part("crest-new"),
+    editButton: part("crest-edit"),
+    state,
+    model,
+    crests,
   });
   // An earlier confirmation or warning no longer describes the map once it changes.
   model.onChange(() => messages.clear());

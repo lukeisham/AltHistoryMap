@@ -1,6 +1,7 @@
 // The Flags list under the palette: a plain flag in the chosen colour, then one thumbnail per design.
 // Clicking one picks it and the Flag tool; double-clicking a thumbnail, or the Edit button, opens the designer.
 // Dragging one onto the map places a flag with that design where it is dropped.
+// Resting the pointer on one shows it enlarged (flagzoom.js).
 
 import { FLAG_W, FLAG_H } from "./model.js";
 import { setDragItem } from "./dragitem.js";
@@ -40,10 +41,11 @@ export function drawThumb(canvas, cells, palette, white, plain) {
  *   editButton: HTMLButtonElement,
  *   state: {get: () => object, set: (patch: object) => void, subscribe: Function},
  *   model: {palette: string[], designs: Uint8Array[], onChange: Function},
- *   designs: {create: () => void, edit: (index: number) => void}
+ *   designs: {create: () => void, edit: (index: number) => void},
+ *   flagZoom: {show: (flag: {cells: Uint8Array | null, colour: string, x: number, y: number}) => void, hide: () => void}
  * }} deps
  */
-export function bindFlagStrip({ container, newButton, editButton, state, model, designs }) {
+export function bindFlagStrip({ container, newButton, editButton, state, model, designs, flagZoom }) {
   const doc = container.ownerDocument;
   let buttons = [];
   let drawn = [];
@@ -65,7 +67,16 @@ export function bindFlagStrip({ container, newButton, editButton, state, model, 
     button.append(canvas);
     button.draggable = true;
     button.addEventListener("click", () => state.set({ design: index, tool: "flag" }));
-    button.addEventListener("dragstart", (event) => setDragItem(event, { kind: "flag", design: index }));
+    button.addEventListener("dragstart", (event) => {
+      flagZoom.hide();
+      setDragItem(event, { kind: "flag", design: index });
+    });
+    button.addEventListener("pointerenter", () => {
+      const box = button.getBoundingClientRect();
+      const cells = index < 0 ? null : model.designs[index];
+      flagZoom.show({ cells, colour: model.palette[state.get().colour - 1], x: box.right, y: box.top });
+    });
+    button.addEventListener("pointerleave", () => flagZoom.hide());
     if (index >= 0) button.addEventListener("dblclick", () => designs.edit(index));
     return button;
   }

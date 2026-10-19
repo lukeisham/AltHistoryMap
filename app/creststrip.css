@@ -1,0 +1,35 @@
+.crest-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.crest-thumb {
+  display: block;
+  padding: var(--s-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  line-height: 0;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  &[aria-pressed="true"] {
+    outline: 2px solid var(--acc);
+    outline-offset: 1px;
+  }
+}
+
+.crest-thumb-canvas {
+  display: block;
+}
+
+.crest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}

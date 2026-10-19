@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createModel, LAND, RIVER, LAKE, PLANE_NAMES, project, unproject, pixelAt, N } from "../app/model.js";
+import { createModel, LAND, RIVER, LAKE, PLANE_NAMES, MAX_CRESTS, project, unproject, pixelAt, N } from "../app/model.js";
 
 const SIDE = 64;
 
@@ -188,7 +188,7 @@ test("palette is add-only and undoable; history is capped; replace clears dirty"
   let undone = 0;
   while (m.undo()) undone++;
   assert.equal(undone, 100);
-  m.replace({ name: "x", origin: null, palette: ["#000000"], markers: [], designs: [], planes: m.planes });
+  m.replace({ name: "x", origin: null, palette: ["#000000"], markers: [], designs: [], crests: [], planes: m.planes });
   assert.equal(m.isDirty(), false);
   assert.equal(m.canUndo(), false);
 });
@@ -238,7 +238,7 @@ test("a river is a wall to a fill: neither coloured nor crossed, and a fill star
 test("a map loaded with paint on rivers and lakes has that paint cleared", () => {
   const m = riverModel();
   const planes = Object.fromEntries(PLANE_NAMES.map((name) => [name, new Uint8Array(SIDE * SIDE).fill(3)]));
-  m.replace({ name: "Old", origin: null, palette: [...m.palette], markers: [], designs: [], planes });
+  m.replace({ name: "Old", origin: null, palette: [...m.palette], markers: [], designs: [], crests: [], planes });
   for (const plane of PLANE_NAMES) {
     assert.equal(at(m, plane, 20, 7), 0);
     assert.equal(at(m, plane, 10, 10), 0);
@@ -265,4 +265,40 @@ test("name tags: a city or symbol may have no name, a label may not; the offset 
   } finally {
     console.warn = warn;
   }
+});
+
+const CREST = { shape: "heater", division: "pale", ordinary: "cross", charge: "star", field: 1, field2: 2, ordinaryColour: 3, chargeColour: 4, outline: 5 };
+
+test("crests: add, update, undo and redo; a colour outside the palette or an unknown choice is refused; the library is capped", () => {
+  const m = smallModel();
+  assert.equal(m.addCrest(CREST), 0);
+  assert.deepEqual(m.crests[0], CREST);
+  assert.equal(m.addCrest({ ...CREST, field: 99 }), null);
+  assert.equal(m.addCrest({ ...CREST, charge: "dragon" }), null);
+  assert.equal(m.crests.length, 1);
+
+  assert.equal(m.updateCrest(0, { ...CREST, shape: "oval" }), true);
+  assert.equal(m.crests[0].shape, "oval");
+  assert.equal(m.updateCrest(5, CREST), false);
+  m.undo();
+  assert.equal(m.crests[0].shape, "heater");
+  m.undo();
+  assert.equal(m.crests.length, 0);
+  m.redo();
+  assert.equal(m.crests.length, 1);
+  assert.equal(m.isDirty(), true, "adding a crest is an unsaved change");
+
+  const full = smallModel();
+  for (let i = 0; i < MAX_CRESTS; i++) full.addCrest(CREST);
+  assert.equal(full.addCrest(CREST), null);
+});
+
+test("replace and snapshot carry the crests", () => {
+  const m = smallModel();
+  m.addCrest(CREST);
+  const copy = m.snapshot();
+  assert.equal(copy.crests, m.crests);
+  const other = smallModel();
+  other.replace({ ...copy, crests: [] });
+  assert.equal(other.crests.length, 0);
 });

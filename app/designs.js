@@ -3,11 +3,12 @@
 // store only the design's index.
 
 import { MAX_DESIGNS } from "./model.js";
+import { cleanFileName } from "./filesave.js";
 
 /**
  * @param {{
  *   designer: {open: (design: object) => Promise<Uint8Array | null>},
- *   model: {designs: Uint8Array[]},
+ *   model: {name: string, designs: Uint8Array[]},
  *   state: {get: () => object, set: (patch: object) => void},
  *   editor: {editGate: () => boolean, addDesign: Function, updateDesign: Function},
  *   say: (text: string) => void
@@ -15,6 +16,8 @@ import { MAX_DESIGNS } from "./model.js";
  * @returns {{create: () => Promise<void>, edit: (index: number) => Promise<void>, editFlag: (marker: {design: number}) => Promise<void>}}
  */
 export function createDesigns({ designer, model, state, editor, say }) {
+  const fileNameFor = (index) => `${cleanFileName(model.name)}-flag${index === null ? "" : `-${index + 1}`}.png`;
+
   async function create() {
     if (!editor.editGate()) return;
     if (model.designs.length >= MAX_DESIGNS) {
@@ -22,7 +25,7 @@ export function createDesigns({ designer, model, state, editor, say }) {
       return;
     }
     const { colour, colour2 } = state.get();
-    const cells = await designer.open({ cells: null, colour, colour2, editing: false });
+    const cells = await designer.open({ cells: null, colour, colour2, editing: false, fileName: fileNameFor(null) });
     if (!cells) return;
     const index = editor.addDesign(cells);
     if (index === null) say("The flag design could not be added.");
@@ -37,7 +40,7 @@ export function createDesigns({ designer, model, state, editor, say }) {
       return;
     }
     const { colour, colour2 } = state.get();
-    const cells = await designer.open({ cells: design, colour, colour2, editing: true });
+    const cells = await designer.open({ cells: design, colour, colour2, editing: true, fileName: fileNameFor(index) });
     if (cells && !editor.updateDesign(index, cells)) say("The changes to the flag design could not be saved.");
   }
 

@@ -7,6 +7,7 @@ import {
   PLANE_NAMES,
   MAX_PALETTE,
   MAX_DESIGNS,
+  MAX_CRESTS,
   MAX_NAME,
   MAX_TAG_OFFSET,
   FLAG_W,
@@ -15,6 +16,7 @@ import {
   MARKER_TYPES,
 } from "./model.js";
 import { collectBounded, StreamLimitError } from "./streams.js";
+import { normaliseCrest } from "./crestcells.js";
 
 export const MAGIC = "AHMAP001";
 export const SAVED_WITH = "ahm-1";
@@ -34,7 +36,7 @@ const DAMAGED = "This file is damaged or cut short";
 
 /**
  * Turns a map into a gzip-compressed .ahmap Blob.
- * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], planes: object}} data
+ * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests?: object[], planes: object}} data
  *   The shape of model.snapshot().
  * @returns {Promise<Blob>}
  */
@@ -78,6 +80,7 @@ function buildHeader(data) {
       nation: m.nation ?? 0,
     })),
     flags: data.designs.map((d) => Array.from(d)),
+    crests: (data.crests ?? []).map((crest) => ({ ...crest })),
     savedWith: SAVED_WITH,
   };
   try {
@@ -93,7 +96,7 @@ function buildHeader(data) {
  * Reads and validates a map file. Nothing is returned unless the whole file is valid.
  * @param {Blob | ArrayBuffer | Uint8Array} source The gzip bytes.
  * @param {string[]} glyphIds Every valid symbol glyph id.
- * @returns {Promise<{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], planes: object}>}
+ * @returns {Promise<{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests: object[], planes: object}>}
  *   Ready for model.replace(); the planes are views of one buffer.
  * @throws {MapFileError} On any problem with the file.
  */
@@ -206,11 +209,20 @@ function checkHeader(h, glyphs) {
     return design;
   });
 
+  // Files saved before crests existed have no such key.
+  const crestList = h.crests ?? [];
+  if (!Array.isArray(crestList) || crestList.length > MAX_CRESTS) throw new MapFileError("The crests in this file are not valid");
+  const crests = crestList.map((crest) => {
+    const clean = normaliseCrest(crest, palette.length);
+    if (!clean) throw new MapFileError("A crest in this file is not valid");
+    return clean;
+  });
+
   if (!Array.isArray(h.markers)) throw new MapFileError("The markers in this file are not valid");
   const seen = new Set();
   const markers = h.markers.map((m) => checkMarker(m, palette.length, designs.length, glyphs, seen));
 
-  return { name, origin, palette: [...palette], markers, designs };
+  return { name, origin, palette: [...palette], markers, designs, crests };
 }
 
 function checkMarker(m, paletteLength, designCount, glyphs, seen) {

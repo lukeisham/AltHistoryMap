@@ -3,6 +3,7 @@
 // so flagdesigner.js can keep earlier arrays as undo history without copying them again.
 
 import { FLAG_W, FLAG_H } from "./model.js";
+import { CREST_W, CREST_H, TRANSPARENT } from "./crestcells.js";
 
 const CELL_COUNT = FLAG_W * FLAG_H;
 const STARTER_KINDS = ["plain", "stripes-h", "stripes-v", "cross", "saltire"];
@@ -166,4 +167,31 @@ export function pencilLine(cells, x0, y0, x1, y1, v, mirror) {
       y += sy;
     }
   }
+}
+
+/**
+ * A copy of a flag grid with a crest stamped on it, centred on a cell. Transparent crest cells leave
+ * the flag as it was, and any part of the crest beyond the flag's edge is dropped.
+ * @param {Uint8Array} flagCells FLAG_W * FLAG_H palette indexes
+ * @param {Uint8Array} crestCells CREST_W * CREST_H, as renderCrest returns
+ * @param {number} cx column of the flag cell that takes the crest's centre
+ * @param {number} cy row of that cell
+ * @returns {Uint8Array}
+ */
+export function stampCrest(flagCells, crestCells, cx, cy) {
+  if (flagCells.length !== FLAG_W * FLAG_H) throw new RangeError(`flag must have ${FLAG_W * FLAG_H} cells, got ${flagCells.length}`);
+  if (crestCells.length !== CREST_W * CREST_H) throw new RangeError(`crest must have ${CREST_W * CREST_H} cells, got ${crestCells.length}`);
+  const next = new Uint8Array(flagCells);
+  const left = cx - Math.floor(CREST_W / 2);
+  const top = cy - Math.floor(CREST_H / 2);
+  for (let y = 0; y < CREST_H; y++) {
+    for (let x = 0; x < CREST_W; x++) {
+      const v = crestCells[y * CREST_W + x];
+      const fx = left + x;
+      const fy = top + y;
+      if (v === TRANSPARENT || fx < 0 || fy < 0 || fx >= FLAG_W || fy >= FLAG_H) continue;
+      next[fy * FLAG_W + fx] = v;
+    }
+  }
+  return next;
 }

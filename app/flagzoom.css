@@ -1,0 +1,20 @@
+.flag-zoom {
+  position: fixed;
+  left: calc(var(--at-x, 0) * 1px);
+  top: calc(var(--at-y, 0) * 1px);
+  padding: var(--s-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  box-shadow: var(--shade-float);
+  line-height: 0;
+  pointer-events: none;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.flag-zoom-canvas {
+  display: block;
+}

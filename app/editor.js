@@ -173,6 +173,16 @@ export function createEditor({ model, state, say }) {
       return editGate() && model.updateDesign(index, cells);
     },
 
+    /** @returns {number | null} The new crest's index. */
+    addCrest(crest) {
+      return editGate() ? model.addCrest(crest) : null;
+    },
+
+    /** @returns {boolean} */
+    updateCrest(index, crest) {
+      return editGate() && model.updateCrest(index, crest);
+    },
+
     /** @returns {boolean} */
     undo() {
       return editGate() && model.undo();

@@ -167,3 +167,46 @@
     line-height: var(--lh-ui);
   }
 }
+
+.fd-crests[hidden] {
+  display: none;
+}
+
+.fd-crest {
+  display: block;
+  padding: var(--s-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  line-height: 0;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  &[aria-pressed="true"] {
+    outline: 2px solid var(--acc);
+    outline-offset: 1px;
+  }
+}
+
+.fd-crest-canvas {
+  display: block;
+}
+
+.fd-swatch-add {
+  background: var(--bg-raised);
+  color: var(--ink-2);
+  font: inherit;
+  line-height: 1;
+}
+
+.fd-colour-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}

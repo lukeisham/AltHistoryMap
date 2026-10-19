@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createModel, LAND, N, PLANE_NAMES } from "../app/model.js";
 import { encodeMap, decodeMap, asScenarioCopy, MapFileError, MAGIC } from "../app/mapfile.js";
@@ -257,3 +257,65 @@ test("cross-language: the Python-written blank world opens", { skip: !existsSync
   assert.equal(data.planes.political.length, N * N);
   assert.ok(Array.isArray(data.palette));
 });
+
+const CREST = { shape: "french", division: "quarterly", ordinary: "bordure", charge: "crown", field: 1, field2: 2, ordinaryColour: 3, chargeColour: 4, outline: 5 };
+
+test("crests survive a save and open, in order, and the model takes them back", async () => {
+  const model = fullModel();
+  model.addCrest(CREST);
+  model.addCrest({ ...CREST, shape: "oval", charge: "none" });
+  const after = await decodeMap(await encodeMap(model.snapshot()), GLYPHS);
+  assert.deepEqual(after.crests, model.crests);
+  const target = fullModel();
+  target.replace(after);
+  assert.deepEqual(target.crests, model.crests);
+});
+
+test("a map saved before crests existed opens with none, and saves again with an empty list", async () => {
+  const header = validHeader();
+  assert.equal("crests" in header, false);
+  const old = await decodeMap(await craft({ header }), GLYPHS);
+  assert.deepEqual(old.crests, []);
+  const again = await decodeMap(await encodeMap({ ...old }), GLYPHS);
+  assert.deepEqual(again.crests, []);
+  assert.deepEqual(again.palette, old.palette);
+});
+
+test("a file with flag designs and markers but no crests key keeps all of them", async () => {
+  const cells = Array.from({ length: 384 }, (_, i) => i % 3);
+  const header = validHeader({
+    flags: [cells],
+    markers: [{ id: 1, type: "flag", x: 5, y: 5, name: "Old banner", colour: 1, design: 0, layer: "political" }],
+  });
+  const data = await decodeMap(await craft({ header }), GLYPHS);
+  assert.deepEqual(Array.from(data.designs[0]), cells);
+  assert.equal(data.markers[0].name, "Old banner");
+  assert.deepEqual(data.crests, []);
+});
+
+test("a bad crest is refused: unknown part, colour outside the palette, wrong type, too many", async () => {
+  const bad = async (crests) => assertRejected(await craft({ header: validHeader({ crests }) }), /crest/i);
+  await bad([{ ...CREST, field: 1, field2: 3 }]);
+  await bad([{ ...CREST, charge: "dragon" }]);
+  await bad([{ ...CREST, shape: 4 }]);
+  await bad("heater");
+  await bad(Array.from({ length: 33 }, () => ({ ...CREST, field: 1, field2: 2, ordinaryColour: 1, chargeColour: 2, outline: 1 })));
+});
+
+test("every bundled scenario still opens, with its flags and no crests", async () => {
+  const folder = fileURLToPath(new URL("../app/data/scenarios/", import.meta.url));
+  const files = (await readdir(folder)).filter((name) => name.endsWith(".ahmap"));
+  assert.ok(files.length >= 4, "the scenario scan found the bundled maps");
+  for (const name of files) {
+    const data = await decodeMap(new Blob([await readFile(folder + name)]), ["sword", "crown"].concat(await glyphIdsFromApp()));
+    assert.deepEqual(data.crests, [], name);
+    const model = fullModel();
+    model.replace(data);
+    assert.equal(model.isDirty(), false, name);
+  }
+});
+
+async function glyphIdsFromApp() {
+  const { GLYPHS: all } = await import("../app/glyphs.js");
+  return all.map((glyph) => glyph.id);
+}

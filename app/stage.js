@@ -48,6 +48,7 @@ export function cursorFor({ mode, tool }, interaction) {
  *   nameField: {ask: Function, cancel: () => void},
  *   markerInfo: {show: Function, hide: () => boolean, isOpen: () => boolean, onRename: Function, onDelete: Function},
  *   designs: {editFlag: (marker: object) => void},
+ *   flagZoom: {show: (flag: {cells: Uint8Array | null, colour: string, x: number, y: number}) => void, hide: () => void},
  *   say: (text: string) => void,
  *   glyphIds: string[],
  *   isPanHeld: () => boolean,
@@ -58,7 +59,7 @@ export function cursorFor({ mode, tool }, interaction) {
  *   `dismiss` clears the selection and popover, returning true when there was one.
  */
 export function createStage(deps) {
-  const { canvas, renderer, model, state, editor, nameField, markerInfo, designs, say, glyphIds, isPanHeld, readout, zoomButtons } = deps;
+  const { canvas, renderer, model, state, editor, nameField, markerInfo, designs, flagZoom, say, glyphIds, isPanHeld, readout, zoomButtons } = deps;
   let drag = null;
   let hover = null;
   let readoutQueued = false;
@@ -178,6 +179,7 @@ export function createStage(deps) {
   }
 
   function onPointerDown(event) {
+    flagZoom.hide();
     if (drag) finish(drag.pointerId, false);
     if (renderer.pinching) return;
     const panning = event.button === MIDDLE_BUTTON || event.button === RIGHT_BUTTON || isPanHeld();
@@ -219,12 +221,23 @@ export function createStage(deps) {
     }
   }
 
+  // Hovering a placed flag shows it enlarged beside the pointer.
+  function zoomFlagUnder(event, point) {
+    const hit = renderer.hitTest(point.x, point.y);
+    if (hit?.type !== "flag") {
+      flagZoom.hide();
+      return;
+    }
+    flagZoom.show({ cells: model.designs[hit.design] ?? null, colour: model.palette[hit.colour - 1], x: event.clientX, y: event.clientY });
+  }
+
   function onPointerMove(event) {
     const point = local(event);
     const pixel = pixelAt(point);
     hover = pixel.inside ? pixel : null;
     renderer.setHover(hover);
     scheduleReadout();
+    if (!drag) zoomFlagUnder(event, point);
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (renderer.pinching) {
       finish(drag.pointerId, false);
@@ -306,12 +319,14 @@ export function createStage(deps) {
   }
 
   function onPointerLeave() {
+    flagZoom.hide();
     hover = null;
     renderer.setHover(null);
     scheduleReadout();
   }
 
   function onViewChange() {
+    flagZoom.hide();
     markerInfo.hide();
     scheduleReadout();
   }

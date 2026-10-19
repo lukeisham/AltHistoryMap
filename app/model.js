@@ -1,6 +1,8 @@
 // The one place map data lives and changes. render.js reads the planes and listens to onChange;
 // interface.js calls every edit operation; mapfile.js reads snapshot() and calls replace().
 
+import { normaliseCrest } from "./crestcells.js";
+
 export const N = 4096;
 export const LAND = 1;
 export const RIVER = 2;
@@ -11,6 +13,7 @@ export const FLAG_W = 24;
 export const FLAG_H = 16;
 export const MAX_PALETTE = 254;
 export const MAX_DESIGNS = 64;
+export const MAX_CRESTS = 32;
 export const MAX_NAME = 60;
 export const MAX_TAG_OFFSET = 2000;
 export const LAYERS = ["political", "province", "culture"];
@@ -132,6 +135,7 @@ export function createModel(base, n = N) {
     palette: [...DEFAULT_PALETTE],
     markers: [],
     designs: [],
+    crests: [],
     revision: 0,
     savedRevision: 0,
   };
@@ -362,7 +366,7 @@ export function createModel(base, n = N) {
   Object.assign(model, {
     /**
      * Subscribes to changes. A notice is {layer, rect:{x0,y0,x1,y1}} for pixels as they change (a stroke sends one per move), {layer, history:true} when a stroke closes as an undo step, {markers:true} for
-     * markers and designs, {palette:true} for a new colour, or {all:true} when the map is replaced.
+     * markers, flag designs and crests, {palette:true} for a new colour, or {all:true} when the map is replaced.
      * @param {(notice: object) => void} fn
      * @returns {() => void} Unsubscribe function.
      */
@@ -697,8 +701,52 @@ export function createModel(base, n = N) {
     },
 
     /**
+     * Adds a crest: the maker's choices and five palette colours (see crestcells.js).
+     * @param {object} crest
+     * @returns {number | null} The crest's index, or null when invalid or the library is full.
+     */
+    addCrest(crest) {
+      const clean = normaliseCrest(crest, model.palette.length);
+      if (!clean) return warn("crest is not valid for this palette", crest);
+      if (model.crests.length >= MAX_CRESTS) return warn("crest library is full", MAX_CRESTS);
+      model.crests.push(clean);
+      const index = model.crests.length - 1;
+      pushStep(
+        stepOf(
+          1,
+          { markers: true },
+          () => model.crests.pop(),
+          () => model.crests.push(clean),
+        ),
+      );
+      return index;
+    },
+
+    /**
+     * Replaces a crest. Flags that already carry its cells keep them.
+     * @param {number} index
+     * @param {object} crest
+     * @returns {boolean}
+     */
+    updateCrest(index, crest) {
+      const clean = normaliseCrest(crest, model.palette.length);
+      const old = model.crests[index];
+      if (!clean || !old) return fail("cannot update crest", index);
+      model.crests[index] = clean;
+      pushStep(
+        stepOf(
+          1,
+          { markers: true },
+          () => (model.crests[index] = old),
+          () => (model.crests[index] = clean),
+        ),
+      );
+      return true;
+    },
+
+    /**
      * Replaces the whole map (Open, scenario, restore). Clears history and the dirty flag.
-     * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], planes: object}} data
+     * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests: object[], planes: object}} data
      */
     replace(data) {
       stroke = null;
@@ -707,6 +755,7 @@ export function createModel(base, n = N) {
       model.palette = data.palette;
       model.markers = data.markers;
       model.designs = data.designs;
+      model.crests = data.crests;
       model.planes = data.planes;
       clearWater(model.planes);
       nextId = model.markers.reduce((top, m) => Math.max(top, m.id), 0) + 1;
@@ -720,8 +769,8 @@ export function createModel(base, n = N) {
 
     /** @returns {object} References to the live map content, for the map file writer. */
     snapshot() {
-      const { name, origin, palette, markers, designs, planes } = model;
-      return { name, origin, palette, markers, designs, planes };
+      const { name, origin, palette, markers, designs, crests, planes } = model;
+      return { name, origin, palette, markers, designs, crests, planes };
     },
   });
 

@@ -1,0 +1,22 @@
+.cm-preview {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunk);
+}
+
+.cm-choices {
+  display: flex;
+  flex: 1 1 var(--panel-w);
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.cm-role-dot {
+  display: inline-block;
+  width: var(--s-2);
+  height: var(--s-2);
+  margin-left: var(--s-1);
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+}

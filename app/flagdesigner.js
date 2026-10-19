@@ -1,21 +1,27 @@
-// The flag designer dialog. interface.js owns the <dialog>; this module fills it on first use and
+// The flag designer dialog. index.html holds the <dialog>; this module fills it on first use and
 // resolves open() with the edited cells, or null when the person backs out.
 // Link app/flagdesigner.css beside it. All DOM comes from dialog.ownerDocument, so a test can
 // hand it a fake document.
 
 import { FLAG_W, FLAG_H } from "./model.js";
-import { blankCells, floodFill, pencilLine, starterLayout } from "./flagcells.js";
+import { blankCells, floodFill, pencilLine, starterLayout, stampCrest } from "./flagcells.js";
+import { CREST_W, CREST_H } from "./crestcells.js";
+import { cellsToPng, drawCells, FLAG_PNG_CELL } from "./pngexport.js";
+import { dialogParts } from "./dialogparts.js";
 
 /** CSS pixels per design pixel on the editing canvas. */
 export const GRID_PX = 16;
 /** CSS pixels per design pixel in the preview: the size a placed flag is shown at. */
 export const PREVIEW_PX = 1.5;
 export const HISTORY_LIMIT = 50;
+/** CSS pixels per crest cell in the crest picker. */
+const CREST_THUMB_PX = 2;
 
 const TOOLS = [
   { id: "pencil", label: "Pencil" },
   { id: "erase", label: "Erase" },
   { id: "fill", label: "Fill" },
+  { id: "crest", label: "Crest" },
 ];
 const STARTERS = [
   { kind: "plain", label: "Plain" },
@@ -30,18 +36,29 @@ const ARROWS = {
 
 /**
  * Wire a flag designer to a <dialog>.
- * @param {{dialog: HTMLDialogElement, getPalette: () => string[]}} options getPalette returns
- *   hex colours; plane value i is palette[i - 1], 0 is white. It is re-read on every open().
+ * @param {{
+ *   dialog: HTMLDialogElement,
+ *   getPalette: () => string[],
+ *   addColour: (hex: string) => number | null,
+ *   getCrests: () => Uint8Array[],
+ *   saveBlob: (blob: Blob, fileName: string) => void
+ * }} options getPalette returns hex colours; plane value i is palette[i - 1], 0 is white. getPalette
+ *   and getCrests are re-read on every open(). addColour adds a picked colour to the map's palette
+ *   and returns its index, or null when the palette is full. getCrests returns each saved crest as
+ *   rendered cells (crestcells.js).
  * @returns {{
- *   open: (design: {cells: Uint8Array|null, colour: number, colour2: number, editing: boolean}) => Promise<Uint8Array|null>,
+ *   open: (design: {cells: Uint8Array|null, colour: number, colour2: number, editing: boolean, fileName: string}) => Promise<Uint8Array|null>,
  *   close: () => void
  * }}
  */
-export function createFlagDesigner({ dialog, getPalette }) {
+export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, saveBlob }) {
   const doc = dialog.ownerDocument;
   let ui = null;
 
   let palette = [];
+  let crests = [];
+  let crestIndex = 0;
+  let fileName = "flag.png";
   let cells = blankCells();
   let history = [];
   let tool = "pencil";
@@ -55,37 +72,7 @@ export function createFlagDesigner({ dialog, getPalette }) {
   let pending = null;
   let theme = { line: "#ccc", white: "#fff", focus: "#a80", guide: "#666" };
 
-  function el(tag, className, text) {
-    const node = doc.createElement(tag);
-    if (className) node.className = className;
-    if (text !== undefined) node.textContent = text;
-    return node;
-  }
-
-  function button(label, onClick, className = "fd-btn") {
-    const node = el("button", className, label);
-    node.setAttribute("type", "button");
-    node.addEventListener("click", onClick);
-    return node;
-  }
-
-  function group(label, className) {
-    const node = el("div", className);
-    node.setAttribute("role", "group");
-    node.setAttribute("aria-label", label);
-    return node;
-  }
-
-  function canvasFor(cssW, cssH, className) {
-    const dpr = doc.defaultView?.devicePixelRatio || 1;
-    const node = el("canvas", className);
-    node.width = Math.round(cssW * dpr);
-    node.height = Math.round(cssH * dpr);
-    node.style.width = `${cssW}px`;
-    const ctx = node.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { node, ctx };
-  }
+  const { el, button, group, canvasFor } = dialogParts(doc);
 
   function build() {
     const body = el("div", "fd-body");
@@ -103,6 +90,8 @@ export function createFlagDesigner({ dialog, getPalette }) {
     const clearBtn = button("Clear", () => commit(blankCells()));
     toolRow.append(toolGroup, mirrorBtn, undoBtn, clearBtn);
 
+    const crestRow = group("Crests. Pick one, then click the flag to stamp it.", "fd-crests");
+
     const stage = el("div", "fd-stage");
     const main = canvasFor(FLAG_W * GRID_PX, FLAG_H * GRID_PX, "fd-canvas");
     main.node.setAttribute("tabindex", "0");
@@ -118,6 +107,11 @@ export function createFlagDesigner({ dialog, getPalette }) {
     status.setAttribute("role", "status");
 
     const swatchRow = group("Colours. Click for the pen colour, Shift-click for the second colour.", "fd-swatches");
+    const colourInput = el("input", "fd-colour-input");
+    colourInput.setAttribute("type", "color");
+    colourInput.setAttribute("tabindex", "-1");
+    colourInput.setAttribute("aria-hidden", "true");
+    colourInput.addEventListener("change", onColourPicked);
 
     const starterGroup = group("Starter layouts, using the pen colour and the second colour", "fd-group");
     for (const { kind, label } of STARTERS) {
@@ -125,11 +119,12 @@ export function createFlagDesigner({ dialog, getPalette }) {
     }
 
     const actions = el("div", "fd-actions");
+    const pngBtn = button("Save PNG", savePng);
     const cancelBtn = button("Cancel", () => settle(null));
     const confirmBtn = button("", () => settle(new Uint8Array(cells)), "fd-btn fd-btn-primary");
-    actions.append(cancelBtn, confirmBtn);
+    actions.append(pngBtn, cancelBtn, confirmBtn);
 
-    body.append(heading, toolRow, stage, status, swatchRow, starterGroup, actions);
+    body.append(heading, toolRow, crestRow, stage, status, swatchRow, colourInput, starterGroup, actions);
     dialog.className = "fd";
     dialog.append(body);
 
@@ -149,7 +144,7 @@ export function createFlagDesigner({ dialog, getPalette }) {
 
     return {
       heading, toolButtons, mirrorBtn, undoBtn, swatchRow, status, confirmBtn,
-      main, preview,
+      crestRow, colourInput, main, preview,
     };
   }
 
@@ -221,6 +216,7 @@ export function createFlagDesigner({ dialog, getPalette }) {
   function setTool(id) {
     tool = id;
     for (const { id: toolId, node } of ui.toolButtons) node.setAttribute("aria-pressed", String(toolId === id));
+    ui.crestRow.hidden = id !== "crest";
     describeCanvas();
   }
 
@@ -245,9 +241,28 @@ export function createFlagDesigner({ dialog, getPalette }) {
       });
       return node;
     });
-    ui.swatchRow.replaceChildren(...nodes);
+    const add = el("button", "fd-swatch fd-swatch-add", "+");
+    add.setAttribute("type", "button");
+    add.setAttribute("aria-label", "Add a colour");
+    add.setAttribute("title", "Add a colour");
+    add.addEventListener("click", () => ui.colourInput.click());
+    ui.swatchRow.replaceChildren(...nodes, add);
     ui.swatches = nodes;
     markSwatches();
+  }
+
+  // The colour joins the map's palette, so the map and every other flag and crest can use it too.
+  function onColourPicked() {
+    const index = addColour(ui.colourInput.value);
+    if (index === null) {
+      say("The colour list is full: a map holds up to 254 colours.");
+      return;
+    }
+    palette = [...getPalette()];
+    pen = index;
+    renderSwatches();
+    renderCrests();
+    redraw();
   }
 
   function markSwatches() {
@@ -265,6 +280,33 @@ export function createFlagDesigner({ dialog, getPalette }) {
 
   function say(text) {
     ui.status.textContent = text;
+  }
+
+  function renderCrests() {
+    const buttons = crests.map((crestCells, i) => {
+      const node = el("button", "fd-crest");
+      node.setAttribute("type", "button");
+      node.setAttribute("aria-label", `Crest ${i + 1}`);
+      node.setAttribute("aria-pressed", String(i === crestIndex));
+      const thumb = canvasFor(CREST_W * CREST_THUMB_PX, CREST_H * CREST_THUMB_PX, "fd-crest-canvas");
+      drawCells(thumb.ctx, crestCells, CREST_W, palette, theme.white, CREST_THUMB_PX);
+      node.append(thumb.node);
+      node.addEventListener("click", () => {
+        crestIndex = i;
+        renderCrests();
+      });
+      return node;
+    });
+    ui.crestRow.replaceChildren(...buttons);
+  }
+
+  async function savePng() {
+    try {
+      saveBlob(await cellsToPng({ cells, cols: FLAG_W, palette, white: theme.white, cell: FLAG_PNG_CELL, doc }), fileName);
+    } catch (error) {
+      console.warn("flagdesigner: the picture was not saved", error);
+      say("The picture could not be saved.");
+    }
   }
 
   function sameCells(a, b) {
@@ -292,6 +334,13 @@ export function createFlagDesigner({ dialog, getPalette }) {
 
   function applyAt(x, y) {
     if (tool === "fill") return floodFill(cells, x, y, pen);
+    if (tool === "crest") {
+      if (crests.length === 0) {
+        say("There are no crests yet. Make one with New crest in the Flags panel.");
+        return cells;
+      }
+      return stampCrest(cells, crests[crestIndex], x, y);
+    }
     return pencilLine(cells, x, y, x, y, tool === "erase" ? 0 : pen, mirror);
   }
 
@@ -308,7 +357,7 @@ export function createFlagDesigner({ dialog, getPalette }) {
     const { x, y } = cellFromPointer(event);
     cursor = { x, y };
     showCursor(false);
-    if (tool === "fill") {
+    if (tool === "fill" || tool === "crest") {
       commit(applyAt(x, y));
       return;
     }
@@ -374,11 +423,14 @@ export function createFlagDesigner({ dialog, getPalette }) {
   }
 
   return {
-    open({ cells: start, colour, colour2, editing }) {
+    open({ cells: start, colour, colour2, editing, fileName: openFileName }) {
       if (pending) settle(null);
       palette = [...getPalette()];
       if (!ui) ui = build();
       readTheme();
+      crests = getCrests();
+      crestIndex = 0;
+      fileName = openFileName;
 
       if (start && start.length === FLAG_W * FLAG_H) {
         cells = new Uint8Array(start);
@@ -399,6 +451,7 @@ export function createFlagDesigner({ dialog, getPalette }) {
       ui.mirrorBtn.setAttribute("aria-pressed", "false");
       renderSwatches();
       setTool("pencil");
+      renderCrests();
       say("");
       redraw();
 

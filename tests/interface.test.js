@@ -104,6 +104,11 @@ function setup(mode) {
     onDelete() {},
   };
   const designs = { editFlag() {} };
+  const zoom = { shown: [], hidden: 0 };
+  const flagZoom = {
+    show: (flag) => zoom.shown.push(flag),
+    hide: () => zoom.hidden++,
+  };
   const keys = createKeys({ state, editor, dismiss: () => false });
   const button = listenerBox();
   const stage = createStage({
@@ -115,13 +120,14 @@ function setup(mode) {
     nameField,
     markerInfo,
     designs,
+    flagZoom,
     say,
     glyphIds: ["crown", "shape-circle"],
     isPanHeld: keys.isPanHeld,
     readout: { coord: {}, zoom: {} },
     zoomButtons: { zoomIn: button, zoomOut: button, home: button },
   });
-  return { model, state, editor, canvas, keys, stage, messages, renderer, info, asked: () => asked, answer: (text) => (answer = text) };
+  return { model, state, editor, canvas, keys, stage, messages, renderer, info, zoom, asked: () => asked, answer: (text) => (answer = text) };
 }
 
 const click = (canvas, x, y, extra = {}) => {
@@ -247,8 +253,9 @@ test("a press means pan in View, and follows the tool in Edit", () => {
 test("choices outside the map's colours and designs are pulled back", () => {
   const state = createAppState({ mode: "edit", layer: "political", glyph: "crown" });
   state.set({ colour: 9, colour2: 9, design: 3 });
-  keepSelectionsValid(state, { palette: ["#000000", "#111111", "#222222"], designs: [] });
-  assert.deepEqual([state.get().colour, state.get().colour2, state.get().design], [1, 2, -1]);
+  state.set({ crest: 2 });
+  keepSelectionsValid(state, { palette: ["#000000", "#111111", "#222222"], designs: [], crests: [] });
+  assert.deepEqual([state.get().colour, state.get().colour2, state.get().design, state.get().crest], [1, 2, -1, -1]);
 });
 
 test("state: a layer is shown alone in View mode, the view is kept in Edit mode, and entering View keeps the edited layer on screen", () => {
@@ -506,4 +513,37 @@ test("a committed rename closes the popover and clears the selection; a cancelle
   assert.equal(info.shown, 1, "a rename does not show it again");
   assert.ok(info.hidden > hiddenBefore, "the popover is hidden");
   assert.equal(state.get().selected, null);
+});
+
+test("resting the pointer on a placed flag shows it enlarged; leaving, pressing or moving the view hides it", () => {
+  const t = setup("view");
+  t.model.palette = ["#ff0000", "#00ff00"];
+  t.model.designs = [new Uint8Array(24 * 16).fill(2)];
+  t.model.markers.push({ id: 1, type: "flag", x: 3, y: 3, name: "", colour: 1, glyph: "", design: 0, layer: "political", tagDx: 0, tagDy: 0, capital: false, nation: 0 });
+  t.model.markers.push({ id: 2, type: "flag", x: 9, y: 9, name: "", colour: 2, glyph: "", design: -1, layer: "political", tagDx: 0, tagDy: 0, capital: false, nation: 0 });
+
+  moveTo(t.canvas, 1, 35, 35);
+  assert.equal(t.zoom.shown.length, 1);
+  assert.equal(t.zoom.shown[0].cells, t.model.designs[0]);
+  assert.deepEqual([t.zoom.shown[0].x, t.zoom.shown[0].y], [35, 35]);
+
+  moveTo(t.canvas, 1, 95, 95);
+  assert.equal(t.zoom.shown[1].cells, null, "a plain flag has no design");
+  assert.equal(t.zoom.shown[1].colour, "#00ff00");
+
+  const hiddenBefore = t.zoom.hidden;
+  moveTo(t.canvas, 1, 150, 20);
+  assert.equal(t.zoom.hidden, hiddenBefore + 1, "moving off every flag hides it");
+  t.canvas.fire("pointerleave", {});
+  assert.equal(t.zoom.hidden, hiddenBefore + 2);
+  t.canvas.fire("pointerdown", { pointerId: 1, button: 0, clientX: 35, clientY: 35 });
+  assert.equal(t.zoom.hidden, hiddenBefore + 3);
+});
+
+test("no flag zoom while a drag is in progress", () => {
+  const t = setup("view");
+  t.model.markers.push({ id: 1, type: "flag", x: 3, y: 3, name: "", colour: 1, glyph: "", design: -1, layer: "political", tagDx: 0, tagDy: 0, capital: false, nation: 0 });
+  t.canvas.fire("pointerdown", { pointerId: 1, button: 0, clientX: 100, clientY: 100 });
+  moveTo(t.canvas, 1, 35, 35);
+  assert.equal(t.zoom.shown.length, 0);
 });

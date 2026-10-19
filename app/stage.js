@@ -133,7 +133,10 @@ export function createStage(deps) {
     const marker = model.markers.find((m) => m.id === id);
     if (!marker) return;
     const name = await nameField.ask({ x, y, avoid, value: marker.name, confirmLabel: "Rename", allowEmpty: marker.type !== "label" });
-    if (name !== null) editor.renameMarker(id, name);
+    if (name !== null && editor.renameMarker(id, name)) {
+      dismiss();
+      return;
+    }
     if (model.markers.includes(marker)) select(marker);
   }
 

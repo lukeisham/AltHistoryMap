@@ -185,6 +185,11 @@ test("an older file's fighting and second claimant are cleared; its Conflict mar
   assert.equal(old.markers[0].layer, "province");
 });
 
+test("a file saved when Province had its own colour opens unchanged: its province paint and Political paint are both kept", async () => {
+  const old = await decodeMap(await craft({ planes: { province: planeWith(7, 2), political: planeWith(7, 1) } }), GLYPHS);
+  assert.deepEqual([old.planes.province[7], old.planes.political[7]], [2, 1]);
+});
+
 test("a capital and its nation survive a save; a capital that is not a city is refused", async () => {
   const city = { id: 1, type: "city", x: 1, y: 1, name: "A", colour: 1, glyph: "", design: -1, layer: "political", capital: true, nation: 2 };
   const kept = await decodeMap(await craft({ header: validHeader({ markers: [city] }) }), GLYPHS);

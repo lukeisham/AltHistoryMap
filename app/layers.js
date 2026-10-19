@@ -75,17 +75,20 @@ export function lookFor({ mode, layer, view }) {
 
 /**
  * @param {string} look
- * @returns {string[]} The layers whose marks and planes the look shows.
+ * @returns {string[]} The layers whose marks and planes the look shows: Province shows Political's
+ *   cities, flags and labels as well as its own symbols.
  */
 export function layersOnScreen(look) {
-  return look === "editCulture" ? ["culture"] : [look];
+  if (look === "editCulture") return ["culture"];
+  return look === "province" ? ["political", "province"] : [look];
 }
 
 /**
  * @param {string} look
  * @returns {string[]} The layers whose edits change a pixel of the look: a political edit repaints
- *   editCulture because Political shows through it.
+ *   editCulture and province because Political shows through them.
  */
 export function layersDrawn(look) {
-  return look === "editCulture" ? ["political", "culture"] : [look];
+  if (look === "editCulture") return ["political", "culture"];
+  return look === "province" ? ["political", "province"] : [look];
 }

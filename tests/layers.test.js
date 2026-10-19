@@ -43,8 +43,8 @@ test("the look follows the layer: only Culture edits over faded Political", () =
   assert.equal(lookFor({ mode: "view", layer: "province", view: soloView("province") }), "province");
   assert.equal(lookFor({ mode: "edit", layer: "culture", view: ["political"] }), "editCulture");
   assert.equal(lookFor({ mode: "edit", layer: "province", view: ["political"] }), "province");
-  assert.deepEqual(layersOnScreen("province"), ["province"]);
+  assert.deepEqual(layersOnScreen("province"), ["political", "province"]);
   assert.deepEqual(layersOnScreen("editCulture"), ["culture"]);
-  assert.deepEqual(layersDrawn("province"), ["province"]);
+  assert.deepEqual(layersDrawn("province"), ["political", "province"]);
   assert.deepEqual(layersDrawn("culture"), ["culture"]);
 });

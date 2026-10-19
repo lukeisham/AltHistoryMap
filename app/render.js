@@ -36,12 +36,12 @@ const ILLEGAL_FILE_CHARS = /[\\/:*?"<>|\u0000-\u001f]/g;
  * File name for a PNG export.
  * @param {string} mapName
  * @param {string} look
- * @returns {string} `<map name>-<layers>.png`, the layers on screen joined by `+`, with characters
- *   that file systems reject removed.
+ * @returns {string} `<map name>-<layer>.png`, the layer on view (`culture` for the Edit look of
+ *   Culture), with characters that file systems reject removed.
  */
 export function pngFileName(mapName, look) {
   const cleaned = String(mapName ?? "").replace(ILLEGAL_FILE_CHARS, "").replace(/\s+/g, " ").trim().slice(0, FILE_NAME_LIMIT).trim();
-  return `${cleaned || "map"}-${layersOnScreen(look).join("+")}.png`;
+  return `${cleaned || "map"}-${look === "editCulture" ? "culture" : look}.png`;
 }
 
 function toBlob(canvas) {

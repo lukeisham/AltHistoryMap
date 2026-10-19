@@ -79,14 +79,30 @@ function setup(mode) {
   const canvas = fakeCanvas();
   const renderer = fakeRenderer(model);
   let asked = 0;
+  let answer = "Placed";
   const nameField = {
     ask: async () => {
       asked++;
-      return "Placed";
+      return answer;
     },
     cancel() {},
   };
-  const markerInfo = { show() {}, hide: () => false, isOpen: () => false, onRename() {}, onCapital() {}, onDelete() {} };
+  const info = { shown: 0, hidden: 0, rename: null };
+  const markerInfo = {
+    show() {
+      info.shown++;
+    },
+    hide() {
+      info.hidden++;
+      return false;
+    },
+    isOpen: () => false,
+    onRename(fn) {
+      info.rename = fn;
+    },
+    onCapital() {},
+    onDelete() {},
+  };
   const designs = { editFlag() {} };
   const keys = createKeys({ state, editor, dismiss: () => false });
   const button = listenerBox();
@@ -105,7 +121,7 @@ function setup(mode) {
     readout: { coord: {}, zoom: {} },
     zoomButtons: { zoomIn: button, zoomOut: button, home: button },
   });
-  return { model, state, editor, canvas, keys, stage, messages, renderer, asked: () => asked };
+  return { model, state, editor, canvas, keys, stage, messages, renderer, info, asked: () => asked, answer: (text) => (answer = text) };
 }
 
 const click = (canvas, x, y, extra = {}) => {
@@ -185,9 +201,10 @@ test("a layer switch repairs the tool; Escape then picks no tool", () => {
   state.set({ tool: "border", selected: 4 });
   state.set({ layer: "province" });
   assert.equal(state.get().tool, "paint");
-  assert.equal(state.get().selected, null);
+  assert.equal(state.get().selected, 4, "Political's cities are still on screen in Province");
   state.set({ tool: "symbol" });
   state.set({ layer: "culture" });
+  assert.equal(state.get().selected, null);
   assert.equal(state.get().tool, "symbol");
   assert.equal(toolForLayer("culture", "border"), "paint");
   assert.equal(toolForLayer("culture", null), null);
@@ -261,6 +278,8 @@ test("state: the selection is kept while every layer stays on screen and cleared
   state.toggleView("political");
   assert.equal(state.get().selected, 7, "Political is still on screen");
   state.toggleView("province");
+  assert.equal(state.get().selected, 7, "Province shows Political's cities");
+  state.toggleView("culture");
   assert.equal(state.get().selected, null, "Political left the screen, and a city with it");
 });
 
@@ -468,4 +487,23 @@ test("dragover accepts a panel item only in Edit mode", () => {
   const edit = setup("edit");
   edit.canvas.fire("dragover", over());
   assert.equal(prevented, true);
+});
+
+test("a committed rename closes the popover and clears the selection; a cancelled one keeps it", async () => {
+  const env = setup("edit");
+  const { model, state, info } = env;
+  model.addMarker({ type: "city", x: 5, y: 5, name: "Seed", colour: 1 });
+  const id = model.markers[0].id;
+  state.set({ selected: id });
+  env.answer(null);
+  await info.rename(id, 0, 0, { x: 0, y: 0, width: 1, height: 1 });
+  assert.equal(info.shown, 1, "cancelling shows the popover again");
+  assert.equal(state.get().selected, id);
+  env.answer("Roma");
+  const hiddenBefore = info.hidden;
+  await info.rename(id, 0, 0, { x: 0, y: 0, width: 1, height: 1 });
+  assert.equal(model.markers[0].name, "Roma");
+  assert.equal(info.shown, 1, "a rename does not show it again");
+  assert.ok(info.hidden > hiddenBefore, "the popover is hidden");
+  assert.equal(state.get().selected, null);
 });

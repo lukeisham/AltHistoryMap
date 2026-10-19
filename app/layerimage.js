@@ -192,8 +192,9 @@ function editCulturePixel(src, i) {
   return c !== 0 ? mixColour(under, c, src.cultureBlend) : under;
 }
 
-// A province pixel is outlined in black when a side neighbour has a different province; the map
-// edge counts as the same province.
+// Province draws the Political look, with a black line where the Province plane changes. A painted
+// province pixel is black when a side neighbour has a different province; the map edge counts as
+// the same province.
 function provincePixel(src, i) {
   const { province, n } = src;
   const p = province[i];
@@ -203,7 +204,7 @@ function provincePixel(src, i) {
       return BLACK;
     }
   }
-  return src.palette[p] || src.ground[src.base[i] & 15];
+  return politicalPixel(src, i);
 }
 
 /**

@@ -68,11 +68,12 @@ function provinceBlock(m, colour) {
   for (let y = 8; y < 12; y++) for (let x = 4; x < 8; x++) m.planes.province[idx(x, y)] = colour;
 }
 
-test("province: the full colour over bare land, outlined in black where the neighbour is another province", () => {
+test("province: the Political colour, outlined in black where the neighbour is another province", () => {
   const m = smallModel();
+  for (let y = 8; y < 12; y++) for (let x = 4; x < 8; x++) m.planes.political[idx(x, y)] = 1;
   provinceBlock(m, 2);
   const src = sourceOf(m);
-  const fill = parseColour(m.palette[1]);
+  const fill = parseColour(m.palette[0]);
   for (let y = 8; y < 12; y++) {
     for (let x = 4; x < 8; x++) {
       const edge = x === 4 || x === 7 || y === 8 || y === 11;
@@ -80,6 +81,20 @@ test("province: the full colour over bare land, outlined in black where the neig
     }
   }
   assert.equal(pixelColour("province", src, idx(3, 9), 3, 9), LAND_C, "bare land outside is not outlined");
+});
+
+test("province: the province colour is not drawn; the Political colour and borders show through", () => {
+  const m = smallModel();
+  provinceBlock(m, 2);
+  m.planes.political[idx(5, 9)] = 3;
+  m.planes.political[idx(6, 9)] = 1;
+  m.planes.border[idx(6, 10)] = 1;
+  const src = sourceOf(m);
+  assert.equal(pixelColour("province", src, idx(5, 9), 5, 9), parseColour(m.palette[2]), "Political colour inside the block");
+  assert.equal(pixelColour("province", src, idx(6, 9), 6, 9), parseColour(m.palette[0]));
+  assert.equal(pixelColour("province", src, idx(6, 10), 6, 10), BORDER_C, "a Political border shows");
+  assert.equal(pixelColour("province", src, idx(4, 8), 4, 8), BLACK_C, "the outline wins at the block's edge");
+  assert.equal(pixelColour("province", src, idx(0, 0), 0, 0), pixelColour("political", src, idx(0, 0), 0, 0));
 });
 
 test("province: two neighbouring provinces share a black line; the map edge is not an outline", () => {
@@ -91,18 +106,9 @@ test("province: two neighbouring provinces share a black line; the map edge is n
   const src = sourceOf(m);
   assert.equal(pixelColour("province", src, idx(3, 1), 3, 1), BLACK_C, "next to another province");
   assert.equal(pixelColour("province", src, idx(4, 1), 4, 1), BLACK_C);
-  const c = createModel(new Uint8Array(SIDE * SIDE).fill(LAND), SIDE);
+  const c = smallModel();
   for (let y = 0; y < SIDE; y++) for (let x = 0; x < SIDE; x++) c.planes.province[idx(x, y)] = 1;
-  assert.equal(pixelColour("province", sourceOf(c), idx(0, 0), 0, 0), parseColour(c.palette[0]));
-});
-
-test("province: Political paint and borders do not show", () => {
-  const m = smallModel();
-  m.planes.political[idx(5, 9)] = 3;
-  m.planes.border[idx(6, 10)] = 1;
-  const src = sourceOf(m);
-  assert.equal(pixelColour("province", src, idx(5, 9), 5, 9), LAND_C);
-  assert.equal(pixelColour("province", src, idx(6, 10), 6, 10), LAND_C);
+  assert.equal(pixelColour("province", sourceOf(c), idx(0, 0), 0, 0), pixelColour("political", sourceOf(c), idx(0, 0), 0, 0));
 });
 
 test("culture: a solid pale tint of the culture colour, ground elsewhere", () => {

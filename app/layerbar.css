@@ -120,7 +120,7 @@
 }
 
 .layer-key--province {
-  background-color: color-mix(in srgb, var(--ink-2) 30%, var(--bg));
+  background-color: var(--ink-2);
   border-color: #000;
 }
 

@@ -160,7 +160,8 @@
   }
 }
 
-.city-colour {
+.city-colour,
+.country-names {
   flex: none;
 
   &[aria-pressed="true"] {

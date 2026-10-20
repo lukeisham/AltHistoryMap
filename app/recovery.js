@@ -11,7 +11,7 @@ const KEY = "current";
 const INTERVAL_MS = 60_000;
 const PREFS_KEY = "ahm.prefs";
 const MODES = ["view", "edit"];
-const DEFAULT_PREFS = { mode: "view", layer: "political", view: ["political"], cityColour: "neutral" };
+const DEFAULT_PREFS = { mode: "view", layer: "political", view: ["political"], cityColour: "neutral", countryNames: true };
 
 function request(req) {
   return new Promise((resolve, reject) => {
@@ -96,7 +96,10 @@ export async function readRecovery() {
   }
 }
 
-/** Deletes the recovery copy. */
+/**
+ * Deletes the recovery copy.
+ * @returns {Promise<void>}
+ */
 export async function clearRecovery() {
   try {
     await inStore("readwrite", (store) => request(store.delete(KEY)));
@@ -106,8 +109,8 @@ export async function clearRecovery() {
 }
 
 /**
- * @returns {{mode: string, layer: string, view: string[], cityColour: string}} The remembered mode, layer,
- *   View-mode layers and city colour choice, or the defaults. A stored view that is not allowed becomes the stored layer alone.
+ * @returns {{mode: string, layer: string, view: string[], cityColour: string, countryNames: boolean}} The remembered mode, layer,
+ *   View-mode layers, city colour choice and whether country names show, or the defaults. A stored view that is not allowed becomes the stored layer alone.
  */
 export function loadPrefs() {
   try {
@@ -118,6 +121,7 @@ export function loadPrefs() {
       layer,
       view: isAllowedView(stored?.view) ? stored.view : soloView(layer),
       cityColour: stored?.cityColour === "nation" ? "nation" : "neutral",
+      countryNames: stored?.countryNames !== false,
     };
   } catch (error) {
     console.warn("saved settings could not be read", error);
@@ -126,12 +130,13 @@ export function loadPrefs() {
 }
 
 /**
- * Remembers the mode, layer, View-mode layers and city colour choice for the next visit.
- * @param {{mode: string, layer: string, view: string[], cityColour: string}} prefs
+ * Remembers the mode, layer, View-mode layers, city colour choice and country names choice for the next visit.
+ * @param {{mode: string, layer: string, view: string[], cityColour: string, countryNames: boolean}} prefs
+ * @returns {void}
  */
-export function savePrefs({ mode, layer, view, cityColour }) {
+export function savePrefs({ mode, layer, view, cityColour, countryNames }) {
   try {
-    globalThis.localStorage.setItem(PREFS_KEY, JSON.stringify({ mode, layer, view, cityColour }));
+    globalThis.localStorage.setItem(PREFS_KEY, JSON.stringify({ mode, layer, view, cityColour, countryNames }));
   } catch (error) {
     console.warn("settings could not be saved", error);
   }

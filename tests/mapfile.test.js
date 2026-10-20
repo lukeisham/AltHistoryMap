@@ -4,6 +4,8 @@ import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createModel, LAND, N, PLANE_NAMES, FLAG_W, FLAG_H } from "../app/model.js";
+import { stampCrest } from "../app/flagcells.js";
+import { defaultCrest, renderShieldOnly } from "../app/crestcells.js";
 import { encodeMap, decodeMap, asScenarioCopy, MapFileError, MAGIC } from "../app/mapfile.js";
 
 const GLYPHS = ["sword", "crown"];
@@ -259,6 +261,15 @@ test("cross-language: the Python-written blank world opens", { skip: !existsSync
 });
 
 const CREST = { shape: "french", division: "quarterly", ordinary: "bordure", charge: "crown", field: 1, field2: 2, ordinaryColour: 3, chargeColour: 4, outline: 5 };
+
+test("a flag stamped with a shield only saves and opens with the same cells", async () => {
+  const flag = stampCrest(new Uint8Array(FLAG_W * FLAG_H).fill(1), renderShieldOnly({ ...defaultCrest(2, 3), ...CREST, supporterLeft: "lion", supporterRight: "lion" }), FLAG_W / 2, FLAG_H / 2);
+  const model = fullModel();
+  model.addDesign(flag);
+  const after = await decodeMap(await encodeMap(model.snapshot()), GLYPHS);
+  assert.deepEqual(Array.from(after.designs[0]), Array.from(flag));
+  assert.ok(flag.some((v) => v !== 1), "the shield changed the flag");
+});
 
 test("crests survive a save and open, in order, and the model takes them back", async () => {
   const model = fullModel();

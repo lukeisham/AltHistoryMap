@@ -11,6 +11,11 @@ const TERMS = {
   "part:supporterLeft": ["Supporter, left", "Figures, usually animals, that stand beside the shield as if holding it up. This one is on the viewer's left, which heraldry calls the dexter side. Rampant means reared up on the hind legs."],
   "part:supporterRight": ["Supporter, right", "Figures, usually animals, that stand beside the shield as if holding it up. This one is on the viewer's right, which heraldry calls the sinister side. It faces the shield as a mirror image of the left one."],
 
+  "part:supporterLeftFacing": ["Left supporter's facing", "Whether the animal on the viewer's left looks toward the shield or away from it. Supporters usually look toward it."],
+  "part:supporterRightFacing": ["Right supporter's facing", "Whether the animal on the viewer's right looks toward the shield or away from it."],
+  "part:compartment": ["Compartment", "The ground the supporters stand on, often drawn as a grassy mound or a rock. It sits below the shield and the supporters."],
+  "part:ribbon": ["Motto ribbon", "A scroll of ribbon that carries the motto, held across the foot of the arms. Here the ribbon is plain; the motto itself belongs to the country's key facts."],
+
   "role:field": ["Field colour", "The main background colour of the shield."],
   "role:field2": ["Second field colour", "The colour of the second part when the field is divided."],
   "role:ordinaryColour": ["Ordinary colour", "The colour of the bold band or shape laid over the field."],
@@ -18,6 +23,8 @@ const TERMS = {
   "role:outline": ["Outline", "The line round the shield and round each animal. It also colours the animals' eyes."],
   "role:supporterLeftColour": ["Left animal colour", "The body colour of the animal on the left. Heraldry calls a colour a tincture."],
   "role:supporterRightColour": ["Right animal colour", "The body colour of the animal on the right. Heraldry calls a colour a tincture."],
+  "role:compartmentColour": ["Compartment colour", "The colour of the mound the supporters stand on."],
+  "role:ribbonColour": ["Ribbon colour", "The colour of the motto ribbon."],
 
   "shape:heater": ["Heater", "The classic flat-topped shield narrowing to a point, like the base of a flat iron. Common in medieval arms."],
   "shape:french": ["French", "Straight sides and a rounded base ending in a short point. Also called the French escutcheon."],
@@ -65,10 +72,20 @@ const TERMS = {
   "supporter:dragon": ["Dragon", "A winged beast of legend, shown rampant. It often stands for power and watchfulness."],
   "supporter:griffin": ["Griffin", "A legendary creature with the head and wings of an eagle and the body of a lion. It stands for strength and watchfulness."],
 
+  "facing:inward": ["Inward", "The animal looks toward the shield. This is the usual way to draw supporters."],
+  "facing:outward": ["Outward", "The animal looks away from the shield, as if guarding it from outside."],
+
+  "compartment:none": ["No compartment", "The supporters stand on nothing."],
+  "compartment:mound": ["Mound", "A low heap of earth along the foot of the arms, with the supporters standing on it."],
+
+  "ribbon:none": ["No ribbon", "No motto ribbon is drawn."],
+  "ribbon:ribbon": ["Ribbon", "A band with forked ends across the foot of the shield, held by the supporters."],
+
   "tool:pencil": ["Pencil", "Paints one cell at a time in the pen colour. Drag to paint a line."],
   "tool:erase": ["Erase", "Paints cells white."],
   "tool:fill": ["Fill", "Floods the connected area of one colour with the pen colour."],
   "tool:crest": ["Crest", "Stamps the chosen coat of arms onto the flag, centred on the cell you click. A coat of arms or badge on a flag is called a charge."],
+  "tool:shield-only": ["Shield only", "Stamps just the shield, without its supporters, so a small emblem fits the middle of a flag."],
   "tool:mirror": ["Mirror", "Copies each cell you paint to the opposite side, left to right, so the design is symmetrical."],
 
   "starter:plain": ["Plain", "The whole flag in one colour. Flag designers call the background of a flag its field."],

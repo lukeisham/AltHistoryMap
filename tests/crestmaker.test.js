@@ -47,8 +47,10 @@ test("choosing parts and a colour for the chosen part changes the crest that is 
   t.byText("Add to library").dispatch("click");
   assert.deepEqual(await result, {
     shape: "french", division: "bend", ordinary: "cross", charge: "crown",
-    supporterLeft: "lion", supporterRight: "lion",
-    field: 1, field2: 3, ordinaryColour: 0, chargeColour: 0, supporterLeftColour: 0, supporterRightColour: 0, outline: 1,
+    supporterLeft: "lion", supporterRight: "lion", supporterLeftFacing: "inward", supporterRightFacing: "inward",
+    compartment: "none", ribbon: "none",
+    field: 1, field2: 3, ordinaryColour: 0, chargeColour: 0, supporterLeftColour: 0, supporterRightColour: 0,
+    compartmentColour: 0, ribbonColour: 0, outline: 1,
   });
 });
 
@@ -121,4 +123,21 @@ test("Save PNG sends a whole-crest picture at CREST_PNG_CELL px per cell under t
   assert.equal(await t.saved[0].blob.text(), `png ${CREST_W * CREST_PNG_CELL}x${CREST_H * CREST_PNG_CELL}`);
   t.maker.close();
   await result;
+});
+
+test("each supporter takes its own facing, and the compartment and ribbon take a choice and a colour", async () => {
+  const t = setup();
+  const result = t.maker.open(START());
+  const outward = t.dialog.findAll((n) => n.tagName === "button" && n.textContent === "Outward");
+  assert.equal(outward.length, 2, "one Outward button per side");
+  outward[1].dispatch("click");
+  t.byText("Mound").dispatch("click");
+  t.byText("Ribbon").dispatch("click");
+  t.byText("Compartment").dispatch("click");
+  t.dialog.findAll((n) => n.className === "fd-swatch")[2].dispatch("click");
+  t.byText("Add to library").dispatch("click");
+  const crest = await result;
+  assert.deepEqual([crest.supporterLeftFacing, crest.supporterRightFacing], ["inward", "outward"]);
+  assert.deepEqual([crest.compartment, crest.ribbon], ["mound", "ribbon"]);
+  assert.deepEqual([crest.compartmentColour, crest.ribbonColour], [2, 0]);
 });

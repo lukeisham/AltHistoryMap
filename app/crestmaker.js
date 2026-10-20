@@ -4,7 +4,7 @@
 // It shares the dialog chrome classes of flagdesigner.css and adds crestmaker.css. All DOM comes
 // from dialog.ownerDocument, so a test can hand it a fake document.
 
-import { SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS, CREST_W, CREST_H, renderCrest } from "./crestcells.js";
+import { SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS, FACINGS, COMPARTMENTS, RIBBONS, CREST_W, CREST_H, renderCrest } from "./crestcells.js";
 import { cellsToPng, drawCells, CREST_PNG_CELL } from "./pngexport.js";
 import { dialogParts } from "./dialogparts.js";
 import { bindTermTips } from "./termtip.js";
@@ -19,9 +19,15 @@ const CHOICES = [
   { key: "charge", label: "Charge", options: CHARGES },
   { key: "supporterLeft", label: "Left supporter", options: SUPPORTERS },
   { key: "supporterRight", label: "Right supporter", options: SUPPORTERS },
+  { key: "supporterLeftFacing", label: "Left faces", options: FACINGS },
+  { key: "supporterRightFacing", label: "Right faces", options: FACINGS },
+  { key: "compartment", label: "Compartment", options: COMPARTMENTS },
+  { key: "ribbon", label: "Motto ribbon", options: RIBBONS },
 ];
-// Both supporter rows list the same animals, so they share the `supporter:` definitions in terms.js.
-const OPTION_TERM_GROUP = { supporterLeft: "supporter", supporterRight: "supporter" };
+// Rows that list the same options share their definitions in terms.js.
+const OPTION_TERM_GROUP = {
+  supporterLeft: "supporter", supporterRight: "supporter", supporterLeftFacing: "facing", supporterRightFacing: "facing",
+};
 const ROLES = [
   { key: "field", label: "Field" },
   { key: "field2", label: "Second field" },
@@ -29,6 +35,8 @@ const ROLES = [
   { key: "chargeColour", label: "Charge" },
   { key: "supporterLeftColour", label: "Left animal" },
   { key: "supporterRightColour", label: "Right animal" },
+  { key: "compartmentColour", label: "Compartment" },
+  { key: "ribbonColour", label: "Ribbon" },
   { key: "outline", label: "Outline" },
 ];
 

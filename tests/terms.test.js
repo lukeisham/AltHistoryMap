@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { termFor } from "../app/terms.js";
 import { ALIGNMENT_IDS } from "../app/alignmentpools.js";
-import { SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS } from "../app/crestcells.js";
+import { SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS, FACINGS, COMPARTMENTS, RIBBONS } from "../app/crestcells.js";
 
-const LISTS = { shape: SHAPES, division: DIVISIONS, ordinary: ORDINARIES, charge: CHARGES, supporter: SUPPORTERS };
+const LISTS = { shape: SHAPES, division: DIVISIONS, ordinary: ORDINARIES, charge: CHARGES, supporter: SUPPORTERS, facing: FACINGS, compartment: COMPARTMENTS, ribbon: RIBBONS };
 
 test("every shield shape, division, ordinary, charge and supporter has a name and a definition", () => {
   for (const [group, list] of Object.entries(LISTS)) {
@@ -18,7 +18,8 @@ test("every shield shape, division, ordinary, charge and supporter has a name an
 
 test("the crest parts, colour roles, flag tools, starters and flag parts are defined, and an unknown key is null", () => {
   for (const key of [
-    "part:shield", "part:division", "part:ordinary", "part:charge", "part:supporterLeft", "part:supporterRight",
+    "part:shield", "part:division", "part:ordinary", "part:charge", "part:supporterLeft", "part:supporterRight", "part:supporterLeftFacing", "part:supporterRightFacing", "part:compartment", "part:ribbon",
+    "role:compartmentColour", "role:ribbonColour",
     "role:field", "role:field2", "role:ordinaryColour", "role:chargeColour", "role:outline", "role:supporterLeftColour", "role:supporterRightColour",
     "tool:pencil", "tool:erase", "tool:fill", "tool:crest", "tool:mirror",
     "starter:plain", "starter:stripes-h", "starter:stripes-v", "starter:cross", "starter:saltire",

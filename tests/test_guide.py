@@ -278,12 +278,18 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertTrue(imports("model.js", "crestcells.js") and imports("mapfile.js", "crestcells.js") and imports("flagcells.js", "crestcells.js"))
         self.assertIn("normaliseCrest(crest, model.palette.length)", app_source("model.js"))
         self.assertIn("normaliseCrest(crest, palette.length)", app_source("mapfile.js"))
-        self.assertIn("stampCrest(cells, crests[crestIndex]", app_source("flagdesigner.js"))
-        supporter_keys = [f"supporter{side}{suffix}" for side in ("Left", "Right") for suffix in ("", "Colour")]
+        self.assertIn("stampCrest(cells, (shieldOnly ? shields : crests)[crestIndex]", app_source("flagdesigner.js"))
+        self.assertIn("`renderShieldOnly`", row)
+        supporter_keys = [f"supporter{side}{suffix}" for side in ("Left", "Right") for suffix in ("", "Colour", "Facing")]
+        for key in ("compartment", "ribbon", "compartmentColour", "ribbonColour"):
+            self.assertIn(f"`{key}`", row)
+            self.assertIn(f'"{key}"', app_source("crestcells.js"), f"normaliseCrest no longer handles {key}")
         for key in js_constant(APP / "crestcells.js", "COLOUR_KEYS") + js_constant(APP / "crestcells.js", "CHOICE_KEYS") + supporter_keys:
             self.assertIn(f"`{key}`", row)
         for key in supporter_keys:
             self.assertIn(f"supporter${{side}}", app_source("crestcells.js"), f"normaliseCrest no longer handles {key}")
+        for option in re.findall(r'\{ id: "(\w+)", label: "', "".join(re.findall(r"export const (?:FACINGS|COMPARTMENTS|RIBBONS) = \[.*?\n\];", app_source("crestcells.js"), re.DOTALL))):
+            self.assertIn(f"`{option}`", row)
         self.assertIn("`MAX_CRESTS`", row_starting(self.section, "`model.js`"))
 
     def test_a_map_file_without_crests_still_opens(self) -> None:
@@ -349,8 +355,9 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("const addColour = (hex) => editor.addColour(hex);", main)
         self.assertEqual(main.count("addColour,"), 2, "main.js must hand addColour to both dialogs")
         self.assertIn("getCrests: () => model.crests.map(renderCrest)", main)
+        self.assertIn("getShields: () => model.crests.map(renderShieldOnly)", main)
         self.assertEqual(main.count("saveBlob: downloadBlob"), 2)
-        for name in ("addColour(hex)", "getCrests", "saveBlob", "downloadBlob", "editor.addColour"):
+        for name in ("addColour(hex)", "getCrests", "getShields", "saveBlob", "downloadBlob", "editor.addColour"):
             self.assertIn(f"`{name}`", row)
         for dialog in ("flagdesigner.js", "crestmaker.js"):
             self.assertIn("cellsToPng(", app_source(dialog))
@@ -463,6 +470,27 @@ class GuideBoundaryTest(unittest.TestCase):
             self.assertIn(url.split("/")[0] + "/", row)
 
 
+
+    def test_country_names_travel_from_the_button_through_the_renderer_to_the_picture(self) -> None:
+        row = row_starting(self.section, "`countrylabels.js`")
+        for name in ("render.js", "findRegions(political, n)", "drawCountryNames", "scene.countryRegions", "countryNames", "renderer.setCountryNames", "ahm.prefs", 'data-action="country-names"', "layerbar.js", "main.js", "countrydata.js"):
+            self.assertIn(name, row)
+        render = app_source("render.js")
+        self.assertTrue(imports("render.js", "countrylabels.js") and imports("countrylabels.js", "countrydata.js"))
+        self.assertIn("countryRegions: countryNames && look === \"political\" ? regionsNow() : null", render)
+        self.assertIn("drawCountryNames(ctx, scene)", render)
+        self.assertIn("setCountryNames(on)", render)
+        self.assertIn("renderer.setCountryNames(", app_source("main.js"))
+        self.assertIn('data-action="country-names"', (APP / "index.html").read_text(encoding="utf-8"))
+        self.assertIn('[data-action="country-names"]', app_source("layerbar.js"))
+        self.assertIn("countryNames", app_source("recovery.js"))
+        for kind in ("`all`", "`palette`"):
+            self.assertIn(kind, row)
+        self.assertEqual(js_constant(APP / "countrylabels.js", "MIN_SIZE"), 10)
+        self.assertIn(f"below {js_constant(APP / 'countrylabels.js', 'MIN_SIZE')} screen pixels", row)
+        self.assertIn(f"about {js_constant(APP / 'countrylabels.js', 'SAMPLES_PER_SIDE')} samples", row)
+
+
 class ReadmeStaysHumanTest(unittest.TestCase):
     def setUp(self) -> None:
         self.text = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -485,10 +513,11 @@ class ReadmeStaysHumanTest(unittest.TestCase):
 
     def test_every_control_it_names_is_on_the_page(self) -> None:
         page = (APP / "index.html").read_text(encoding="utf-8")
-        for control in ("Scenarios", "Political", "Province", "Culture", "Edit", "Cities by nation", "Save", "Open", "PNG"):
+        for control in ("Scenarios", "Political", "Province", "Culture", "Edit", "Cities by nation", "Country names", "Save", "Open", "PNG"):
             self.assertIn(f"**{control}**", self.text)
             self.assertIn(control, page, f"the README names {control} but the page has no such control")
 
 
 if __name__ == "__main__":
     unittest.main()
+

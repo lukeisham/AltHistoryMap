@@ -1,5 +1,6 @@
 // Pure grid maths for the crest maker. A crest is a handful of heraldic choices (shield shape, field
-// division, ordinary, charge, and an animal supporter on each side) plus the palette colours that
+// division, ordinary, charge, an animal supporter on each side and which way it faces, an optional
+// compartment the supporters stand on and an optional motto ribbon) plus the palette colours that
 // paint them. renderCrest turns the choices into a Uint8Array(CREST_W * CREST_H) of palette indexes
 // (0 is white, as in a flag), row-major, TRANSPARENT wherever nothing is drawn, so flagdesigner.js
 // can stamp it onto a flag grid and pngexport.js can draw it. The choices, not the cells, are what
@@ -9,6 +10,29 @@
 import { SUPPORTERS, SUPPORTER_W, SUPPORTER_H, EYE, rasterSupporter } from "./supporters.js";
 
 export { SUPPORTERS };
+
+/**
+ * @typedef {object} CrestChoices
+ * @property {string} shape
+ * @property {string} division
+ * @property {string} ordinary
+ * @property {string} charge
+ * @property {string} [supporterLeft] an id from SUPPORTERS; "none" when absent
+ * @property {string} [supporterRight]
+ * @property {string} [supporterLeftFacing] an id from FACINGS; "inward" when absent
+ * @property {string} [supporterRightFacing]
+ * @property {string} [compartment] an id from COMPARTMENTS; "none" when absent
+ * @property {string} [ribbon] an id from RIBBONS; "none" when absent
+ * @property {number} field palette indexes below; 0 is white
+ * @property {number} field2
+ * @property {number} ordinaryColour
+ * @property {number} chargeColour
+ * @property {number} outline
+ * @property {number} [supporterLeftColour] the charge colour when absent
+ * @property {number} [supporterRightColour]
+ * @property {number} [compartmentColour]
+ * @property {number} [ribbonColour]
+ */
 
 /** The shield alone: the crest's centre, between the two supporters. */
 export const SHIELD_W = 24;
@@ -24,6 +48,8 @@ export const TRANSPARENT = 255;
 const CELL_COUNT = CREST_W * CREST_H;
 const SHIELD_COUNT = SHIELD_W * SHIELD_H;
 const COLOUR_KEYS = ["field", "field2", "ordinaryColour", "chargeColour", "outline"];
+// Optional colours: a crest saved before these parts existed takes the charge colour.
+const PART_COLOUR_KEYS = ["compartmentColour", "ribbonColour"];
 const CHOICE_KEYS = ["shape", "division", "ordinary", "charge"];
 
 // Position inside the shield as fractions from its centre, -0.5 to 0.5.
@@ -89,6 +115,34 @@ export const ORDINARIES = [
   { id: "chief", label: "Chief", has: (x, y) => y < SHIELD_H * 0.29 },
   { id: "bordure", label: "Bordure", has: (x, y, edge) => edge(x, y) },
 ];
+
+/** Which way a supporter looks: toward the shield or away from it. */
+export const FACINGS = [
+  { id: "inward", label: "Inward" },
+  { id: "outward", label: "Outward" },
+];
+
+/** The ground the supporters stand on, a mound along the bottom of the frame. */
+export const COMPARTMENTS = [
+  { id: "none", label: "None" },
+  { id: "mound", label: "Mound" },
+];
+
+/** The motto ribbon the supporters hold, across the gap below the shield. */
+export const RIBBONS = [
+  { id: "none", label: "None" },
+  { id: "ribbon", label: "Ribbon" },
+];
+
+// The mound's rows from its top down: how far each reaches from the frame's centre line, in cells.
+const MOUND_TOP = 35;
+const MOUND_HALF_WIDTHS = [14, 21, 26, 28.5, 28.5];
+// The ribbon is a band with a forked end on each side.
+const RIBBON_X = 11;
+const RIBBON_Y = 27;
+const RIBBON_W = 36;
+const RIBBON_H = 7;
+const RIBBON_FORK_DEPTH = 3;
 
 // Each hand-set bitmap row is drawn twice across and down, so the emblem fills the larger shield.
 const enlarge = (rows) => rows.flatMap((row) => {
@@ -208,10 +262,10 @@ function assertColour(v, key) {
 }
 
 /**
- * The starting crest: a plain heater shield in the chosen colour, with a white star, a white lion each side.
+ * The starting crest: a plain heater shield in the chosen colour, with a white star, a white lion each side facing the shield, no compartment and no ribbon.
  * @param {number} colour palette index of the field
  * @param {number} colour2 palette index of the second field colour
- * @returns {{shape: string, division: string, ordinary: string, charge: string, supporterLeft: string, supporterRight: string, field: number, field2: number, ordinaryColour: number, chargeColour: number, supporterLeftColour: number, supporterRightColour: number, outline: number}}
+ * @returns {CrestChoices}
  */
 export function defaultCrest(colour, colour2) {
   return {
@@ -221,12 +275,18 @@ export function defaultCrest(colour, colour2) {
     charge: "star",
     supporterLeft: "lion",
     supporterRight: "lion",
+    supporterLeftFacing: "inward",
+    supporterRightFacing: "inward",
+    compartment: "none",
+    ribbon: "none",
     field: colour,
     field2: colour2,
     ordinaryColour: 0,
     chargeColour: 0,
     supporterLeftColour: 0,
     supporterRightColour: 0,
+    compartmentColour: 0,
+    ribbonColour: 0,
     outline: colour,
   };
 }
@@ -253,11 +313,24 @@ export function normaliseCrest(raw, paletteLength) {
   }
   for (const side of ["Left", "Right"]) {
     const animal = raw[`supporter${side}`] ?? "none";
+    const facing = raw[`supporter${side}Facing`] ?? "inward";
     const colour = raw[`supporter${side}Colour`] ?? clean.chargeColour;
     if (!SUPPORTERS.some((entry) => entry.id === animal)) return null;
+    if (!FACINGS.some((entry) => entry.id === facing)) return null;
     if (!Number.isInteger(colour) || colour < 0 || colour > paletteLength) return null;
     clean[`supporter${side}`] = animal;
+    clean[`supporter${side}Facing`] = facing;
     clean[`supporter${side}Colour`] = colour;
+  }
+  for (const [key, list] of [["compartment", COMPARTMENTS], ["ribbon", RIBBONS]]) {
+    const id = raw[key] ?? "none";
+    if (!list.some((entry) => entry.id === id)) return null;
+    clean[key] = id;
+  }
+  for (const key of PART_COLOUR_KEYS) {
+    const colour = raw[key] ?? clean.chargeColour;
+    if (!Number.isInteger(colour) || colour < 0 || colour > paletteLength) return null;
+    clean[key] = colour;
   }
   return clean;
 }
@@ -331,8 +404,39 @@ function renderShield(crest) {
   return cells;
 }
 
-// One supporter painted into the crest, facing the shield: its silhouette in its own colour, the rim and the eye in the outline colour.
-function paintSupporter(cells, animalId, colour, outline, side) {
+// A mask of the frame painted into the crest in one colour with the outline round its rim.
+function paintMask(cells, mask, colour, outline) {
+  const rim = rimOf(mask, CREST_W, CREST_H);
+  for (let i = 0; i < CELL_COUNT; i++) {
+    if (mask[i]) cells[i] = rim[i] ? outline : colour;
+  }
+}
+
+function moundMask() {
+  const mask = new Uint8Array(CELL_COUNT);
+  MOUND_HALF_WIDTHS.forEach((halfWidth, dy) => {
+    for (let x = 0; x < CREST_W; x++) {
+      if (Math.abs(x + 0.5 - CREST_W / 2) <= halfWidth) mask[(MOUND_TOP + dy) * CREST_W + x] = 1;
+    }
+  });
+  return mask;
+}
+
+function ribbonMask() {
+  const mask = new Uint8Array(CELL_COUNT);
+  const middle = (RIBBON_H - 1) / 2;
+  for (let dy = 0; dy < RIBBON_H; dy++) {
+    for (let dx = 0; dx < RIBBON_W; dx++) {
+      const fromEnd = Math.min(dx, RIBBON_W - 1 - dx);
+      if (fromEnd < RIBBON_FORK_DEPTH && Math.abs(dy - middle) <= RIBBON_FORK_DEPTH - 1 - fromEnd) continue;
+      mask[(RIBBON_Y + dy) * CREST_W + RIBBON_X + dx] = 1;
+    }
+  }
+  return mask;
+}
+
+// One supporter painted into the crest: its silhouette in its own colour, the rim and the eye in the outline colour.
+function paintSupporter(cells, animalId, colour, outline, side, facing) {
   if (animalId === "none") return;
   const mask = rasterSupporter(animalId);
   const rim = rimOf(mask, SUPPORTER_W, SUPPORTER_H);
@@ -341,16 +445,34 @@ function paintSupporter(cells, animalId, colour, outline, side) {
     for (let x = 0; x < SUPPORTER_W; x++) {
       const i = y * SUPPORTER_W + x;
       if (!mask[i]) continue;
-      // The left animal faces right as drawn; the right one is its mirror image.
-      const cx = left + (side === "left" ? x : SUPPORTER_W - 1 - x);
+      // The mask faces right. Facing the shield, that is as drawn on the left and mirrored on the right; facing away reverses both.
+      const mirrored = (side === "right") !== (facing === "outward");
+      const cx = left + (mirrored ? SUPPORTER_W - 1 - x : x);
       cells[y * CREST_W + cx] = mask[i] === EYE || rim[i] ? outline : colour;
     }
   }
 }
 
 /**
- * Draws a crest: the two supporters, then the shield over them so the shield edge always stays clean.
- * @param {{shape: string, division: string, ordinary: string, charge: string, supporterLeft?: string, supporterRight?: string, field: number, field2: number, ordinaryColour: number, chargeColour: number, supporterLeftColour?: number, supporterRightColour?: number, outline: number}} crest
+ * Draws the shield alone, centred in the crest frame, so `stampCrest` centres it on the clicked cell.
+ * @param {CrestChoices} crest
+ * @returns {Uint8Array} CREST_W * CREST_H palette indexes; TRANSPARENT everywhere but the shield.
+ */
+export function renderShieldOnly(crest) {
+  for (const key of COLOUR_KEYS) assertColour(crest[key], key);
+  const cells = new Uint8Array(CELL_COUNT).fill(TRANSPARENT);
+  const shield = renderShield(crest);
+  const left = (CREST_W - SHIELD_W) / 2;
+  const top = (CREST_H - SHIELD_H) / 2;
+  for (let y = 0; y < SHIELD_H; y++) {
+    for (let x = 0; x < SHIELD_W; x++) cells[(top + y) * CREST_W + left + x] = shield[y * SHIELD_W + x];
+  }
+  return cells;
+}
+
+/**
+ * Draws a crest: the mound, the two supporters, the ribbon, then the shield over them so the shield edge always stays clean.
+ * @param {CrestChoices} crest
  * @returns {Uint8Array} CREST_W * CREST_H palette indexes; TRANSPARENT where nothing is drawn.
  */
 export function renderCrest(crest) {
@@ -363,10 +485,20 @@ export function renderCrest(crest) {
   assertColour(rightColour, "supporterRightColour");
   pick(SUPPORTERS, leftAnimal, "supporter");
   pick(SUPPORTERS, rightAnimal, "supporter");
+  const leftFacing = pick(FACINGS, crest.supporterLeftFacing ?? "inward", "facing").id;
+  const rightFacing = pick(FACINGS, crest.supporterRightFacing ?? "inward", "facing").id;
+  const compartment = pick(COMPARTMENTS, crest.compartment ?? "none", "compartment").id;
+  const ribbon = pick(RIBBONS, crest.ribbon ?? "none", "ribbon").id;
+  const compartmentColour = crest.compartmentColour ?? crest.chargeColour;
+  const ribbonColour = crest.ribbonColour ?? crest.chargeColour;
+  assertColour(compartmentColour, "compartmentColour");
+  assertColour(ribbonColour, "ribbonColour");
 
   const cells = new Uint8Array(CELL_COUNT).fill(TRANSPARENT);
-  paintSupporter(cells, leftAnimal, leftColour, crest.outline, "left");
-  paintSupporter(cells, rightAnimal, rightColour, crest.outline, "right");
+  if (compartment === "mound") paintMask(cells, moundMask(), compartmentColour, crest.outline);
+  paintSupporter(cells, leftAnimal, leftColour, crest.outline, "left", leftFacing);
+  paintSupporter(cells, rightAnimal, rightColour, crest.outline, "right", rightFacing);
+  if (ribbon === "ribbon") paintMask(cells, ribbonMask(), ribbonColour, crest.outline);
   const shield = renderShield(crest);
   for (let y = 0; y < SHIELD_H; y++) {
     for (let x = 0; x < SHIELD_W; x++) {

@@ -4,6 +4,7 @@
 
 import { LOOKS, layersDrawn, layersOnScreen } from "./layers.js";
 import { createLayerImage, createRiverOverview, makeCanvas, makeSource, readTheme } from "./layerimage.js";
+import { drawCountryNames, findRegions } from "./countrylabels.js";
 import { createGlyphLibrary, drawMarkers, drawSelection, hitMarker, hitTag } from "./markers.js";
 import {
   BUTTON_ZOOM,
@@ -143,6 +144,7 @@ function drawFrame(ctx, scene, interactive) {
     if (interactive && vp.k >= SINGLE_PIXEL_K) drawGrid(ctx, scene, first, last);
   }
   if (interactive && scene.brush && scene.hover && vp.k >= BRUSH_FROM_K) drawBrush(ctx, scene);
+  if (scene.countryRegions) drawCountryNames(ctx, scene);
   drawMarkers(ctx, scene);
   if (interactive && scene.selected != null) {
     const marker = scene.markers.find((m) => m.id === scene.selected);
@@ -166,6 +168,8 @@ export function createRenderer({ canvas, model, glyphs }) {
 
   let look = "political";
   let cityColour = "neutral";
+  let countryNames = true;
+  let regions = null;
   let theme = readTheme(getComputedStyle(canvas));
   let stage = { w: 0, h: 0 };
   let dpr = 1;
@@ -219,6 +223,12 @@ export function createRenderer({ canvas, model, glyphs }) {
     dirty = null;
   }
 
+  // Found on first use after a paint change, so a map with names off or another layer on screen pays nothing.
+  function regionsNow() {
+    regions ??= findRegions(model.planes.political, n);
+    return regions;
+  }
+
   function scene() {
     return {
       stage,
@@ -231,6 +241,8 @@ export function createRenderer({ canvas, model, glyphs }) {
       markers: model.markers,
       cityColour,
       political: model.planes.political,
+      countryRegions: countryNames && look === "political" ? regionsNow() : null,
+      countries: model.countries,
       designs: model.designs,
       palette: model.palette,
       glyphs: glyphLibrary,
@@ -263,7 +275,9 @@ export function createRenderer({ canvas, model, glyphs }) {
   function onModelChange(notice) {
     if (notice.all || notice.palette) {
       needsRebuild = true;
+      regions = null;
     } else if (notice.rect) {
+      if (notice.layer === "political") regions = null;
       if (!layersDrawn(look).includes(notice.layer)) return;
       if (!needsRebuild) dirty = dirty ? unionRect(dirty, notice.rect) : { ...notice.rect };
     } else if (!notice.markers && !notice.history) {
@@ -377,6 +391,14 @@ export function createRenderer({ canvas, model, glyphs }) {
         return;
       }
       cityColour = next;
+      scheduleFrame();
+    },
+
+    /**
+     * @param {boolean} on Whether each country's name is drawn over its Political region.
+     */
+    setCountryNames(on) {
+      countryNames = Boolean(on);
       scheduleFrame();
     },
 

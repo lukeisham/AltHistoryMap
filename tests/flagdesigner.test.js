@@ -13,7 +13,7 @@ function cornerlessCrest() {
   return cells;
 }
 
-function setup({ palette = ["#ff0000", "#00ff00", "#0000ff"], crests = [] } = {}) {
+function setup({ palette = ["#ff0000", "#00ff00", "#0000ff"], crests = [], shields = [] } = {}) {
   const doc = fakeDocument();
   const dialog = fakeDialog(doc);
   const opener = doc.createElement("button");
@@ -30,6 +30,7 @@ function setup({ palette = ["#ff0000", "#00ff00", "#0000ff"], crests = [] } = {}
       return addResult;
     },
     getCrests: () => crests,
+    getShields: () => shields,
     saveBlob: (blob, name) => saved.push({ blob, name }),
   });
   const byText = (text) => dialog.find((n) => n.tagName === "button" && n.textContent === text);
@@ -216,6 +217,33 @@ test("the Crest tool stamps the chosen crest centred on the clicked cell, skips 
   assert.equal(cells.filter((c) => c === 3).length, CREST_W * CREST_H - 4);
 });
 
+test("Shield only stamps the shield list instead of the whole crest, shows only for the Crest tool, and resets on open", async () => {
+  const shield = new Uint8Array(CREST_W * CREST_H).fill(TRANSPARENT);
+  shield[(CREST_H / 2) * CREST_W + CREST_W / 2] = 2;
+  const t = setup({ crests: [cornerlessCrest()], shields: [shield] });
+  const result = t.designer.open({ cells: new Uint8Array(FLAG_W * FLAG_H).fill(1), colour: 1, colour2: 2, editing: true, fileName: "x.png" });
+  assert.equal(t.byText("Shield only").hidden, true, "the toggle shows only for the Crest tool");
+  t.click("Crest");
+  assert.equal(t.byText("Shield only").hidden, false);
+  assert.equal(t.byText("Shield only").getAttribute("aria-pressed"), "false");
+  t.click("Shield only");
+  assert.equal(t.byText("Shield only").getAttribute("aria-pressed"), "true");
+
+  const cx = FLAG_W / 2;
+  const cy = FLAG_H / 2;
+  t.pointer("pointerdown", cx, cy);
+  t.pointer("pointerup", cx, cy);
+  t.click("Save changes");
+  const cells = await result;
+  assert.equal(cells[cy * FLAG_W + cx], 2, "the shield's one painted cell lands on the clicked cell");
+  assert.equal(cells.filter((c) => c !== 1).length, 1, "nothing else of the crest is stamped");
+
+  t.designer.open({ cells: null, colour: 1, colour2: 2, editing: false, fileName: "x.png" });
+  t.click("Crest");
+  assert.equal(t.byText("Shield only").getAttribute("aria-pressed"), "false", "each open starts with the whole crest");
+  t.designer.close();
+});
+
 test("the Crest tool with no saved crests changes nothing and says how to make one", async () => {
   const t = setup();
   const result = t.designer.open({ cells: null, colour: 1, colour2: 2, editing: false, fileName: "x.png" });
@@ -251,7 +279,7 @@ test("tools, Mirror, starter layouts and the flag-part captions each carry a ter
   t.designer.open({ cells: null, colour: 1, colour2: 2, editing: false, fileName: "x.png" });
   const terms = [];
   t.dialog.walk((n) => { if (n.attrs["data-term"]) terms.push(n.attrs["data-term"]); });
-  for (const expected of ["tool:pencil", "tool:erase", "tool:fill", "tool:crest", "tool:mirror", "starter:stripes-h", "starter:saltire", "flag:hoist", "flag:fly", "flag:canton"]) {
+  for (const expected of ["tool:pencil", "tool:erase", "tool:fill", "tool:crest", "tool:shield-only", "tool:mirror", "starter:stripes-h", "starter:saltire", "flag:hoist", "flag:fly", "flag:canton"]) {
     assert.ok(terms.includes(expected), `${expected} has no term`);
   }
   t.designer.close();

@@ -42,22 +42,26 @@ const ARROWS = {
  *   getPalette: () => string[],
  *   addColour: (hex: string) => number | null,
  *   getCrests: () => Uint8Array[],
+ *   getShields: () => Uint8Array[],
  *   saveBlob: (blob: Blob, fileName: string) => void
  * }} options getPalette returns hex colours; plane value i is palette[i - 1], 0 is white. getPalette
- *   and getCrests are re-read on every open(). addColour adds a picked colour to the map's palette
+ *   getCrests and getShields are re-read on every open(). addColour adds a picked colour to the map's palette
  *   and returns its index, or null when the palette is full. getCrests returns each saved crest as
- *   rendered cells (crestcells.js).
+ *   rendered cells and getShields returns the same crests with the shield alone (crestcells.js); both lists
+ *   share one order, so a crest index picks the same crest in either.
  * @returns {{
  *   open: (design: {cells: Uint8Array|null, colour: number, colour2: number, editing: boolean, fileName: string}) => Promise<Uint8Array|null>,
  *   close: () => void
  * }}
  */
-export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, saveBlob }) {
+export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, getShields, saveBlob }) {
   const doc = dialog.ownerDocument;
   let ui = null;
 
   let palette = [];
   let crests = [];
+  let shields = [];
+  let shieldOnly = false;
   let crestIndex = 0;
   let fileName = "flag.png";
   let cells = blankCells();
@@ -89,9 +93,11 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
     });
     const mirrorBtn = button("Mirror", () => setMirror(!mirror));
     mirrorBtn.setAttribute("data-term", "tool:mirror");
+    const shieldBtn = button("Shield only", () => setShieldOnly(!shieldOnly));
+    shieldBtn.setAttribute("data-term", "tool:shield-only");
     const undoBtn = button("Undo", undo);
     const clearBtn = button("Clear", () => commit(blankCells()));
-    toolRow.append(toolGroup, mirrorBtn, undoBtn, clearBtn);
+    toolRow.append(toolGroup, mirrorBtn, shieldBtn, undoBtn, clearBtn);
 
     const crestRow = group("Crests. Pick one, then click the flag to stamp it.", "fd-crests");
 
@@ -155,7 +161,7 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
     });
 
     return {
-      heading, toolButtons, mirrorBtn, undoBtn, swatchRow, status, confirmBtn,
+      heading, toolButtons, mirrorBtn, shieldBtn, undoBtn, swatchRow, status, confirmBtn,
       crestRow, colourInput, main, preview,
     };
   }
@@ -233,7 +239,14 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
     tool = id;
     for (const { id: toolId, node } of ui.toolButtons) node.setAttribute("aria-pressed", String(toolId === id));
     ui.crestRow.hidden = id !== "crest";
+    ui.shieldBtn.hidden = id !== "crest";
     describeCanvas();
+  }
+
+  function setShieldOnly(on) {
+    shieldOnly = on;
+    ui.shieldBtn.setAttribute("aria-pressed", String(on));
+    renderCrests();
   }
 
   function setMirror(on) {
@@ -299,7 +312,7 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
   }
 
   function renderCrests() {
-    const buttons = crests.map((crestCells, i) => {
+    const buttons = (shieldOnly ? shields : crests).map((crestCells, i) => {
       const node = el("button", "fd-crest");
       node.setAttribute("type", "button");
       node.setAttribute("aria-label", `Crest ${i + 1}`);
@@ -355,7 +368,7 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
         say("There are no crests yet. Make one with New crest in the Flags panel.");
         return cells;
       }
-      return stampCrest(cells, crests[crestIndex], x, y);
+      return stampCrest(cells, (shieldOnly ? shields : crests)[crestIndex], x, y);
     }
     return pencilLine(cells, x, y, x, y, tool === "erase" ? 0 : pen, mirror);
   }
@@ -445,6 +458,8 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
       if (!ui) ui = build();
       readTheme();
       crests = getCrests();
+      shields = getShields();
+      shieldOnly = false;
       crestIndex = 0;
       fileName = openFileName;
 
@@ -466,6 +481,7 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, s
       ui.confirmBtn.textContent = editing ? "Save changes" : "Add to library";
       ui.mirrorBtn.setAttribute("aria-pressed", "false");
       renderSwatches();
+      ui.shieldBtn.setAttribute("aria-pressed", "false");
       setTool("pencil");
       renderCrests();
       say("");

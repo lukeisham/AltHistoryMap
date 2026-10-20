@@ -1,4 +1,4 @@
-// The screen's own small store: mode, layer, tool, colours, brush, symbol, flag design, crest, selection, city colour.
+// The screen's own small store: mode, layer, tool, colours, brush, symbol, flag design, crest, selection, city colour, country names.
 // Map data never lives here; that is model.js.
 
 import { layersOnScreen, lookFor, settleLayers, soloView, toggleLayer } from "./layers.js";
@@ -51,6 +51,7 @@ export function createAppState(initial) {
     nameTag: true,
     capital: false,
     cityColour: "neutral",
+    countryNames: true,
     selected: null,
     ...initial,
     ...start,
@@ -85,6 +86,7 @@ export function createAppState(initial) {
  * a whole map is swapped in.
  * @param {ReturnType<typeof createStore>} state
  * @param {{palette: string[], designs: unknown[], crests: unknown[]}} model
+ * @returns {void}
  */
 export function keepSelectionsValid(state, model) {
   const { colour, colour2, design, crest } = state.get();

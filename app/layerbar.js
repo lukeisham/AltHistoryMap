@@ -14,6 +14,7 @@ const LABELS = { political: "Political", province: "Province", culture: "Culture
  *   editor: {undo: () => boolean, redo: () => boolean},
  *   say: (text: string) => void
  * }} deps
+ * @returns {void}
  */
 export function bindLayerBar({ root, state, model, editor, say }) {
   const part = (layer, selector) => root.querySelector(`[data-chip="${layer}"] ${selector}`);
@@ -23,6 +24,7 @@ export function bindLayerBar({ root, state, model, editor, say }) {
   const undoButton = root.querySelector('[data-action="undo"]');
   const redoButton = root.querySelector('[data-action="redo"]');
   const cityColourButton = root.querySelector('[data-action="city-colour"]');
+  const countryNamesButton = root.querySelector('[data-action="country-names"]');
 
   LAYERS.forEach((layer, i) => {
     names[i].addEventListener("click", () => {
@@ -31,6 +33,7 @@ export function bindLayerBar({ root, state, model, editor, say }) {
     });
     eyes[i].addEventListener("click", () => say(state.toggleView(layer)));
   });
+  countryNamesButton.addEventListener("click", () => state.set({ countryNames: !state.get().countryNames }));
   undoButton.addEventListener("click", () => editor.undo());
   redoButton.addEventListener("click", () => editor.redo());
   cityColourButton.addEventListener("click", () => state.set({ cityColour: state.get().cityColour === "nation" ? "neutral" : "nation" }));
@@ -58,6 +61,9 @@ export function bindLayerBar({ root, state, model, editor, say }) {
   function syncCityColour() {
     cityColourButton.setAttribute("aria-pressed", String(state.get().cityColour === "nation"));
   }
+  function syncCountryNames() {
+    countryNamesButton.setAttribute("aria-pressed", String(state.get().countryNames));
+  }
   function syncHistory() {
     undoButton.disabled = !model.canUndo();
     redoButton.disabled = !model.canRedo();
@@ -66,9 +72,11 @@ export function bindLayerBar({ root, state, model, editor, say }) {
   state.subscribe((value, changed) => {
     if (changed.includes("mode") || changed.includes("layer") || changed.includes("view")) syncLayers();
     if (changed.includes("cityColour")) syncCityColour();
+    if (changed.includes("countryNames")) syncCountryNames();
   });
   model.onChange(syncHistory);
   syncLayers();
   syncCityColour();
+  syncCountryNames();
   syncHistory();
 }

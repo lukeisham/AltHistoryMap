@@ -11,7 +11,7 @@ import { createFlagDesigner } from "./flagdesigner.js";
 import { createCrestMaker } from "./crestmaker.js";
 import { createCountryFacts } from "./countryfacts.js";
 import { createCountries } from "./countries.js";
-import { renderCrest } from "./crestcells.js";
+import { renderCrest, renderShieldOnly } from "./crestcells.js";
 import { downloadBlob } from "./filesave.js";
 import { createFlagZoom } from "./flagzoom.js";
 import { createAppState, keepSelectionsValid } from "./state.js";
@@ -73,7 +73,7 @@ async function main() {
   const narrow = window.matchMedia(NARROW_QUERY);
   const prefs = loadPrefs();
   const glyphIds = GLYPHS.map((glyph) => glyph.id);
-  const state = createAppState({ mode: narrow.matches ? "view" : prefs.mode, layer: prefs.layer, view: prefs.view, cityColour: prefs.cityColour, glyph: glyphIds[0] });
+  const state = createAppState({ mode: narrow.matches ? "view" : prefs.mode, layer: prefs.layer, view: prefs.view, cityColour: prefs.cityColour, countryNames: prefs.countryNames, glyph: glyphIds[0] });
 
   say("Loading the map...");
   let base;
@@ -92,10 +92,12 @@ async function main() {
   const renderer = createRenderer({ canvas, model, glyphs: GLYPHS });
   renderer.setLook(lookFor(state.get()));
   renderer.setCityColour(state.get().cityColour);
+  renderer.setCountryNames(state.get().countryNames);
   renderer.zoomHome();
   state.subscribe((value, changed) => {
     if (changed.includes("mode") || changed.includes("layer") || changed.includes("view")) renderer.setLook(lookFor(value));
     if (changed.includes("cityColour")) renderer.setCityColour(value.cityColour);
+    if (changed.includes("countryNames")) renderer.setCountryNames(value.countryNames);
   });
 
   const dialogs = createDialogs(part("app-dialog"));
@@ -107,6 +109,7 @@ async function main() {
     getPalette,
     addColour,
     getCrests: () => model.crests.map(renderCrest),
+    getShields: () => model.crests.map(renderShieldOnly),
     saveBlob: downloadBlob,
   });
   const designs = createDesigns({ designer, model, state, editor, say });
@@ -214,14 +217,15 @@ async function main() {
   document.body.dataset.mode = state.get().mode;
 
   // A window too narrow to edit in shows View, but the remembered mode survives for the next wide visit.
-  const remembered = { mode: prefs.mode, layer: prefs.layer, view: prefs.view, cityColour: prefs.cityColour };
+  const remembered = { mode: prefs.mode, layer: prefs.layer, view: prefs.view, cityColour: prefs.cityColour, countryNames: prefs.countryNames };
   let forcingView = false;
   state.subscribe((value, changed) => {
     if (changed.includes("mode") && !forcingView) remembered.mode = value.mode;
     if (changed.includes("layer")) remembered.layer = value.layer;
     if (changed.includes("view")) remembered.view = value.view;
     if (changed.includes("cityColour")) remembered.cityColour = value.cityColour;
-    if (["mode", "layer", "view", "cityColour"].some((key) => changed.includes(key))) savePrefs(remembered);
+    if (changed.includes("countryNames")) remembered.countryNames = value.countryNames;
+    if (["mode", "layer", "view", "cityColour", "countryNames"].some((key) => changed.includes(key))) savePrefs(remembered);
   });
   const applyWidth = () => {
     header.setNarrow(narrow.matches);

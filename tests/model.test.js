@@ -272,7 +272,11 @@ const CREST = { shape: "heater", division: "pale", ordinary: "cross", charge: "s
 test("crests: add, update, undo and redo; a colour outside the palette or an unknown choice is refused; the library is capped", () => {
   const m = smallModel();
   assert.equal(m.addCrest(CREST), 0);
-  assert.deepEqual(m.crests[0], CREST);
+  assert.deepEqual(
+    m.crests[0],
+    { ...CREST, supporterLeftFacing: "inward", supporterRightFacing: "inward", compartment: "none", ribbon: "none", compartmentColour: 4, ribbonColour: 4 },
+    "a crest without the newer parts is filled in with none and the charge colour",
+  );
   assert.equal(m.addCrest({ ...CREST, field: 99 }), null);
   assert.equal(m.addCrest({ ...CREST, charge: "dragon" }), null);
   assert.equal(m.crests.length, 1);

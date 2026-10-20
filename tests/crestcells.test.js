@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CREST_W, CREST_H, SHIELD_W, SHIELD_H, SHIELD_X, SHIELD_Y, TRANSPARENT, SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS,
-  defaultCrest, normaliseCrest, renderCrest,
+  defaultCrest, normaliseCrest, renderCrest, renderShieldOnly, FACINGS, COMPARTMENTS, RIBBONS,
 } from "../app/crestcells.js";
 import { stampCrest } from "../app/flagcells.js";
 import { FLAG_W, FLAG_H } from "../app/model.js";
@@ -128,4 +128,80 @@ test("stampCrest centres the crest, leaves transparent cells alone, clips at the
   assert.ok(corner.includes(1), "the visible part of a crest at the corner is still drawn");
   assert.equal(corner.length, FLAG_W * FLAG_H);
   assert.throws(() => stampCrest(new Uint8Array(10), cells, 0, 0), RangeError);
+});
+
+test("renderShieldOnly draws the shield alone, centred in the crest frame, whatever the supporters", () => {
+  const withAnimals = crest({ supporterLeft: "lion", supporterRight: "stag", supporterLeftColour: 6, supporterRightColour: 7 });
+  const cells = renderShieldOnly(withAnimals);
+  assert.ok(!cells.includes(6) && !cells.includes(7), "no supporter cell is drawn");
+  const top = (CREST_H - SHIELD_H) / 2;
+  const left = (CREST_W - SHIELD_W) / 2;
+  const shield = renderCrest(crest());
+  for (let y = 0; y < SHIELD_H; y++) {
+    for (let x = 0; x < SHIELD_W; x++) {
+      assert.equal(at(cells, left + x, top + y), at(shield, SHIELD_X + x, SHIELD_Y + y), `shield differs at ${x},${y}`);
+    }
+  }
+  assert.equal(cells.filter((v) => v !== TRANSPARENT).length, shield.filter((v) => v !== TRANSPARENT).length);
+});
+
+test("a supporter facing outward is the mirror image of the same supporter facing inward, on each side", () => {
+  for (const side of ["Left", "Right"]) {
+    const inward = renderCrest(crest({ [`supporter${side}`]: "lion", [`supporter${side}Colour`]: 6 }));
+    const outward = renderCrest(crest({ [`supporter${side}`]: "lion", [`supporter${side}Colour`]: 6, [`supporter${side}Facing`]: "outward" }));
+    assert.notDeepEqual(inward, outward, `${side} outward draws differently`);
+    const from = side === "Left" ? 0 : CREST_W - 20;
+    for (let y = 0; y < CREST_H; y++) {
+      // The shield covers three columns of the animal's box on the shield side, so only the other sixteen are compared.
+      for (let x = 3; x < 17; x++) {
+        assert.equal(at(outward, from + x, y), at(inward, from + 19 - x, y), `${side} ${x},${y}`);
+      }
+    }
+  }
+});
+
+test("a mound sits along the bottom of the frame under the supporters, and a ribbon between them, each in its own colour with the outline round it", () => {
+  const mound = renderCrest(crest({ compartment: "mound", compartmentColour: 6, outline: 9 }));
+  const ribbon = renderCrest(crest({ ribbon: "ribbon", ribbonColour: 7, outline: 9 }));
+  assert.ok(mound.includes(6) && mound.includes(9), "the mound has a body and an outline");
+  assert.ok(ribbon.includes(7) && ribbon.includes(9), "the ribbon has a body and an outline");
+  assert.notEqual(at(mound, CREST_W / 2, CREST_H - 1), TRANSPARENT, "the mound reaches the bottom edge at the middle");
+  assert.equal(at(mound, 0, CREST_H - 5), TRANSPARENT, "the mound narrows toward its top");
+  const bare = renderCrest(crest());
+  for (let x = 0; x < CREST_W; x++) {
+    assert.equal(at(mound, x, 0), at(bare, x, 0), "nothing above the mound changes");
+    assert.equal(at(ribbon, x, CREST_H - 1), at(bare, x, CREST_H - 1), "nothing below the ribbon changes");
+  }
+});
+
+test("the shield stays on top of the mound and the ribbon, and a mound is drawn behind the supporters", () => {
+  const both = renderCrest(crest({ compartment: "mound", ribbon: "ribbon", compartmentColour: 6, ribbonColour: 7, outline: 9 }));
+  const shield = renderCrest(crest({ outline: 9 }));
+  for (let y = 0; y < SHIELD_H; y++) {
+    for (let x = 0; x < SHIELD_W; x++) {
+      const i = (SHIELD_Y + y) * CREST_W + SHIELD_X + x;
+      if (shield[i] !== TRANSPARENT) assert.equal(both[i], shield[i], `covered at ${x},${y}`);
+    }
+  }
+  const animal = crest({ supporterLeft: "lion", supporterLeftColour: 5, outline: 9 });
+  const withMound = renderCrest({ ...animal, compartment: "mound", compartmentColour: 6 });
+  const lionCells = renderCrest(animal);
+  for (let i = 0; i < lionCells.length; i++) {
+    if (lionCells[i] !== TRANSPARENT) assert.equal(withMound[i], lionCells[i], `the mound covers the lion at ${i}`);
+  }
+});
+
+test("normaliseCrest fills in facing, compartment and ribbon for a crest saved without them, and refuses unknown ones", () => {
+  const { supporterLeftFacing, supporterRightFacing, compartment, ribbon, compartmentColour, ribbonColour, ...old } = crest();
+  const clean = normaliseCrest(old, 8);
+  assert.deepEqual([clean.supporterLeftFacing, clean.supporterRightFacing, clean.compartment, clean.ribbon], ["inward", "inward", "none", "none"]);
+  assert.deepEqual([clean.compartmentColour, clean.ribbonColour], [old.chargeColour, old.chargeColour]);
+  assert.deepEqual(renderCrest(old), renderCrest(crest()), "an old crest draws as before");
+  assert.equal(normaliseCrest(crest({ supporterLeftFacing: "sideways" }), 8), null);
+  assert.equal(normaliseCrest(crest({ compartment: "cliff" }), 8), null);
+  assert.equal(normaliseCrest(crest({ ribbon: "banner" }), 8), null);
+  assert.equal(normaliseCrest(crest({ ribbonColour: 9 }), 8), null);
+  assert.deepEqual(FACINGS.map((f) => f.id), ["inward", "outward"]);
+  assert.deepEqual(COMPARTMENTS.map((f) => f.id), ["none", "mound"]);
+  assert.deepEqual(RIBBONS.map((f) => f.id), ["none", "ribbon"]);
 });

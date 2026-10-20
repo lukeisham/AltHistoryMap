@@ -1003,5 +1003,23 @@
    "colour": 3,
    "design": 0
   }
+ ],
+ "countries": [
+  {
+   "colour": 1,
+   "name": "Abbasid Caliphate (central provinces)",
+   "ruler": "Harun al-Rashid, Caliph and Commander of the Faithful",
+   "government": "Hereditary Islamic caliphate",
+   "currency": "Dinar (gold) and dirham (silver)",
+   "demonym": "Abbasid"
+  },
+  {
+   "colour": 2,
+   "name": "Abbasid Caliphate (outer provinces)",
+   "ruler": "Harun al-Rashid, Caliph and Commander of the Faithful",
+   "government": "Hereditary Islamic caliphate",
+   "currency": "Dinar (gold) and dirham (silver)",
+   "demonym": "Abbasid"
+  }
  ]
 }

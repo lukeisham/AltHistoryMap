@@ -39,6 +39,7 @@ FLAG_W, FLAG_H = 120, 80
 SOURCE_SCALE = 5
 SOURCE_W, SOURCE_H = FLAG_W // SOURCE_SCALE, FLAG_H // SOURCE_SCALE
 MAX_NAME = 60
+MAX_MOTTO = 80
 MAX_PALETTE = 16
 MAX_DESIGNS = 8
 MAX_RING_POINTS = 200
@@ -49,9 +50,12 @@ ID_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 HEX_PATTERN = re.compile(r"^#[0-9a-f]{6}$")
 GLYPH_ID_PATTERN = re.compile(r'"id":\s*"([a-z]+)"')
 
-TOP_KEYS = {"id", "title", "year", "note", "palette", "areas", "flagDesigns", "markers"}
+TOP_KEYS = {"id", "title", "year", "note", "palette", "areas", "flagDesigns", "markers", "countries"}
 AREA_KEYS = {"layer", "colour", "ring"}
 STARTER_KEYS = {"starter", "colour", "colour2"}
+# Text fields of a country record and their longest length; app/countrydata.js `TEXT_FIELDS` holds the same limits.
+COUNTRY_TEXT_LIMITS = {"name": MAX_NAME, "ruler": MAX_NAME, "government": MAX_NAME, "motto": MAX_MOTTO, "currency": MAX_NAME, "demonym": MAX_NAME}
+COUNTRY_KEYS = {"colour", *COUNTRY_TEXT_LIMITS}
 MARKER_KEYS = {"type", "name", "lon", "lat", "colour", "glyph", "layer", "design", "capital"}
 
 
@@ -122,6 +126,16 @@ def _check_design(design: object, palette_size: int, where: str) -> None:
     _check_colour(design.get("colour2"), palette_size, f"{where}.colour2", low=0)
 
 
+def _check_country(country: object, political_colours: set[int], where: str) -> None:
+    _require(isinstance(country, dict), where, "must be an object")
+    _check_keys(country, COUNTRY_KEYS, where)
+    colour = country.get("colour")
+    _require(_is_int(colour) and colour in political_colours, f"{where}.colour", f"{colour!r} must be a colour painted on the political layer")
+    for key, limit in COUNTRY_TEXT_LIMITS.items():
+        text = country.get(key, "")
+        _require(isinstance(text, str) and len(text.strip()) <= limit, f"{where}.{key}", f"must be text of at most {limit} characters")
+
+
 def _check_marker(marker: object, palette_size: int, design_count: int, glyph_ids: set[str], where: str) -> None:
     _require(isinstance(marker, dict), where, "must be an object")
     _check_keys(marker, MARKER_KEYS, where)
@@ -172,6 +186,13 @@ def validate(data: object, expected_id: str) -> None:
     _require(len(data["flagDesigns"]) <= MAX_DESIGNS, "flagDesigns", f"at most {MAX_DESIGNS} designs")
     for index, design in enumerate(data["flagDesigns"]):
         _check_design(design, len(palette), f"flagDesigns[{index}]")
+    countries = data.get("countries", [])
+    _require(isinstance(countries, list), "countries", "must be a list")
+    political_colours = {area["colour"] for area in data["areas"] if area["layer"] == "political" and area["colour"] > 0}
+    for index, country in enumerate(countries):
+        _check_country(country, political_colours, f"countries[{index}]")
+    colours = [country["colour"] for country in countries]
+    _require(len(set(colours)) == len(colours), "countries", "a colour may be described only once")
     glyph_ids = known_glyph_ids()
     for index, marker in enumerate(data["markers"]):
         _check_marker(marker, len(palette), len(data["flagDesigns"]), glyph_ids, f"markers[{index}]")
@@ -296,6 +317,14 @@ def _marker_record(number: int, marker: dict, political: bytearray) -> dict:
     }
 
 
+def _country_record(country: dict) -> dict:
+    """A country in the shape the app saves; the scenario links no flag or crest and names no philosophy."""
+    record = {"colour": country["colour"], "alignment": "", "flag": -1, "crest": -1}
+    for key in COUNTRY_TEXT_LIMITS:
+        record[key] = country.get(key, "").strip()
+    return record
+
+
 def compile_scenario(data: dict) -> bytes:
     """The gzip-compressed .ahmap bytes for a validated source."""
     planes = {name: bytearray(N * N) for name in PLANE_NAMES}
@@ -313,6 +342,8 @@ def compile_scenario(data: dict) -> bytes:
         "flags": [_design_cells(d) for d in data["flagDesigns"]],
         "savedWith": SAVED_WITH,
     }
+    if data.get("countries"):
+        header["countries"] = [_country_record(country) for country in data["countries"]]
     header_bytes = json.dumps(header, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     raw = b"".join([MAGIC, struct.pack(">I", len(header_bytes)), header_bytes, *(bytes(planes[n]) for n in PLANE_NAMES)])
     return gzip.compress(raw, compresslevel=9, mtime=0)

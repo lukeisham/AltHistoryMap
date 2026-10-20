@@ -2125,5 +2125,34 @@
    "lat": 56,
    "colour": 1
   }
+ ],
+ "countries": [
+  {
+   "colour": 1,
+   "name": "British Empire (United Kingdom, colonies, protectorates)",
+   "ruler": "George V, King of the United Kingdom",
+   "government": "Crown colonies ruled by governors"
+  },
+  {
+   "colour": 2,
+   "name": "British Empire (self-governing Dominions)",
+   "ruler": "George V, King of the British Dominions beyond the Seas",
+   "government": "Self-governing dominions under a constitutional monarchy",
+   "demonym": "British subject"
+  },
+  {
+   "colour": 3,
+   "name": "British Empire (League of Nations mandates)",
+   "ruler": "George V, King (His Britannic Majesty, the Mandatory)",
+   "government": "British mandate under the League of Nations"
+  },
+  {
+   "colour": 4,
+   "name": "British Empire (British India)",
+   "ruler": "George V, King and Emperor of India",
+   "government": "Crown rule by the Viceroy and Governor-General in Council",
+   "currency": "Indian rupee",
+   "demonym": "Indian"
+  }
  ]
 }

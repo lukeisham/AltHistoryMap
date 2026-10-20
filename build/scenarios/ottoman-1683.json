@@ -1315,5 +1315,35 @@
    "lat": 24,
    "colour": 2
   }
+ ],
+ "countries": [
+  {
+   "colour": 1,
+   "name": "Ottoman Empire (Anatolia, Balkans, Hungary)",
+   "ruler": "Mehmed IV, Sultan",
+   "government": "Hereditary sultanate, absolute in theory",
+   "motto": "al-Muzaffar daima (the eternally victorious)",
+   "demonym": "Ottoman"
+  },
+  {
+   "colour": 2,
+   "name": "Ottoman Empire (Arab provinces)",
+   "ruler": "Mehmed IV, Sultan",
+   "government": "Hereditary sultanate, absolute in theory",
+   "motto": "al-Muzaffar daima (the eternally victorious)",
+   "demonym": "Ottoman"
+  },
+  {
+   "colour": 3,
+   "name": "Ottoman North African regencies",
+   "government": "Ottoman regency under local military rule (Algiers)"
+  },
+  {
+   "colour": 4,
+   "name": "Crimean Khanate",
+   "ruler": "Murad Giray, Khan (deposed after Vienna, 1683)",
+   "government": "Giray khanate under Ottoman suzerainty",
+   "demonym": "Crimean Tatar"
+  }
  ]
 }

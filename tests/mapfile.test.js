@@ -326,14 +326,14 @@ test("a bad crest is refused: unknown part, colour outside the palette, wrong ty
   await bad(Array.from({ length: 33 }, () => ({ ...CREST, field: 1, field2: 2, ordinaryColour: 1, chargeColour: 2, outline: 1 })));
 });
 
-test("every bundled scenario still opens, with its flags and no crests", async () => {
+test("every bundled scenario still opens, with its flags, no crests and countries that link nothing", async () => {
   const folder = fileURLToPath(new URL("../app/data/scenarios/", import.meta.url));
   const files = (await readdir(folder)).filter((name) => name.endsWith(".ahmap"));
   assert.ok(files.length >= 4, "the scenario scan found the bundled maps");
   for (const name of files) {
     const data = await decodeMap(new Blob([await readFile(folder + name)]), ["sword", "crown"].concat(await glyphIdsFromApp()));
     assert.deepEqual(data.crests, [], name);
-    assert.deepEqual(data.countries, [], name);
+    assert.ok(data.countries.every((country) => country.flag === -1 && country.crest === -1 && country.alignment === ""), name);
     const model = fullModel();
     model.replace(data);
     assert.equal(model.isDirty(), false, name);

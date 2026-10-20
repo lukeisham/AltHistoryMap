@@ -1736,5 +1736,43 @@
    "lat": 16.5,
    "colour": 3
   }
+ ],
+ "countries": [
+  {
+   "colour": 1,
+   "name": "Spain (Crown of Castile and Aragon)",
+   "ruler": "Philip III, King of Spain",
+   "government": "Monarchy claiming absolute power, ruled via a favourite",
+   "currency": "Silver real; accounts in maravedis (1 real = 34)",
+   "demonym": "Spaniard"
+  },
+  {
+   "colour": 2,
+   "name": "Habsburg Netherlands and Italy (Spanish Crown)"
+  },
+  {
+   "colour": 3,
+   "name": "Spanish Indies (Americas and Philippines)",
+   "ruler": "Philip III, King of Spain and the New World",
+   "government": "Crown dominions under viceroys; no Cortes",
+   "currency": "Silver peso (real de a ocho), 272 maravedis",
+   "demonym": "Spanish"
+  },
+  {
+   "colour": 4,
+   "name": "Kingdom of Portugal",
+   "ruler": "Philip II of Portugal (Philip III of Spain), King",
+   "government": "Kingdom in dynastic union with Spain, keeping its own laws",
+   "currency": "Real (plural reis)",
+   "demonym": "Portuguese"
+  },
+  {
+   "colour": 5,
+   "name": "Portuguese Empire (Brazil and Asian bases)",
+   "ruler": "Philip II of Portugal (Philip III of Spain), King",
+   "government": "Portuguese overseas lands, kept separate from Spain's",
+   "currency": "Real (plural reis), the Portuguese unit of account",
+   "demonym": "Portuguese"
+  }
  ]
 }

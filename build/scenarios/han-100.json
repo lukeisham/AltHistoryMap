@@ -864,5 +864,23 @@
    "colour": 3,
    "design": 0
   }
+ ],
+ "countries": [
+  {
+   "colour": 1,
+   "name": "Eastern Han Empire (commanderies)",
+   "ruler": "Emperor He (Liu Zhao), Emperor of Han",
+   "government": "Hereditary imperial monarchy with a bureaucracy",
+   "currency": "Wuzhu cash",
+   "demonym": "Han"
+  },
+  {
+   "colour": 2,
+   "name": "Eastern Han Empire (outer protectorates)",
+   "ruler": "Emperor He (Liu Zhao), Emperor of Han",
+   "government": "Hereditary imperial monarchy with a bureaucracy",
+   "currency": "Wuzhu cash",
+   "demonym": "Han"
+  }
  ]
 }

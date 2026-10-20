@@ -130,5 +130,9 @@
     {"type": "symbol", "name": "Seleucia Pieria", "lon": 35.93, "lat": 36.12, "colour": 1, "glyph": "anchor", "layer": "political"},
     {"type": "symbol", "name": "Library of Alexandria", "lon": 29.9, "lat": 31.2, "colour": 9, "glyph": "scroll", "layer": "culture"},
     {"type": "symbol", "name": "Delphi", "lon": 22.5, "lat": 38.48, "colour": 4, "glyph": "temple", "layer": "culture"}
+  ],
+  "countries": [
+    {"colour": 1, "name": "Roman Empire", "ruler": "Trajan, Roman Emperor (Augustus)", "government": "Principate: an emperor ruling with senate and magistrates", "currency": "Denarius (silver)", "demonym": "Roman"},
+    {"colour": 3, "name": "Parthian Empire", "ruler": "Osroes I, King of Kings", "government": "Hereditary monarchy: King of Kings over vassal kings", "currency": "Drachm (silver)", "demonym": "Parthian"}
   ]
 }

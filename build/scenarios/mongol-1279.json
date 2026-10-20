@@ -687,5 +687,57 @@
    "lat": 50,
    "colour": 5
   }
+ ],
+ "countries": [
+  {
+   "colour": 1,
+   "name": "Yuan Empire (China)",
+   "ruler": "Kublai (Shizu), Emperor of the Yuan and Great Khan",
+   "government": "Imperial monarchy under a Mongol dynasty",
+   "currency": "Zhongtong paper note (Zhongtong chao)"
+  },
+  {
+   "colour": 2,
+   "name": "Golden Horde (Ulus of Jochi)",
+   "ruler": "Mongke Temur, Khan of the Golden Horde",
+   "government": "Mongol khanate (Jochid ulus)"
+  },
+  {
+   "colour": 3,
+   "name": "Chagatai Khanate",
+   "government": "Mongol khanate under Qaidu's overlordship"
+  },
+  {
+   "colour": 4,
+   "name": "Ilkhanate",
+   "ruler": "Abaqa, Ilkhan",
+   "government": "Mongol khanate under the Great Khan's suzerainty",
+   "currency": "Silver coinage (Tabriz type, from 1275)"
+  },
+  {
+   "colour": 5,
+   "name": "Yuan Empire (Mongolian homeland)",
+   "ruler": "Kublai, Great Khan and Emperor of the Yuan",
+   "government": "Imperial monarchy under a Mongol dynasty",
+   "demonym": "Mongol"
+  },
+  {
+   "colour": 6,
+   "name": "Goryeo (Korea)",
+   "ruler": "Chungnyeol, King of Goryeo",
+   "government": "Kingdom under Yuan suzerainty"
+  },
+  {
+   "colour": 7,
+   "name": "Rus' principalities (under the Golden Horde)",
+   "government": "Principalities tributary to the Golden Horde"
+  },
+  {
+   "colour": 8,
+   "name": "Sultanate of Rum (Ilkhanid vassal)",
+   "ruler": "Kaykhusraw III, Seljuk Sultan of Rum",
+   "government": "Sultanate under Ilkhanid control",
+   "currency": "Silver dirham"
+  }
  ]
 }

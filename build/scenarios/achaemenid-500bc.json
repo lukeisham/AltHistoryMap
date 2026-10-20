@@ -961,5 +961,23 @@
    "colour": 3,
    "design": 0
   }
+ ],
+ "countries": [
+  {
+   "colour": 1,
+   "name": "Achaemenid Empire (core satrapies)",
+   "ruler": "Darius I, King of Kings",
+   "government": "Monarchy governed through provincial satrapies",
+   "currency": "Gold daric and silver siglos",
+   "demonym": "Persian"
+  },
+  {
+   "colour": 2,
+   "name": "Achaemenid Empire (outer satrapies)",
+   "ruler": "Darius I, King of Kings",
+   "government": "Monarchy governed through provincial satrapies",
+   "currency": "Gold daric and silver siglos",
+   "demonym": "Persian"
+  }
  ]
 }

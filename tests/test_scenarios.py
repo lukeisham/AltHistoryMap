@@ -1,5 +1,6 @@
 """Smoke tests for build/build_scenarios.py and the .ahmap files it writes."""
 
+import gzip
 import json
 import shutil
 import subprocess
@@ -27,6 +28,14 @@ console.log(JSON.stringify({
   designs: data.designs.length, painted: data.planes.political.some((v) => v > 0),
   provinces: province.some((v) => v > 0),
 }));
+"""
+
+READ_COUNTRIES = """
+import { readFile } from "node:fs/promises";
+import { decodeMap } from "%(app)s/mapfile.js";
+import { GLYPHS } from "%(app)s/glyphs.js";
+const data = await decodeMap(await readFile(process.argv[2]), GLYPHS.map((g) => g.id));
+console.log(JSON.stringify(data.countries));
 """
 
 STARTERS = """
@@ -89,6 +98,54 @@ class ScenariosTest(unittest.TestCase):
         self.assertIn("bad-colour.json", str(caught.exception))
         self.assertIn("areas[0].colour", str(caught.exception))
         self.assertFalse((self.output / "bad-colour.ahmap").exists())
+
+    def _source_with_countries(self, countries: list[dict]) -> Path:
+        source = json.loads((build_scenarios.SOURCES / "blank-world.json").read_text(encoding="utf-8"))
+        source["id"] = "country-test"
+        source["areas"] = [{"layer": "political", "colour": 1, "ring": [[10, 40], [14, 40], [14, 44], [10, 44]]}]
+        source["countries"] = countries
+        path = self.output / "country-test.json"
+        path.write_text(json.dumps(source), encoding="utf-8")
+        return path
+
+    @unittest.skipIf(NODE is None, "node is not installed, so the JavaScript reader cannot be run")
+    def test_countries_reach_the_javascript_reader_in_the_shape_the_app_saves(self) -> None:
+        path = self._source_with_countries([{"colour": 1, "name": " Testland ", "ruler": "A. Ruler", "motto": "Pro Patria"}])
+        built = build_scenarios.build_one(path, self.output)
+        countries = json.loads(run_node(READ_COUNTRIES, str(built)))
+        self.assertEqual(
+            countries,
+            [{"colour": 1, "name": "Testland", "ruler": "A. Ruler", "government": "", "motto": "Pro Patria", "currency": "", "demonym": "", "alignment": "", "flag": -1, "crest": -1}],
+        )
+
+    def test_a_source_without_countries_writes_no_countries_key(self) -> None:
+        path = self._source_with_countries([])
+        built = build_scenarios.build_one(path, self.output)
+        self.assertNotIn(b'"countries"', gzip.decompress(built.read_bytes()))
+
+    def test_a_bad_country_stops_with_its_place_named(self) -> None:
+        good = {"colour": 1, "name": "Testland"}
+        bad_records = {
+            "countries[0].colour": [{"colour": 2, "name": "Unpainted"}],
+            "countries[0].motto": [{**good, "motto": "x" * 81}],
+            "countries[0]": [{**good, "flag": 0}],
+            "countries": [good, good],
+        }
+        for place, countries in bad_records.items():
+            with self.subTest(place=place):
+                path = self._source_with_countries(countries)
+                with self.assertRaises(build_scenarios.SourceError) as caught:
+                    build_scenarios.build_one(path, self.output)
+                self.assertIn(place, str(caught.exception))
+
+    @unittest.skipIf(NODE is None, "node is not installed, so the JavaScript reader cannot be run")
+    def test_every_built_scenario_carries_the_countries_of_its_source(self) -> None:
+        for source in sorted(build_scenarios.SOURCES.glob("*.json")):
+            with self.subTest(scenario=source.stem):
+                described = json.loads(source.read_text(encoding="utf-8")).get("countries", [])
+                built = json.loads(run_node(READ_COUNTRIES, str(build_scenarios.OUTPUT / f"{source.stem}.ahmap")))
+                fields = ("colour", *build_scenarios.COUNTRY_TEXT_LIMITS)
+                self.assertEqual([tuple(c[f] for f in fields) for c in built], [tuple(c.get(f, "") for f in fields) for c in described])
 
 
 if __name__ == "__main__":

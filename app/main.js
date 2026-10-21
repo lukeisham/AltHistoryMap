@@ -30,6 +30,7 @@ import { bindLayerBar } from "./layerbar.js";
 import { lookFor } from "./layers.js";
 import { bindToolPanel } from "./toolpanel.js";
 import { bindPalette } from "./palette.js";
+import { readTheme, shownColourIndex } from "./layerimage.js";
 import { bindSymbols } from "./symbols.js";
 import { bindFlagStrip } from "./flagstrip.js";
 import { bindCrestStrip } from "./creststrip.js";
@@ -103,7 +104,8 @@ async function main() {
   const dialogs = createDialogs(part("app-dialog"));
   const editor = createEditor({ model, state, say });
   const getPalette = () => model.palette;
-  const addColour = (hex) => editor.addColour(hex);
+  const shownIndex = (hex) => shownColourIndex(hex, model.palette, readTheme(getComputedStyle(canvas)));
+  const addColour = (hex) => shownIndex(hex) ?? editor.addColour(hex);
   const designer = createFlagDesigner({
     dialog: part("flag-designer"),
     getPalette,
@@ -189,7 +191,7 @@ async function main() {
     colonyInput: part("colony"),
     state,
   });
-  bindPalette({ container: part("palette"), colourInput: part("colour-input"), state, model, editor, countries, glyphIds, say });
+  bindPalette({ container: part("palette"), colourInput: part("colour-input"), state, model, editor, countries, glyphIds, say, shownColourIndex: shownIndex });
   part("country-facts-open").addEventListener("click", () => countries.open(state.get().colour));
   bindSymbols({ container: part("symbols"), glyphs: GLYPHS, state });
   bindFlagStrip({

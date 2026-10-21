@@ -13,12 +13,13 @@ import { countryName } from "./countrydata.js";
  *   model: {palette: string[], designs: unknown[], crests: unknown[], onChange: Function},
  *   glyphIds: string[],
  *   editor: {addColour: (hex: string) => number | null, editGate: () => boolean},
+ *   shownColourIndex: (hex: string) => number | null,
  *   countries: {open: (colour: number) => void, dropOnColour: (colour: number, item: object) => void},
  *   say: (text: string) => void
  * }} deps
  * @returns {{render: () => void}}
  */
-export function bindPalette({ container, colourInput, state, model, editor, countries, glyphIds, say }) {
+export function bindPalette({ container, colourInput, state, model, editor, countries, glyphIds, shownColourIndex, say }) {
   const doc = container.ownerDocument;
   let swatches = [];
 
@@ -76,7 +77,8 @@ export function bindPalette({ container, colourInput, state, model, editor, coun
   }
 
   colourInput.addEventListener("change", () => {
-    const index = editor.addColour(colourInput.value);
+    // An eye dropper reads what the map shows, so a colour taken from a country's land is that country's colour and not a new one.
+    const index = shownColourIndex(colourInput.value) ?? editor.addColour(colourInput.value);
     if (index === null) say(`The colour list is full: a map holds up to ${MAX_PALETTE} colours.`);
     else state.set({ colour: index });
   });

@@ -361,7 +361,7 @@ class GuideBoundaryTest(unittest.TestCase):
     def test_picked_colours_and_pictures_reach_the_page_through_main(self) -> None:
         row = next(line for line in self.section.splitlines() if line.startswith("| `flagdesigner.js`, `crestmaker.js`"))
         main = app_source("main.js")
-        self.assertIn("const addColour = (hex) => editor.addColour(hex);", main)
+        self.assertIn("const addColour = (hex) => shownIndex(hex) ?? editor.addColour(hex);", main)
         self.assertEqual(main.count("addColour,"), 2, "main.js must hand addColour to both dialogs")
         self.assertIn("getCrests: () => model.crests.map(renderCrest)", main)
         self.assertIn("getShields: () => model.crests.map(renderShieldOnly)", main)

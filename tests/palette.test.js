@@ -20,7 +20,7 @@ function setup({ mode = "edit" } = {}) {
   const state = createStore({ colour: 1, colour2: 2 });
   const editor = { addColour: () => 4, editGate: () => mode === "edit" };
   const countries = { open: (colour) => calls.opened.push(colour), dropOnColour: (colour, item) => calls.dropped.push([colour, item]) };
-  bindPalette({ container, colourInput: doc.createElement("input"), state, model, editor, countries, glyphIds: ["crown"], say() {} });
+  bindPalette({ container, colourInput: doc.createElement("input"), state, model, editor, countries, glyphIds: ["crown"], shownColourIndex: (hex) => (hex === "#d9c9b3" ? 1 : null), say() {} });
   const swatches = container.findAll((n) => n.className === "swatch");
   return { swatches, calls, state, model, notify: (notice) => listeners.forEach((fn) => fn(notice)) };
 }
@@ -67,4 +67,22 @@ test("a swatch's hover text is its country's name, the colour's own name when un
   t.notify({ history: true, countries: true });
   assert.equal(t.swatches[0].title, "Veyra");
   assert.notEqual(t.swatches[1].title, "Orlam");
+});
+
+test("a colour taken from the map's screen colours picks the country it came from instead of adding one", () => {
+  const doc = fakeDocument();
+  const container = doc.createElement("div");
+  const colourInput = doc.createElement("input");
+  const added = [];
+  const state = createStore({ colour: 3, colour2: 2 });
+  const model = { palette: ["#b5473b"], designs: [], crests: [], countries: [], onChange() {} };
+  const editor = { addColour: (hex) => (added.push(hex), 2), editGate: () => true };
+  bindPalette({ container, colourInput, state, model, editor, countries: {}, glyphIds: [], shownColourIndex: (hex) => (hex === "#e1c1b5" ? 1 : null), say() {} });
+  colourInput.value = "#e1c1b5";
+  colourInput.dispatch("change");
+  assert.equal(state.get().colour, 1);
+  assert.deepEqual(added, []);
+  colourInput.value = "#123456";
+  colourInput.dispatch("change");
+  assert.deepEqual(added, ["#123456"]);
 });

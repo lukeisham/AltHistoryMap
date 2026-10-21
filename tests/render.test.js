@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createModel, LAND, RIVER, LAKE, COAST } from "../app/model.js";
 import { createRenderer, pixelColour, clampViewport, fadeFactor, pngFileName } from "../app/render.js";
-import { makeSource, parseColour, packColour, readTheme, mixColour, riverScale, riverMask, createRiverOverview } from "../app/layerimage.js";
+import { makeSource, parseColour, packColour, readTheme, mixColour, shownColourIndex, riverScale, riverMask, createRiverOverview } from "../app/layerimage.js";
 import { fitScale, homeViewport, zoomViewport, resizeViewport, readoutText, brushOutline } from "../app/viewport.js";
 import { markerVisible, cityAlpha, hitMarker, hitTag, drawMarkers, cityDotColour, createGlyphLibrary } from "../app/markers.js";
 
@@ -678,4 +678,17 @@ test("zoomed out, the frame draws the river overview over the layer picture", ()
   } finally {
     fakes.restore();
   }
+});
+
+test("shownColourIndex finds the palette colour a sampled screen colour came from: as is, faded on Political, or pale on Culture", () => {
+  const theme = readTheme(fakeStyle(TOKENS));
+  const palette = ["#ff0000", "#0000ff"];
+  const css = (packed) => {
+    const { r, g, b } = { r: packed & 255, g: (packed >>> 8) & 255, b: (packed >>> 16) & 255 };
+    return `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+  };
+  const faded = css(mixColour(LAND_C, parseColour("#0000ff"), 0.5));
+  assert.equal(shownColourIndex("#0000ff", palette, theme), 2);
+  assert.equal(shownColourIndex(faded, palette, theme), 2);
+  assert.equal(shownColourIndex("#00ff00", palette, theme), null);
 });

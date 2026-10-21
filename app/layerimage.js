@@ -125,6 +125,35 @@ export function readTheme(style) {
   return { packed, css, numbers, font };
 }
 
+// Channel difference below which two colours count as the same; screen sampling rounds each channel.
+const SAME_COLOUR_TOLERANCE = 3;
+
+/**
+ * The palette colour a sampled screen colour stands for. The map shows a colour as itself, faded toward
+ * the land on Political, or pale on Culture, so a colour lifted from the screen by an eye dropper is
+ * usually one of those and not the stored hex.
+ * @param {string} hex `#rrggbb` as sampled
+ * @param {string[]} palette the map's hex colours
+ * @param {{packed: object, numbers: object}} theme
+ * @returns {number | null} 1-based palette index, or null when no colour in the palette shows as it
+ */
+export function shownColourIndex(hex, palette, theme) {
+  const sampled = parseColour(hex);
+  if (sampled === null) return null;
+  const want = unpackColour(sampled);
+  const near = (packed) => {
+    const have = unpackColour(packed);
+    return Math.max(Math.abs(have.r - want.r), Math.abs(have.g - want.g), Math.abs(have.b - want.b)) < SAME_COLOUR_TOLERANCE;
+  };
+  for (let i = 0; i < palette.length; i++) {
+    const colour = parseColour(palette[i]);
+    if (colour === null) continue;
+    const shown = [colour, mixColour(theme.packed.land, colour, theme.numbers.politicalFade), mixColour(colour, WHITE, theme.numbers.cultureTint)];
+    if (shown.some(near)) return i + 1;
+  }
+  return null;
+}
+
 /**
  * Everything the pixel loop reads, gathered once per rebuild so planes replaced by the model
  * (Open, scenario) are picked up.

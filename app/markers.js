@@ -8,7 +8,9 @@ import { parseColour, unpackColour } from "./layerimage.js";
 
 export const HIT_RADIUS = 14;
 
-const CITY_FADE = [1.4, 2.6];
+const CAPITAL_FADE = [1.2, 1.8];
+const CITY_FADE = [2.4, 3.4];
+const FLAG_FADE = [1.4, 2.6];
 const LABEL_FADE = [0.9, 1.7];
 const SYMBOL_FADE = [2.2, 3.2];
 const DRAW_ORDER = ["label", "city", "flag", "symbol"];
@@ -20,6 +22,8 @@ const LABEL_MAX_Z = 6;
 const HALO_WIDTH = 3;
 const CITY_RADIUS = 6;
 const CITY_DOT = 2.6;
+const COLONY_HALF_BASE = 1.25;
+const COLONY_LIFT = 0.25;
 const NATION_REACH = 2;
 const CITY_RING = 1.5;
 const CAPITAL_GAP = 2.5;
@@ -162,9 +166,21 @@ export function cityDotColour(scene, marker) {
 }
 
 // A bullseye: an ink ring round a pale centre, and a dot that is ink or the nation's colour.
-function drawCity(ctx, scene, marker, sx, sy) {
+function drawCity(ctx, scene, marker, sx, sy, z) {
+  const alpha = cityAlpha(marker, z);
+  if (alpha <= 0) return;
+  ctx.globalAlpha = alpha;
   ctx.beginPath();
-  ctx.arc(sx, sy, CITY_RADIUS, 0, Math.PI * 2);
+  if (marker.colony) {
+    // A colony is the city bullseye on a triangle: point up, centred on the same spot.
+    const lift = CITY_RADIUS * COLONY_LIFT;
+    ctx.moveTo(sx, sy - lift - CITY_RADIUS);
+    ctx.lineTo(sx + CITY_RADIUS * COLONY_HALF_BASE, sy + CITY_RADIUS - lift);
+    ctx.lineTo(sx - CITY_RADIUS * COLONY_HALF_BASE, sy + CITY_RADIUS - lift);
+    ctx.closePath();
+  } else {
+    ctx.arc(sx, sy, CITY_RADIUS, 0, Math.PI * 2);
+  }
   ctx.fillStyle = scene.theme.css.land;
   ctx.fill();
   ctx.lineWidth = CITY_RING;
@@ -182,6 +198,7 @@ function drawCity(ctx, scene, marker, sx, sy) {
     ctx.strokeStyle = scene.theme.css.ink;
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 }
 
 function drawFlagCloth(ctx, scene, marker, left, top) {
@@ -266,6 +283,18 @@ function drawSymbol(ctx, scene, marker, sx, sy) {
   else drawGlyphOnDisc(ctx, scene, marker, path, sx, sy);
 }
 
+/**
+ * How visible a city is at a zoom: a capital appears a little way in, any other city further in.
+ * Zoomed fully out (z = 1) neither shows, so only country names remain.
+ * @param {{capital?: boolean}} marker
+ * @param {number} z Screen pixels per grid pixel divided by the fit-to-screen scale.
+ * @returns {number} 0 to 1
+ */
+export function cityAlpha(marker, z) {
+  const [from, to] = marker.capital ? CAPITAL_FADE : CITY_FADE;
+  return fadeFactor(z, from, to);
+}
+
 const PAINTERS = { label: drawLabel, city: drawCity, flag: drawFlag, symbol: drawSymbol };
 
 // Where a marker's name tag sits: beside a city or flag, under a symbol, moved by the offset the person
@@ -274,9 +303,9 @@ function tagSpec(marker, sx, sy, z) {
   if (!marker.name || marker.type === "label") return null;
   let spec;
   if (marker.type === "city") {
-    spec = { x: sx + CITY_RADIUS + (marker.capital ? CAPITAL_GAP : 0) + NAME_GAP, y: sy, align: "left", fade: CITY_FADE };
+    spec = { x: sx + CITY_RADIUS + (marker.capital ? CAPITAL_GAP : 0) + NAME_GAP, y: sy, align: "left", fade: marker.capital ? CAPITAL_FADE : CITY_FADE };
   } else if (marker.type === "flag") {
-    spec = { x: sx + FLAG_CLOTH_W + NAME_GAP, y: sy - POLE_HEIGHT + FLAG_CLOTH_H / 2, align: "left", fade: CITY_FADE };
+    spec = { x: sx + FLAG_CLOTH_W + NAME_GAP, y: sy - POLE_HEIGHT + FLAG_CLOTH_H / 2, align: "left", fade: FLAG_FADE };
   } else {
     spec = { x: sx, y: sy + SYMBOL_RADIUS + NAME_SIZE * 0.8, align: "center", fade: SYMBOL_FADE };
   }
@@ -353,8 +382,10 @@ export function drawSelection(ctx, scene, marker) {
 export function hitMarker(markers, layers, vp, sx, sy) {
   let best = null;
   let bestDistance = HIT_RADIUS;
+  const z = vp.k / vp.kFit;
   for (const marker of markers) {
     if (!markerVisible(marker, layers)) continue;
+    if (marker.type === "city" && cityAlpha(marker, z) <= 0) continue;
     const anchor = anchorOf(marker, vp);
     let distance = Math.hypot(anchor.sx - sx, anchor.sy - sy);
     if (marker.type === "flag") {

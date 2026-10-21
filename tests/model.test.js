@@ -274,7 +274,7 @@ test("crests: add, update, undo and redo; a colour outside the palette or an unk
   assert.equal(m.addCrest(CREST), 0);
   assert.deepEqual(
     m.crests[0],
-    { ...CREST, supporterLeftFacing: "inward", supporterRightFacing: "inward", compartment: "none", ribbon: "none", compartmentColour: 4, ribbonColour: 4 },
+    { ...CREST, supporterLeftFacing: "inward", supporterRightFacing: "inward", compartment: "none", ribbon: "none", topper: "none", compartmentColour: 4, ribbonColour: 4, topperColour: 4 },
     "a crest without the newer parts is filled in with none and the charge colour",
   );
   assert.equal(m.addCrest({ ...CREST, field: 99 }), null);
@@ -343,4 +343,18 @@ test("setting the facts a country already has pushes no undo step; replace and s
   assert.equal(other.countries[0].name, "Bora");
   other.replace({ ...copy, countries: undefined });
   assert.deepEqual(other.countries, []);
+});
+
+test("a colony is a city variant that never is also a capital, and undoes", () => {
+  const m = smallModel();
+  const town = m.addMarker({ type: "city", x: 3, y: 3, name: "A", colour: 1, colony: true });
+  assert.equal(town.colony, true);
+  assert.equal(m.addMarker({ type: "flag", x: 4, y: 4, name: "F", colour: 1, colony: true }).colony, false, "only a city can be a colony");
+  assert.equal(m.addMarker({ type: "city", x: 5, y: 5, name: "B", colour: 1, capital: true, colony: true }).colony, false, "a capital wins");
+  assert.equal(m.editMarker(town.id, { capital: true }), true);
+  assert.deepEqual([town.capital, town.colony], [true, false]);
+  assert.equal(m.editMarker(town.id, { colony: true }), true);
+  assert.deepEqual([town.capital, town.colony], [false, true]);
+  m.undo();
+  assert.deepEqual([town.capital, town.colony], [true, false]);
 });

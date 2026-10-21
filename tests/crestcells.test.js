@@ -4,6 +4,7 @@ import {
   CREST_W, CREST_H, SHIELD_W, SHIELD_H, SHIELD_X, SHIELD_Y, TRANSPARENT, SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS,
   defaultCrest, normaliseCrest, renderCrest, renderShieldOnly, FACINGS, COMPARTMENTS, RIBBONS,
 } from "../app/crestcells.js";
+import { SUPPORTER_W } from "../app/supporters.js";
 import { stampCrest } from "../app/flagcells.js";
 import { FLAG_W, FLAG_H } from "../app/model.js";
 
@@ -44,11 +45,11 @@ test("every division, ordinary and charge draws something of its own colour insi
   }
 });
 
-test("charge bitmaps are rectangular with an even width, so they centre on the 24-cell shield", () => {
+test("charge bitmaps are rectangular with an even width, so they centre on the shield", () => {
   for (const { id, rows, w, h } of CHARGES.filter((c) => c.id !== "none")) {
     assert.equal(w % 2, 0, `${id} has an odd width`);
     assert.ok(rows.every((row) => row.length === w), `${id} has ragged rows`);
-    assert.ok(h <= 16 && w <= 16, `${id} is too big for the shield`);
+    assert.ok(h <= (SHIELD_H * 2) / 3 && w <= (SHIELD_W * 2) / 3, `${id} is too big for the shield`);
   }
 });
 
@@ -150,11 +151,12 @@ test("a supporter facing outward is the mirror image of the same supporter facin
     const inward = renderCrest(crest({ [`supporter${side}`]: "lion", [`supporter${side}Colour`]: 6 }));
     const outward = renderCrest(crest({ [`supporter${side}`]: "lion", [`supporter${side}Colour`]: 6, [`supporter${side}Facing`]: "outward" }));
     assert.notDeepEqual(inward, outward, `${side} outward draws differently`);
-    const from = side === "Left" ? 0 : CREST_W - 20;
+    const from = side === "Left" ? 0 : CREST_W - SUPPORTER_W;
+    const covered = SUPPORTER_W - SHIELD_X;
     for (let y = 0; y < CREST_H; y++) {
-      // The shield covers three columns of the animal's box on the shield side, so only the other sixteen are compared.
-      for (let x = 3; x < 17; x++) {
-        assert.equal(at(outward, from + x, y), at(inward, from + 19 - x, y), `${side} ${x},${y}`);
+      // The shield covers some columns of the animal's box on the shield side, so only the columns clear of it on both sides are compared.
+      for (let x = covered; x < SUPPORTER_W - covered; x++) {
+        assert.equal(at(outward, from + x, y), at(inward, from + SUPPORTER_W - 1 - x, y), `${side} ${x},${y}`);
       }
     }
   }
@@ -204,4 +206,23 @@ test("normaliseCrest fills in facing, compartment and ribbon for a crest saved w
   assert.deepEqual(FACINGS.map((f) => f.id), ["inward", "outward"]);
   assert.deepEqual(COMPARTMENTS.map((f) => f.id), ["none", "mound"]);
   assert.deepEqual(RIBBONS.map((f) => f.id), ["none", "ribbon"]);
+});
+
+test("a crown is drawn above the shield in its own colour with the outline round it, and the shield-only picture leaves it out", () => {
+  const bare = renderCrest(crest({ outline: 9 }));
+  const crowned = renderCrest(crest({ topper: "crown", topperColour: 6, outline: 9 }));
+  assert.ok(crowned.includes(6) && crowned.includes(9), "the crown has a body and an outline");
+  for (let y = SHIELD_Y; y < CREST_H; y++) {
+    for (let x = 0; x < CREST_W; x++) assert.equal(at(crowned, x, y), at(bare, x, y), `nothing from the shield down changes at ${x},${y}`);
+  }
+  assert.ok(!renderShieldOnly(crest({ topper: "crown", topperColour: 6 })).includes(6));
+  assert.equal(normaliseCrest(crest({ topper: "tiara" }), 8), null);
+  assert.equal(normaliseCrest(crest({ topperColour: 9 }), 8), null);
+});
+
+test("a soldier is a supporter that draws on either side", () => {
+  for (const side of ["Left", "Right"]) {
+    const cells = renderCrest(crest({ [`supporter${side}`]: "soldier", [`supporter${side}Colour`]: 6 }));
+    assert.ok(cells.includes(6), `${side} soldier draws`);
+  }
 });

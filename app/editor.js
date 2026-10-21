@@ -86,7 +86,7 @@ export function createEditor({ model, state, say }) {
      */
     place(pixel, name) {
       if (!editGate()) return null;
-      const { tool, layer, colour, design, glyph, capital } = state.get();
+      const { tool, layer, colour, design, glyph, capital, colony } = state.get();
       if (!PLACING_TOOLS.includes(tool)) {
         console.warn("editor: place called with a tool that places nothing", tool);
         return null;
@@ -94,6 +94,7 @@ export function createEditor({ model, state, say }) {
       const spec = { type: tool, x: pixel.x, y: pixel.y, name, colour };
       if (tool === "flag") spec.design = design;
       if (tool === "city" && capital) spec.capital = true;
+      else if (tool === "city" && colony) spec.colony = true;
       if (tool === "symbol") Object.assign(spec, { glyph, layer });
       return model.addMarker(spec);
     },
@@ -142,6 +143,14 @@ export function createEditor({ model, state, say }) {
      */
     setCapital(id, capital) {
       return editGate() && model.editMarker(id, { capital });
+    },
+
+    /**
+     * Makes a city a colony, or a colony a city again.
+     * @returns {boolean}
+     */
+    setColony(id, colony) {
+      return editGate() && model.editMarker(id, { colony });
     },
 
     /** @returns {boolean} */

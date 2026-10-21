@@ -4,7 +4,7 @@ import { createModel, LAND, RIVER, LAKE, COAST } from "../app/model.js";
 import { createRenderer, pixelColour, clampViewport, fadeFactor, pngFileName } from "../app/render.js";
 import { makeSource, parseColour, packColour, readTheme, mixColour, riverScale, riverMask, createRiverOverview } from "../app/layerimage.js";
 import { fitScale, homeViewport, zoomViewport, resizeViewport, readoutText, brushOutline } from "../app/viewport.js";
-import { markerVisible, hitMarker, hitTag, drawMarkers, cityDotColour, createGlyphLibrary } from "../app/markers.js";
+import { markerVisible, cityAlpha, hitMarker, hitTag, drawMarkers, cityDotColour, createGlyphLibrary } from "../app/markers.js";
 
 const SIDE = 16;
 const TOKENS = {
@@ -255,10 +255,24 @@ test("markers show with their own layer on screen; the hit test uses the same ru
   assert.equal(markerVisible(symbol, ["culture"]), true);
   assert.equal(markerVisible(symbol, ["political"]), false);
 
-  const vp = { x: 0, y: 0, k: 10 };
+  const vp = { x: 0, y: 0, k: 10, kFit: 1 };
   assert.equal(hitMarker([city, symbol], ["political"], vp, 105, 105)?.id, 1);
   assert.equal(hitMarker([city, symbol], ["culture"], vp, 105, 105)?.id, 2);
   assert.equal(hitMarker([city, symbol], ["political"], vp, 105 + 15, 105), null);
+});
+
+test("zoom bands: fully out shows no city, a little in shows capitals, further in shows every city", () => {
+  const capital = { type: "city", capital: true };
+  const town = { type: "city" };
+  assert.equal(cityAlpha(capital, 1), 0);
+  assert.equal(cityAlpha(town, 1), 0);
+  assert.equal(cityAlpha(capital, 2), 1);
+  assert.equal(cityAlpha(town, 2), 0);
+  assert.equal(cityAlpha(town, 3.4), 1);
+
+  const placed = { id: 1, type: "city", x: 10, y: 10, layer: "political" };
+  const out = { x: 0, y: 0, k: 1, kFit: 1 };
+  assert.equal(hitMarker([placed], ["political"], out, 10, 10), null);
 });
 
 // ---- createRenderer against hand-built fakes ----
@@ -459,9 +473,9 @@ test("each look draws only the markers of its layers, with names fading in on zo
     const names = () => canvas.log.filter(([n]) => n === "fillText").map(([, text]) => text);
     const count = (name) => canvas.log.filter(([n]) => n === name).length;
 
-    assert.equal(count("arc") >= 1, true, "the city dot");
+    assert.equal(count("arc"), 0, "no city dot at world view");
     assert.deepEqual(names(), [], "names are hidden at world view");
-    assert.equal(count("stroke"), 2, "city ring and flag pole; no symbol on Political");
+    assert.equal(count("stroke"), 1, "flag pole only; no city, no symbol on Political");
 
     canvas.log.length = 0;
     renderer.zoomAt(6, 10, 10);
@@ -534,6 +548,17 @@ test("a solid shape is filled in the marker colour with no disc; an outline symb
     drawMarkers(discDrawn.ctx, markerScene([disc]));
     assert.equal(discDrawn.log.filter(([name]) => name === "arc").length, 1);
   });
+});
+
+test("a colony is a triangle with the city dot, and a capital is still a bullseye", () => {
+  const colony = { id: 1, type: "city", x: 2, y: 2, name: "", colour: 1, tagDx: 0, tagDy: 0, layer: "political", colony: true };
+  const drawn = recordingContext();
+  drawMarkers(drawn.ctx, markerScene([colony]));
+  assert.equal(drawn.log.filter(([name]) => name === "lineTo").length, 2, "a triangle: one moveTo and two lineTo");
+  assert.equal(drawn.log.filter(([name]) => name === "arc").length, 1, "only the centre dot");
+  const capital = recordingContext();
+  drawMarkers(capital.ctx, markerScene([{ ...colony, colony: false, capital: true }]));
+  assert.equal(capital.log.filter(([name]) => name === "lineTo").length, 0);
 });
 
 test("a city is a bullseye: an ink ring on a pale centre with an ink dot, whatever its stored colour", () => {

@@ -92,6 +92,10 @@
       <input type="checkbox" data-role="capital">
       <span>Capital</span>
     </label>
+    <label class="name-tag-option" data-role="colony-row" hidden>
+      <input type="checkbox" data-role="colony">
+      <span>Colony</span>
+    </label>
   </section>
   <section class="panel-section">
     <h2 class="panel-heading">Brush</h2>
@@ -142,11 +146,13 @@
     <button class="btn" type="button" data-role="name-cancel">Cancel</button>
   </form>
   <div class="marker-info" data-role="marker-info" role="group" aria-label="Marker details" hidden>
+    <button class="btn info-close" type="button" data-role="info-close" aria-label="Close">&times;</button>
     <p class="info-name" data-role="info-name"></p>
     <p class="info-kind" data-role="info-kind"></p>
     <div class="info-actions" data-role="info-actions" hidden>
       <button class="btn" type="button" data-role="info-rename">Rename</button>
       <button class="btn" type="button" data-role="info-capital" hidden>Make capital</button>
+      <button class="btn" type="button" data-role="info-colony" hidden>Make colony</button>
       <button class="btn btn-danger" type="button" data-role="info-delete">Delete</button>
     </div>
   </div>

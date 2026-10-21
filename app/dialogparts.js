@@ -7,6 +7,7 @@
  *   el: (tag: string, className?: string, text?: string) => HTMLElement,
  *   button: (label: string, onClick: () => void, className?: string) => HTMLButtonElement,
  *   group: (label: string, className: string) => HTMLElement,
+ *   closeButton: (onClick: () => void) => HTMLButtonElement,
  *   canvasFor: (cssW: number, cssH: number, className: string) => {node: HTMLCanvasElement, ctx: CanvasRenderingContext2D}
  * }}
  */
@@ -22,6 +23,13 @@ export function dialogParts(doc) {
     const node = el("button", className, label);
     node.setAttribute("type", "button");
     node.addEventListener("click", onClick);
+    return node;
+  }
+
+  // Sits in the top-right corner of .fd-body; a pop-up whose Cancel is out of sight can still be closed.
+  function closeButton(onClick) {
+    const node = button("\u00d7", onClick, "fd-btn fd-close");
+    node.setAttribute("aria-label", "Close");
     return node;
   }
 
@@ -44,5 +52,5 @@ export function dialogParts(doc) {
     return { node, ctx };
   }
 
-  return { el, button, group, canvasFor };
+  return { el, button, group, closeButton, canvasFor };
 }

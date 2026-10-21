@@ -48,9 +48,9 @@ test("choosing parts and a colour for the chosen part changes the crest that is 
   assert.deepEqual(await result, {
     shape: "french", division: "bend", ordinary: "cross", charge: "crown",
     supporterLeft: "lion", supporterRight: "lion", supporterLeftFacing: "inward", supporterRightFacing: "inward",
-    compartment: "none", ribbon: "none",
+    compartment: "none", ribbon: "none", topper: "none",
     field: 1, field2: 3, ordinaryColour: 0, chargeColour: 0, supporterLeftColour: 0, supporterRightColour: 0,
-    compartmentColour: 0, ribbonColour: 0, outline: 1,
+    compartmentColour: 0, ribbonColour: 0, topperColour: 0, outline: 1,
   });
 });
 
@@ -140,4 +140,11 @@ test("each supporter takes its own facing, and the compartment and ribbon take a
   assert.deepEqual([crest.supporterLeftFacing, crest.supporterRightFacing], ["inward", "outward"]);
   assert.deepEqual([crest.compartment, crest.ribbon], ["mound", "ribbon"]);
   assert.deepEqual([crest.compartmentColour, crest.ribbonColour], [2, 0]);
+});
+
+test("the corner Close button dismisses the crest maker like Cancel", async () => {
+  const t = setup();
+  const result = t.maker.open(START());
+  t.dialog.find((n) => n.tagName === "button" && n.getAttribute("aria-label") === "Close").dispatch("click");
+  assert.equal(await result, null);
 });

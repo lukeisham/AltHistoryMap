@@ -102,6 +102,7 @@ function setup(mode) {
       info.rename = fn;
     },
     onCapital() {},
+    onColony() {},
     onDelete() {},
   };
   const designs = { editFlag() {} };

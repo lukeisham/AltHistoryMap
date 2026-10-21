@@ -151,6 +151,11 @@ export function createStage(deps) {
     const marker = model.markers.find((m) => m.id === id);
     if (marker) select(marker);
   });
+  markerInfo.onColony((id, colony) => {
+    editor.setColony(id, colony);
+    const marker = model.markers.find((m) => m.id === id);
+    if (marker) select(marker);
+  });
   markerInfo.onDelete((id) => {
     editor.deleteMarker(id);
     markerInfo.hide();

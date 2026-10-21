@@ -562,7 +562,7 @@ export function createModel(base, n = N) {
     /**
      * Adds a marker. City, flag and label always belong to Political. A city, flag or symbol may have an
      * empty name, which means it carries no name tag; a label is its text, so it must have one.
-     * @param {{type: string, x: number, y: number, name: string, colour: number, glyph?: string, design?: number, layer?: string, tagDx?: number, tagDy?: number, capital?: boolean}} spec
+     * @param {{type: string, x: number, y: number, name: string, colour: number, glyph?: string, design?: number, layer?: string, tagDx?: number, tagDy?: number, capital?: boolean, colony?: boolean}} spec
      * @returns {object | null} The marker, or null when the spec is invalid.
      */
     addMarker(spec) {
@@ -615,13 +615,16 @@ export function createModel(base, n = N) {
     /**
      * Changes a marker's name, colour, glyph, flag design, name tag offset, or whether a city is a capital.
      * @param {number} id
-     * @param {{name?: string, colour?: number, glyph?: string, design?: number, tagDx?: number, tagDy?: number, capital?: boolean}} patch
+     * @param {{name?: string, colour?: number, glyph?: string, design?: number, tagDx?: number, tagDy?: number, capital?: boolean, colony?: boolean}} patch
      * @returns {boolean}
      */
     editMarker(id, patch) {
       const marker = findMarker(id);
       if (!marker) return fail("no such marker", id);
       const merged = { ...marker, ...patch };
+      // A city is a capital or a colony, never both: the one just set wins.
+      if (patch.capital === true) merged.colony = false;
+      else if (patch.colony === true) merged.capital = false;
       if (merged.capital === true && !marker.capital) merged.nation = nationAround(marker.x, marker.y);
       const next = checkedMarker(merged);
       if (!next) return false;
@@ -817,8 +820,8 @@ export function createModel(base, n = N) {
     }
   }
 
-  function pickEditable({ name, colour, glyph, design, tagDx, tagDy, capital, nation }) {
-    return { name, colour, glyph, design, tagDx, tagDy, capital, nation };
+  function pickEditable({ name, colour, glyph, design, tagDx, tagDy, capital, colony, nation }) {
+    return { name, colour, glyph, design, tagDx, tagDy, capital, colony, nation };
   }
 
   function findMarker(id) {
@@ -863,6 +866,7 @@ export function createModel(base, n = N) {
       tagDx,
       tagDy,
       capital: spec.type === "city" && spec.capital === true,
+      colony: spec.type === "city" && spec.capital !== true && spec.colony === true,
       nation: spec.type === "city" && Number.isInteger(spec.nation) && spec.nation >= 0 ? spec.nation : 0,
     };
   }

@@ -81,6 +81,7 @@ function buildHeader(data) {
       tagDx: m.tagDx ?? 0,
       tagDy: m.tagDy ?? 0,
       capital: m.capital === true,
+      colony: m.colony === true,
       nation: m.nation ?? 0,
     })),
     flags: data.designs.map((d) => Array.from(d)),
@@ -260,6 +261,8 @@ function checkMarker(m, paletteLength, designCount, glyphs, seen) {
   if (!LAYERS.includes(layer) || (!isSymbol && layer !== "political")) throw bad("is on a layer it cannot be on");
 
   const capital = m.capital ?? false;
+  const colony = m.colony ?? false;
+  if (typeof colony !== "boolean" || (colony && (m.type !== "city" || capital))) throw bad("is a colony but is not a city, or is also a capital");
   const nation = m.nation ?? 0;
   if (typeof capital !== "boolean" || (capital && m.type !== "city")) throw bad("is a capital but is not a city");
   if (!isInt(nation) || nation < 0 || nation > paletteLength) throw bad("has a nation colour that is not valid");
@@ -274,7 +277,7 @@ function checkMarker(m, paletteLength, designCount, glyphs, seen) {
     design = m.design ?? -1;
     if (!isInt(design) || design < -1 || design >= designCount) throw bad("uses a flag design that is not in the file");
   }
-  return { id: m.id, type: m.type, x: m.x, y: m.y, name: m.name, colour: m.colour, glyph, design, layer, tagDx, tagDy, capital, nation };
+  return { id: m.id, type: m.type, x: m.x, y: m.y, name: m.name, colour: m.colour, glyph, design, layer, tagDx, tagDy, capital, colony, nation };
 }
 
 /**

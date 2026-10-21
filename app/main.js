@@ -140,7 +140,9 @@ async function main() {
     actions: part("info-actions"),
     renameButton: part("info-rename"),
     capitalButton: part("info-capital"),
+    colonyButton: part("info-colony"),
     deleteButton: part("info-delete"),
+    closeButton: part("info-close"),
     stage: stageBox,
   });
 
@@ -183,6 +185,8 @@ async function main() {
     nameTagInput: part("name-tag"),
     capitalRow: part("capital-row"),
     capitalInput: part("capital"),
+    colonyRow: part("colony-row"),
+    colonyInput: part("colony"),
     state,
   });
   bindPalette({ container: part("palette"), colourInput: part("colour-input"), state, model, editor, countries, glyphIds, say });

@@ -50,6 +50,7 @@ export function createAppState(initial) {
     crest: -1,
     nameTag: true,
     capital: false,
+    colony: false,
     cityColour: "neutral",
     countryNames: true,
     selected: null,

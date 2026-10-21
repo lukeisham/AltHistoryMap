@@ -3,11 +3,11 @@
 // shield. rasterSupporter turns one into cells; crestcells.js mirrors it for the right-hand side and
 // colours it. Shapes, not bitmaps, so a limb can be thickened or an animal tuned without redrawing cells.
 
-export const SUPPORTER_W = 20;
-export const SUPPORTER_H = 40;
+export const SUPPORTER_W = 30;
+export const SUPPORTER_H = 60;
 
 // The shapes below are drawn in a 16 x 32 box; the raster is this much larger.
-const DRAWN_TO_CELLS = 1.25;
+const DRAWN_TO_CELLS = 1.875;
 
 /** Mask value of a cell inside the silhouette. */
 export const BODY = 1;
@@ -164,6 +164,25 @@ const griffin = {
   eye: [12.6, 6],
 };
 
+// A soldier in a plumed helmet, shield on the far arm and a spear held upright on the shield side.
+const soldier = {
+  parts: [
+    blob(8.6, 4, 2.3, 2.6),
+    blob(8.6, 2.6, 2.9, 1.9),
+    poly([7.2, 1.4], [5.6, 0], [8.2, 0.6]),
+    limb(8.6, 7.4, 8, 18, 3.3, 2.9),
+    limb(7.4, 18, 6, 29.6, 2.1, 1.5),
+    limb(9.6, 18, 11.4, 29.6, 2.1, 1.5),
+    blob(5.2, 30.8, 2.3, 1.1),
+    blob(12.2, 30.8, 2.3, 1.1),
+    limb(9.4, 9, 13.2, 12, 1.5, 1.3),
+    blob(5, 13.4, 2.2, 3.4),
+    limb(13.4, 31, 13.4, 3.6, 0.55, 0.55),
+    poly([12.5, 3.8], [13.4, 0.4], [14.3, 3.8]),
+  ],
+  eye: [9.8, 3.6],
+};
+
 /** The supporter animals, in the order the crest maker lists them. `parts` are shapes in a 16 x 32 drawing box. */
 export const SUPPORTERS = [
   { id: "none", label: "None", parts: [], eye: null },
@@ -176,6 +195,7 @@ export const SUPPORTERS = [
   { id: "eagle", label: "Eagle", ...eagle },
   { id: "dragon", label: "Dragon", ...dragon },
   { id: "griffin", label: "Griffin", ...griffin },
+  { id: "soldier", label: "Soldier", ...soldier },
 ];
 
 // Squared distance from a point to the segment x1,y1 - x2,y2, with where along it the nearest point lies.

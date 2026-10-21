@@ -23,6 +23,8 @@ const TERMS = {
   "role:outline": ["Outline", "The line round the shield and round each animal. It also colours the animals' eyes."],
   "role:supporterLeftColour": ["Left animal colour", "The body colour of the animal on the left. Heraldry calls a colour a tincture."],
   "role:supporterRightColour": ["Right animal colour", "The body colour of the animal on the right. Heraldry calls a colour a tincture."],
+  "part:topper": ["Top decoration", "An emblem above the shield, such as a crown. It marks rank or authority and sits between the supporters' heads."],
+  "role:topperColour": ["Top decoration colour", "The colour of the crown or other decoration above the shield."],
   "role:compartmentColour": ["Compartment colour", "The colour of the mound the supporters stand on."],
   "role:ribbonColour": ["Ribbon colour", "The colour of the motto ribbon."],
 
@@ -70,6 +72,7 @@ const TERMS = {
   "supporter:wolf": ["Wolf", "A lean hunter, shown rampant. It often stands for fierceness and loyalty to the pack."],
   "supporter:eagle": ["Eagle", "A bird of prey with a raised wing, drawn from the side. It often stands for authority, sharp sight and empire."],
   "supporter:dragon": ["Dragon", "A winged beast of legend, shown rampant. It often stands for power and watchfulness."],
+  "supporter:soldier": ["Soldier", "A human supporter in a plumed helmet, with a shield on one arm and a spear held upright. It stands for a nation's defenders and its readiness to fight."],
   "supporter:griffin": ["Griffin", "A legendary creature with the head and wings of an eagle and the body of a lion. It stands for strength and watchfulness."],
 
   "facing:inward": ["Inward", "The animal looks toward the shield. This is the usual way to draw supporters."],
@@ -78,6 +81,8 @@ const TERMS = {
   "compartment:none": ["No compartment", "The supporters stand on nothing."],
   "compartment:mound": ["Mound", "A low heap of earth along the foot of the arms, with the supporters standing on it."],
 
+  "topper:none": ["No top decoration", "Nothing is drawn above the shield."],
+  "topper:crown": ["Crown", "A band with raised points, set above the shield. It stands for sovereignty and the authority of the state."],
   "ribbon:none": ["No ribbon", "No motto ribbon is drawn."],
   "ribbon:ribbon": ["Ribbon", "A band with forked ends across the foot of the shield, held by the supporters."],
 

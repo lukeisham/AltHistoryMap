@@ -1,4 +1,4 @@
-// Pure generators for a country's government, name, ruler, Latin motto and demonym. Every function
+// Pure generators for a country's government, name, ruler, Latin motto, demonym and currency. Every function
 // takes `rng`, a function returning a number from 0 up to but not including 1, so a test with a fixed
 // one gets the same output every time. The alignment (see alignmentpools.js) narrows each choice;
 // an empty alignment leaves every pool whole. countryfacts.js calls these from its Generate buttons.
@@ -202,6 +202,33 @@ export function makeDemonym(name, style) {
   if (/[aou]$/i.test(place)) return `${place}n`;
   if (/[ei]$/i.test(place)) return `${place.slice(0, -1)}ian`;
   return `${place}${DEMONYM_SUFFIX[style] ?? DEMONYM_SUFFIX.any}`;
+}
+
+// The coin words of each sound; "any" never reaches this table because concreteStyle settles it first.
+const COINS = {
+  latin: ["denarius", "solidus", "sestertius", "aureus", "libra"],
+  norse: ["mark", "krona", "ore", "ring", "penning"],
+  arabic: ["dinar", "dirham", "fils", "qirsh", "riyal"],
+  eastasian: ["yuan", "sen", "tael", "cash", "mon"],
+  slavic: ["rouble", "grosz", "kopek", "zloty", "hryvnia"],
+  celtic: ["punt", "groat", "penny", "sovereign", "pound"],
+};
+
+/**
+ * A currency from the country's name and sound: "Valorian crown" or "Valoria mark". Tied to the name
+ * so it changes when the name does; countryfacts.js passes the name as typed or its default.
+ * @param {string} name the country's name, or its default
+ * @param {string} style a STYLES id
+ * @param {() => number} rng
+ * @returns {string} "" when the name has no letters
+ */
+export function makeCurrency(name, style, rng) {
+  const sound = concreteStyle(style, rng);
+  const coin = pick(COINS[sound], rng);
+  const people = makeDemonym(name, sound);
+  if (!people) return "";
+  const place = name.split(/\s+of\s+/i).pop().trim().split(/\s+/).pop().replace(/[^\p{L}'-]/gu, "");
+  return `${chance(0.7, rng) ? people : place} ${coin}`;
 }
 
 /**

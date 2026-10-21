@@ -12,11 +12,13 @@ import { TOOLS_BY_LAYER, TOOL_LABELS, TOOL_HINTS, BRUSH_TOOLS, BRUSH_MIN, BRUSH_
  *   nameTagInput: HTMLInputElement,
  *   capitalRow: HTMLElement,
  *   capitalInput: HTMLInputElement,
+ *   colonyRow: HTMLElement,
+ *   colonyInput: HTMLInputElement,
  *   state: {get: () => object, set: (patch: object) => void, subscribe: Function}
  * }} deps `flagsSection` is shown only on the layer that has the Flag tool; `nameTagRow` only for a tool
  *   whose marker may go without a name tag; `capitalRow` only for the City tool.
  */
-export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, nameTagRow, nameTagInput, capitalRow, capitalInput, state }) {
+export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, nameTagRow, nameTagInput, capitalRow, capitalInput, colonyRow, colonyInput, state }) {
   const doc = toolsEl.ownerDocument;
   brushInput.min = String(BRUSH_MIN);
   brushInput.max = String(BRUSH_MAX);
@@ -70,9 +72,17 @@ export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, n
     capitalInput.checked = capital;
   }
 
+  function syncColony() {
+    const { tool, colony } = state.get();
+    colonyRow.hidden = tool !== "city";
+    colonyInput.checked = colony;
+  }
+
   brushInput.addEventListener("input", () => state.set({ brush: Number(brushInput.value) }));
   nameTagInput.addEventListener("change", () => state.set({ nameTag: nameTagInput.checked }));
-  capitalInput.addEventListener("change", () => state.set({ capital: capitalInput.checked }));
+  // The City tool places a capital, a colony or a plain city, so ticking one clears the other.
+  capitalInput.addEventListener("change", () => state.set(capitalInput.checked ? { capital: true, colony: false } : { capital: false }));
+  colonyInput.addEventListener("change", () => state.set(colonyInput.checked ? { colony: true, capital: false } : { colony: false }));
   state.subscribe((value, changed) => {
     if (changed.includes("layer")) {
       buildTools(value.layer);
@@ -82,6 +92,7 @@ export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, n
     if (changed.includes("brush") || changed.includes("tool")) syncBrush();
     if (changed.includes("nameTag") || changed.includes("tool")) syncNameTag();
     if (changed.includes("capital") || changed.includes("tool")) syncCapital();
+    if (changed.includes("colony") || changed.includes("tool")) syncColony();
   });
 
   const { layer } = state.get();
@@ -91,4 +102,5 @@ export function bindToolPanel({ toolsEl, brushInput, brushValue, flagsSection, n
   syncBrush();
   syncNameTag();
   syncCapital();
+  syncColony();
 }

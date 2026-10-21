@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { STYLES, generateAll, makeDemonym, makeGovernment, makeMotto, makeName, makeRuler } from "../app/namegen.js";
+import { STYLES, generateAll, makeCurrency, makeDemonym, makeGovernment, makeMotto, makeName, makeRuler } from "../app/namegen.js";
 import { ALIGNMENTS, ALIGNMENT_IDS, MOTTO_NOUNS, governmentPool, mottoPool } from "../app/alignmentpools.js";
 
 // A small seeded generator: the same seed gives the same run of numbers.
@@ -79,4 +79,17 @@ test("a demonym is built from the last place-word of the name", () => {
   assert.equal(makeDemonym("Merle", "celtic"), "Merlian");
   assert.equal(makeDemonym("Brick red", "any"), "redish");
   assert.equal(makeDemonym("   ", "any"), "");
+});
+
+test("a currency is built from the country's name and sound, always fits a field and is empty for a nameless country", () => {
+  const rng = seeded(5);
+  for (const { id } of STYLES) {
+    for (let i = 0; i < 20; i++) {
+      const currency = makeCurrency("Free Republic of Valoria", id, rng);
+      assert.match(currency, /^(Valorian|Valoria) \p{L}+$/u, currency);
+      assert.ok(currency.length <= 60);
+    }
+  }
+  assert.equal(makeCurrency("", "latin", rng), "");
+  assert.deepEqual(makeCurrency("Valoria", "norse", seeded(3)), makeCurrency("Valoria", "norse", seeded(3)));
 });

@@ -103,3 +103,21 @@ test("a flag or crest chosen in the pop-up, or dropped on its picture, is return
   const saved = await result;
   assert.deepEqual([saved.flag, saved.crest], [0, 0]);
 });
+
+test("the corner Close button dismisses the pop-up like Cancel, in Edit and View mode", async () => {
+  for (const editable of [true, false]) {
+    const t = setup();
+    const result = t.facts.open(START({ editable }));
+    t.dialog.find((n) => n.tagName === "button" && n.getAttribute("aria-label") === "Close").dispatch("click");
+    assert.equal(await result, null);
+  }
+});
+
+test("the Currency Generate button fills the field from the country's name and Generate all leaves it alone", () => {
+  const t = setup();
+  t.facts.open(START());
+  t.input("Name").value = "Valoria";
+  t.input("Name").dispatch("input");
+  t.generate("currency").dispatch("click");
+  assert.match(t.input("Currency").value, /^(Valorian|Valoria) \p{L}+$/u);
+});

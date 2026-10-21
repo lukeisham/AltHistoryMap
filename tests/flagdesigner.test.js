@@ -284,3 +284,10 @@ test("tools, Mirror, starter layouts and the flag-part captions each carry a ter
   }
   t.designer.close();
 });
+
+test("the corner Close button dismisses the designer like Cancel", async () => {
+  const t = setup();
+  const result = t.designer.open({ cells: null, colour: 1, colour2: 2, editing: false });
+  t.dialog.find((n) => n.tagName === "button" && n.getAttribute("aria-label") === "Close").dispatch("click");
+  assert.equal(await result, null);
+});

@@ -23,6 +23,7 @@ export { SUPPORTERS };
  * @property {string} [supporterRightFacing]
  * @property {string} [compartment] an id from COMPARTMENTS; "none" when absent
  * @property {string} [ribbon] an id from RIBBONS; "none" when absent
+ * @property {string} [topper] an id from TOPPERS; "none" when absent
  * @property {number} field palette indexes below; 0 is white
  * @property {number} field2
  * @property {number} ordinaryColour
@@ -32,16 +33,17 @@ export { SUPPORTERS };
  * @property {number} [supporterRightColour]
  * @property {number} [compartmentColour]
  * @property {number} [ribbonColour]
+ * @property {number} [topperColour]
  */
 
 /** The shield alone: the crest's centre, between the two supporters. */
-export const SHIELD_W = 24;
-export const SHIELD_H = 28;
+export const SHIELD_W = 36;
+export const SHIELD_H = 42;
 /** Where the shield's top-left cell sits in the crest. Low and between the supporters, so their heads stand clear above it and their forepaws rest against its sides. */
-export const SHIELD_X = 17;
-export const SHIELD_Y = 11;
-export const CREST_W = 58;
-export const CREST_H = 40;
+export const SHIELD_X = 26;
+export const SHIELD_Y = 16;
+export const CREST_W = 88;
+export const CREST_H = 60;
 /** Cell value where nothing is drawn. The palette holds at most 254 colours, so 255 never collides with one. */
 export const TRANSPARENT = 255;
 
@@ -49,7 +51,7 @@ const CELL_COUNT = CREST_W * CREST_H;
 const SHIELD_COUNT = SHIELD_W * SHIELD_H;
 const COLOUR_KEYS = ["field", "field2", "ordinaryColour", "chargeColour", "outline"];
 // Optional colours: a crest saved before these parts existed takes the charge colour.
-const PART_COLOUR_KEYS = ["compartmentColour", "ribbonColour"];
+const PART_COLOUR_KEYS = ["compartmentColour", "ribbonColour", "topperColour"];
 const CHOICE_KEYS = ["shape", "division", "ordinary", "charge"];
 
 // Position inside the shield as fractions from its centre, -0.5 to 0.5.
@@ -108,8 +110,8 @@ export const ORDINARIES = [
     id: "chevron",
     label: "Chevron",
     has: (x, y) => {
-      const top = 6 + (Math.abs(x + 0.5 - SHIELD_W / 2) - 1) * 0.9;
-      return y >= top && y < top + 6;
+      const top = 9 + (Math.abs(x + 0.5 - SHIELD_W / 2) - 1.5) * 0.9;
+      return y >= top && y < top + 9;
     },
   },
   { id: "chief", label: "Chief", has: (x, y) => y < SHIELD_H * 0.29 },
@@ -134,20 +136,41 @@ export const RIBBONS = [
   { id: "ribbon", label: "Ribbon" },
 ];
 
-// The mound's rows from its top down: how far each reaches from the frame's centre line, in cells.
-const MOUND_TOP = 35;
-const MOUND_HALF_WIDTHS = [14, 21, 26, 28.5, 28.5];
-// The ribbon is a band with a forked end on each side.
-const RIBBON_X = 11;
-const RIBBON_Y = 27;
-const RIBBON_W = 36;
-const RIBBON_H = 7;
-const RIBBON_FORK_DEPTH = 3;
+/** The decoration above the shield, between the supporters' heads. */
+export const TOPPERS = [
+  { id: "none", label: "None" },
+  { id: "crown", label: "Crown" },
+];
 
-// Each hand-set bitmap row is drawn twice across and down, so the emblem fills the larger shield.
+// The crown's cells, painted in its own colour with the outline round its rim; its base rests on the shield's top edge.
+const CROWN_ROWS = [
+  "#..#....##....#..#",
+  "##.##..####..##.##",
+  "##################",
+  "##################",
+  ".################.",
+  ".################.",
+  "..##############..",
+];
+const CROWN_W = 18;
+const CROWN_X = 35;
+const CROWN_Y = 9;
+
+// The mound's rows from its top down: how far each reaches from the frame's centre line, in cells.
+const MOUND_TOP = 52;
+const MOUND_HALF_WIDTHS = [16, 23, 29, 34, 38, 41, 43, 43];
+// The ribbon is a band with a forked end on each side.
+const RIBBON_X = 17;
+const RIBBON_Y = 41;
+const RIBBON_W = 54;
+const RIBBON_H = 10;
+const RIBBON_FORK_DEPTH = 4;
+
+// Each hand-set bitmap cell is drawn three times across and down, so the emblem fills the shield.
+const CHARGE_SCALE = 3;
 const enlarge = (rows) => rows.flatMap((row) => {
-  const wide = [...row].map((cell) => cell + cell).join("");
-  return [wide, wide];
+  const wide = [...row].map((cell) => cell.repeat(CHARGE_SCALE)).join("");
+  return Array(CHARGE_SCALE).fill(wide);
 });
 const charge = (id, label, rows) => {
   const big = rows[0] === "" ? [""] : enlarge(rows);
@@ -279,6 +302,7 @@ export function defaultCrest(colour, colour2) {
     supporterRightFacing: "inward",
     compartment: "none",
     ribbon: "none",
+    topper: "none",
     field: colour,
     field2: colour2,
     ordinaryColour: 0,
@@ -287,6 +311,7 @@ export function defaultCrest(colour, colour2) {
     supporterRightColour: 0,
     compartmentColour: 0,
     ribbonColour: 0,
+    topperColour: 0,
     outline: colour,
   };
 }
@@ -322,7 +347,7 @@ export function normaliseCrest(raw, paletteLength) {
     clean[`supporter${side}Facing`] = facing;
     clean[`supporter${side}Colour`] = colour;
   }
-  for (const [key, list] of [["compartment", COMPARTMENTS], ["ribbon", RIBBONS]]) {
+  for (const [key, list] of [["compartment", COMPARTMENTS], ["ribbon", RIBBONS], ["topper", TOPPERS]]) {
     const id = raw[key] ?? "none";
     if (!list.some((entry) => entry.id === id)) return null;
     clean[key] = id;
@@ -391,7 +416,7 @@ function renderShield(crest) {
   if (emblem.w) {
     const left = (SHIELD_W - emblem.w) / 2;
     // Sits above the middle because every shield narrows toward the bottom.
-    const top = Math.max(2, Math.floor((SHIELD_H - emblem.h) / 2) - 4);
+    const top = Math.max(3, Math.floor((SHIELD_H - emblem.h) / 2) - 6);
     emblem.rows.forEach((row, dy) => {
       for (let dx = 0; dx < emblem.w; dx++) {
         if (row[dx] === "#") set(left + dx, top + dy, crest.chargeColour);
@@ -417,6 +442,16 @@ function moundMask() {
   MOUND_HALF_WIDTHS.forEach((halfWidth, dy) => {
     for (let x = 0; x < CREST_W; x++) {
       if (Math.abs(x + 0.5 - CREST_W / 2) <= halfWidth) mask[(MOUND_TOP + dy) * CREST_W + x] = 1;
+    }
+  });
+  return mask;
+}
+
+function crownMask() {
+  const mask = new Uint8Array(CELL_COUNT);
+  CROWN_ROWS.forEach((row, dy) => {
+    for (let dx = 0; dx < CROWN_W; dx++) {
+      if (row[dx] === "#") mask[(CROWN_Y + dy) * CREST_W + CROWN_X + dx] = 1;
     }
   });
   return mask;
@@ -493,12 +528,16 @@ export function renderCrest(crest) {
   const ribbonColour = crest.ribbonColour ?? crest.chargeColour;
   assertColour(compartmentColour, "compartmentColour");
   assertColour(ribbonColour, "ribbonColour");
+  const topper = pick(TOPPERS, crest.topper ?? "none", "topper").id;
+  const topperColour = crest.topperColour ?? crest.chargeColour;
+  assertColour(topperColour, "topperColour");
 
   const cells = new Uint8Array(CELL_COUNT).fill(TRANSPARENT);
   if (compartment === "mound") paintMask(cells, moundMask(), compartmentColour, crest.outline);
   paintSupporter(cells, leftAnimal, leftColour, crest.outline, "left", leftFacing);
   paintSupporter(cells, rightAnimal, rightColour, crest.outline, "right", rightFacing);
   if (ribbon === "ribbon") paintMask(cells, ribbonMask(), ribbonColour, crest.outline);
+  if (topper === "crown") paintMask(cells, crownMask(), topperColour, crest.outline);
   const shield = renderShield(crest);
   for (let y = 0; y < SHIELD_H; y++) {
     for (let x = 0; x < SHIELD_W; x++) {

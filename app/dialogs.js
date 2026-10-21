@@ -46,7 +46,11 @@ export function createDialogs(dialog) {
   function formOf(title, ...parts) {
     const form = el("form", "dialog-body");
     form.method = "dialog";
-    form.append(el("h2", "dialog-title", title), ...parts);
+    const close = el("button", "btn dialog-close", "\u00d7");
+    close.type = "button";
+    close.setAttribute("aria-label", "Close");
+    close.addEventListener("click", () => dialog.close("cancel"));
+    form.append(close, el("h2", "dialog-title", title), ...parts);
     return form;
   }
 

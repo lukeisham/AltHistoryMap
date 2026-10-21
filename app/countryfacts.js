@@ -6,7 +6,7 @@
 // All DOM comes from dialog.ownerDocument, so a test can hand it a fake document.
 
 import { ALIGNMENTS, GOVERNMENTS, MAX_FIELD, MAX_MOTTO, colourNameFor } from "./countrydata.js";
-import { STYLES, generateAll, makeDemonym, makeGovernment, makeMotto, makeName, makeRuler } from "./namegen.js";
+import { STYLES, generateAll, makeCurrency, makeDemonym, makeGovernment, makeMotto, makeName, makeRuler } from "./namegen.js";
 import { CREST_W, CREST_H, renderCrest } from "./crestcells.js";
 import { FLAG_W, FLAG_H } from "./model.js";
 import { BLOCK_COLS, BLOCK_ROWS } from "./flagblocks.js";
@@ -39,7 +39,7 @@ const DATALIST_ID = "kf-governments";
  */
 export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, rng }) {
   const doc = dialog.ownerDocument;
-  const { el, button, group, canvasFor } = dialogParts(doc);
+  const { el, button, group, closeButton, canvasFor } = dialogParts(doc);
   let ui = null;
 
   let palette = [];
@@ -57,7 +57,7 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
     { key: "government", label: "Type of government", max: MAX_FIELD, list: DATALIST_ID, make: (v) => makeGovernment(v.alignment, rng) },
     { key: "ruler", label: "Ruler", max: MAX_FIELD, make: (v) => makeRuler(v.style, v.alignment, v.government, rng) },
     { key: "motto", label: "Motto (Latin)", max: MAX_MOTTO, make: (v) => makeMotto(v.alignment, rng) },
-    { key: "currency", label: "Currency", max: MAX_FIELD },
+    { key: "currency", label: "Currency", max: MAX_FIELD, make: (v) => makeCurrency(v.name || v.defaultName, v.style, rng) },
     { key: "demonym", label: "Demonym", max: MAX_FIELD, make: (v) => makeDemonym(v.name || v.defaultName, v.style) },
   ];
 
@@ -144,7 +144,7 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
     const saveBtn = button("Save", () => settle(collect()), "fd-btn fd-btn-primary");
     actions.append(cancelBtn, saveBtn);
 
-    body.append(heading, top, flagCaption, flagRow, crestCaption, crestRow, el("span", "fd-caption", "Philosophy"), grid, styleRow, datalist, fieldsBox, status, actions);
+    body.append(closeButton(() => settle(null)), heading, top, flagCaption, flagRow, crestCaption, crestRow, el("span", "fd-caption", "Philosophy"), grid, styleRow, datalist, fieldsBox, status, actions);
     dialog.className = "fd";
     dialog.append(body);
     bindTermTips(dialog);

@@ -4,7 +4,7 @@
 // It shares the dialog chrome classes of flagdesigner.css and adds crestmaker.css. All DOM comes
 // from dialog.ownerDocument, so a test can hand it a fake document.
 
-import { SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS, FACINGS, COMPARTMENTS, RIBBONS, CREST_W, CREST_H, renderCrest } from "./crestcells.js";
+import { SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS, FACINGS, COMPARTMENTS, RIBBONS, TOPPERS, CREST_W, CREST_H, renderCrest } from "./crestcells.js";
 import { cellsToPng, drawCells, CREST_PNG_CELL } from "./pngexport.js";
 import { dialogParts } from "./dialogparts.js";
 import { bindTermTips } from "./termtip.js";
@@ -23,6 +23,7 @@ const CHOICES = [
   { key: "supporterRightFacing", label: "Right faces", options: FACINGS },
   { key: "compartment", label: "Compartment", options: COMPARTMENTS },
   { key: "ribbon", label: "Motto ribbon", options: RIBBONS },
+  { key: "topper", label: "Top decoration", options: TOPPERS },
 ];
 // Rows that list the same options share their definitions in terms.js.
 const OPTION_TERM_GROUP = {
@@ -37,6 +38,7 @@ const ROLES = [
   { key: "supporterRightColour", label: "Right animal" },
   { key: "compartmentColour", label: "Compartment" },
   { key: "ribbonColour", label: "Ribbon" },
+  { key: "topperColour", label: "Top decoration" },
   { key: "outline", label: "Outline" },
 ];
 
@@ -56,7 +58,7 @@ const ROLES = [
  */
 export function createCrestMaker({ dialog, getPalette, addColour, saveBlob }) {
   const doc = dialog.ownerDocument;
-  const { el, button, group, canvasFor } = dialogParts(doc);
+  const { el, button, group, closeButton, canvasFor } = dialogParts(doc);
   let ui = null;
 
   let palette = [];
@@ -119,7 +121,7 @@ export function createCrestMaker({ dialog, getPalette, addColour, saveBlob }) {
     const confirmBtn = button("", () => settle({ ...crest }), "fd-btn fd-btn-primary");
     actions.append(pngBtn, cancelBtn, confirmBtn);
 
-    body.append(heading, stage, status, roleRow, swatchRow, colourInput, actions);
+    body.append(closeButton(() => settle(null)), heading, stage, status, roleRow, swatchRow, colourInput, actions);
     dialog.className = "fd";
     dialog.append(body);
     bindTermTips(dialog);

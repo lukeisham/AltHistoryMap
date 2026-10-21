@@ -77,7 +77,7 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, g
   let pending = null;
   let theme = { line: "#ccc", white: "#fff", focus: "#a80", guide: "#666" };
 
-  const { el, button, group, canvasFor } = dialogParts(doc);
+  const { el, button, group, closeButton, canvasFor } = dialogParts(doc);
 
   function build() {
     const body = el("div", "fd-body");
@@ -141,7 +141,7 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, g
     const confirmBtn = button("", () => settle(new Uint8Array(cells)), "fd-btn fd-btn-primary");
     actions.append(pngBtn, cancelBtn, confirmBtn);
 
-    body.append(heading, toolRow, crestRow, stage, status, swatchRow, colourInput, starterGroup, actions);
+    body.append(closeButton(() => settle(null)), heading, toolRow, crestRow, stage, status, swatchRow, colourInput, starterGroup, actions);
     dialog.className = "fd";
     dialog.append(body);
     bindTermTips(dialog);

@@ -19,10 +19,18 @@
 }
 
 .fd-body {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--s-3);
   padding: var(--s-3);
+}
+
+.fd-close {
+  position: absolute;
+  top: var(--s-2);
+  right: var(--s-2);
+  line-height: 1;
 }
 
 .fd-title {

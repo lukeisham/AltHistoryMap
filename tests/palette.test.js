@@ -9,13 +9,20 @@ function setup({ mode = "edit" } = {}) {
   const doc = fakeDocument();
   const container = doc.createElement("div");
   const calls = { opened: [], dropped: [] };
-  const model = { palette: ["#b5473b", "#c98b2b", "#5c8a4d"], designs: [{}], crests: [{}, {}], onChange() {} };
+  const listeners = [];
+  const model = {
+    palette: ["#b5473b", "#c98b2b", "#5c8a4d"],
+    designs: [{}],
+    crests: [{}, {}],
+    countries: [{ colour: 2, name: "Orlam" }],
+    onChange: (fn) => listeners.push(fn),
+  };
   const state = createStore({ colour: 1, colour2: 2 });
   const editor = { addColour: () => 4, editGate: () => mode === "edit" };
   const countries = { open: (colour) => calls.opened.push(colour), dropOnColour: (colour, item) => calls.dropped.push([colour, item]) };
   bindPalette({ container, colourInput: doc.createElement("input"), state, model, editor, countries, glyphIds: ["crown"], say() {} });
   const swatches = container.findAll((n) => n.className === "swatch");
-  return { swatches, calls, state };
+  return { swatches, calls, state, model, notify: (notice) => listeners.forEach((fn) => fn(notice)) };
 }
 
 const dropOf = (item) => {
@@ -49,4 +56,15 @@ test("a swatch accepts a drag only in Edit mode", () => {
   const view = dropOf({ kind: "crest", crest: 0 });
   setup({ mode: "view" }).swatches[0].dispatch("dragover", view.event);
   assert.equal(view.prevented(), false);
+});
+
+test("a swatch's hover text is its country's name, the colour's own name when unnamed, and follows a rename", () => {
+  const t = setup();
+  assert.equal(t.swatches[1].title, "Orlam");
+  assert.notEqual(t.swatches[0].title, "#b5473b");
+  assert.ok(t.swatches[0].title.length > 0);
+  t.model.countries = [{ colour: 1, name: "Veyra" }];
+  t.notify({ history: true, countries: true });
+  assert.equal(t.swatches[0].title, "Veyra");
+  assert.notEqual(t.swatches[1].title, "Orlam");
 });

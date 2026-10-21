@@ -17,6 +17,11 @@
   }
 }
 
+.info-close {
+  align-self: flex-end;
+  line-height: 1;
+}
+
 .info-name {
   font-weight: 600;
   overflow-wrap: anywhere;

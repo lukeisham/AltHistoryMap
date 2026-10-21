@@ -200,6 +200,16 @@ test("a capital and its nation survive a save; a capital that is not a city is r
   await assertRejected(await craft({ header: validHeader({ markers: [{ ...city, nation: 99 }] }) }), /nation colour/);
 });
 
+test("a colony survives a save; it must be a city and cannot also be a capital; an older file reads with no colonies", async () => {
+  const city = { id: 1, type: "city", x: 1, y: 1, name: "A", colour: 1, glyph: "", design: -1, layer: "political", colony: true };
+  const kept = await decodeMap(await craft({ header: validHeader({ markers: [city] }) }), GLYPHS);
+  assert.equal(kept.markers[0].colony, true);
+  const old = await decodeMap(await craft({ header: validHeader({ markers: [{ ...city, colony: undefined }] }) }), GLYPHS);
+  assert.equal(old.markers[0].colony, false);
+  await assertRejected(await craft({ header: validHeader({ markers: [{ ...city, type: "label" }] }) }), /colony but is not a city/);
+  await assertRejected(await craft({ header: validHeader({ markers: [{ ...city, capital: true }] }) }), /also a capital/);
+});
+
 test("marker rules: glyph, duplicate id, layer, colour, flag design", async () => {
   const base = { id: 1, type: "city", x: 1, y: 1, name: "A", colour: 1, glyph: "", design: -1, layer: "political" };
   const withMarkers = (markers, extra = {}) => craft({ header: validHeader({ markers, ...extra }) });

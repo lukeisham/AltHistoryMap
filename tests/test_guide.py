@@ -7,6 +7,7 @@ modules. Values come from the real modules, or for browser code that Python cann
 real source line that defines them.
 """
 
+import importlib.util
 import json
 import re
 import sys
@@ -52,6 +53,14 @@ def js_constant(source: Path, name: str) -> str | int | list[str]:
 
 def app_source(name: str) -> str:
     return (APP / name).read_text(encoding="utf-8")
+
+
+def load_appservers():
+    """The real supervisor module, loaded by path because System/Tools/ is not on the import path."""
+    spec = importlib.util.spec_from_file_location("appservers", LUKEATRON / "System/Tools/appservers/appservers.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def imports(consumer: str, provider: str) -> bool:
@@ -489,6 +498,54 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertEqual(js_constant(APP / "countrylabels.js", "MIN_SIZE"), 10)
         self.assertIn(f"below {js_constant(APP / 'countrylabels.js', 'MIN_SIZE')} screen pixels", row)
         self.assertIn(f"about {js_constant(APP / 'countrylabels.js', 'SAMPLES_PER_SIDE')} samples", row)
+
+    def test_a_dropped_map_file_reaches_the_open_action_and_the_browser_is_stopped_from_navigating(self) -> None:
+        row = row_starting(self.section, "`filedrop.js`")
+        self.assertIn("`actions.js`", row)
+        self.assertTrue(imports("main.js", "filedrop.js"))
+        self.assertIn("bindFileDrop({ target: document, onFile: (file) => actions.openFile(file) })", app_source("main.js"))
+        self.assertIn("async function openFile(file)", app_source("actions.js"))
+        self.assertRegex(app_source("actions.js"), r"\n\s+openFile,\n")
+        drop = app_source("filedrop.js")
+        for event in ("dragover", "drop"):
+            self.assertIn(f'addEventListener("{event}"', drop)
+        self.assertEqual(drop.count("event.preventDefault()"), 2, "both events must cancel the browser's own handling")
+
+    def test_the_supervisor_starts_serve_py_and_restarts_it_when_python_code_changes(self) -> None:
+        row = row_starting(self.section, "`System/Tools/appservers/appservers.py`")
+        appservers = load_appservers()
+        ours = [server for server in appservers.servers() if server["port"] == serve.PORT]
+        self.assertEqual([(server["dir"], server["script"]) for server in ours], [(ROOT, ROOT / "serve.py")])
+        self.assertIn("`serve.py`", row)
+        self.assertIn(".py", appservers.CODE_SUFFIXES)
+        self.assertIn("`.py`", row)
+        quiet = appservers.SETTLE
+        self.assertTrue(appservers.is_stale(started=100.0, newest=200.0, now=200.0 + quiet))
+        self.assertFalse(appservers.is_stale(started=300.0, newest=200.0, now=200.0 + quiet))
+
+    def test_the_model_row_matches_name_tags_notices_and_the_water_rule(self) -> None:
+        row = row_starting(self.section, "`model.js`")
+        model, markers = app_source("model.js"), app_source("markers.js")
+        self.assertIn("`{history, countries}`", row)
+        self.assertIn("{ history: true, countries: true }", model)
+        for name in ("tagDx", "tagDy"):
+            self.assertIn(f"`{name}`", row)
+        self.assertIn("marker.tagDx ?? 0", markers)
+        self.assertIn('if (!marker.name || marker.type === "label") return null;', markers)
+        self.assertIn('if (!name && spec.type === "label")', model)
+        self.assertRegex(model, r"function isPaintable\(bits\) \{\s+return \(bits & LAND\) !== 0 && \(bits & WATER\) === 0;")
+        self.assertIn("if (!isPaintable(base[i])) continue;", model)
+        self.assertIn("!isPaintable(base[y * n + x])", model)
+        self.assertRegex(model, r"if \(!\(base\[i\] & WATER\)\) \{\s+writePixel\(")
+        self.assertIn("`replace`", row)
+        self.assertIn("clearWater(model.planes);", model)
+
+    def test_the_app_names_no_lukeatron_file_so_it_deploys_on_its_own(self) -> None:
+        self.assertIn("the app points at none of them", self.section)
+        files = [path for suffix in ("*.js", "*.html", "*.css") for path in APP.rglob(suffix)] + [ROOT / "serve.py", ROOT / LAUNCHERS[0]]
+        self.assertGreater(len(files), 50, "the file scan found almost nothing, so the scan is broken")
+        outward = re.compile(r"System/|ports\.json|catalog\.json|appservers")
+        self.assertEqual([path.name for path in files if outward.search(path.read_text(encoding="utf-8"))], [])
 
 
 class ReadmeStaysHumanTest(unittest.TestCase):

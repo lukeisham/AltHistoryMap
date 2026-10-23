@@ -2,7 +2,7 @@
 // buttons from it, keys.js reads TOOL_KEYS, state.js repairs the current tool after a layer switch.
 
 export const TOOLS_BY_LAYER = {
-  political: ["paint", "erase", "fill", "border", "city", "flag", "label", "symbol"],
+  political: ["paint", "erase", "fill", "border", "city", "colony", "flag", "label", "symbol"],
   province: ["paint", "erase", "fill", "symbol"],
   culture: ["paint", "erase", "fill", "symbol"],
 };
@@ -13,6 +13,7 @@ export const TOOL_KEYS = {
   F: "fill",
   B: "border",
   C: "city",
+  O: "colony",
   G: "flag",
   L: "label",
   S: "symbol",
@@ -24,6 +25,7 @@ export const TOOL_LABELS = {
   fill: "Fill",
   border: "Border",
   city: "City",
+  colony: "Colony",
   flag: "Flag",
   label: "Label",
   symbol: "Symbol",
@@ -35,6 +37,7 @@ export const TOOL_HINTS = {
   fill: "Fill a connected area with the chosen colour",
   border: "Draw a border line on land",
   city: "Click the map to place a named city",
+  colony: "Click the map to place a named colony",
   flag: "Click the map to place a named flag",
   label: "Click the map to place free text",
   symbol: "Click the map to place the chosen symbol",
@@ -45,9 +48,9 @@ export const STROKE_TOOLS = ["paint", "erase", "border"];
 /** Stroke tools whose width follows the brush size. */
 export const BRUSH_TOOLS = ["paint", "erase"];
 /** Tools that put a marker on the map. */
-export const PLACING_TOOLS = ["city", "flag", "label", "symbol"];
+export const PLACING_TOOLS = ["city", "colony", "flag", "label", "symbol"];
 /** Placing tools whose marker may go without a name tag; a label is its text. */
-export const NAME_TAG_TOOLS = ["city", "flag", "symbol"];
+export const NAME_TAG_TOOLS = ["city", "colony", "flag", "symbol"];
 
 export const BRUSH_MIN = 1;
 export const BRUSH_MAX = 16;

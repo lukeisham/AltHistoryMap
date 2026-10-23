@@ -4,11 +4,12 @@ import { findRegions, drawCountryNames } from "../app/countrylabels.js";
 
 const SIDE = 40;
 
-// A plane with colour 1 filling x 5..24, y 5..14 (20 wide, 10 high) and colour 2 a single pixel at (30, 30).
+// A plane with colour 1 filling x 5..24, y 5..14 (20 wide, 10 high), colour 2 a 2 x 2 patch at (30, 30) and a stray pixel of colour 1 at (35, 35).
 function plane() {
   const political = new Uint8Array(SIDE * SIDE);
   for (let y = 5; y < 15; y++) for (let x = 5; x < 25; x++) political[y * SIDE + x] = 1;
-  political[30 * SIDE + 30] = 2;
+  for (let y = 30; y < 32; y++) for (let x = 30; x < 32; x++) political[y * SIDE + x] = 2;
+  political[35 * SIDE + 35] = 1;
   return political;
 }
 
@@ -41,15 +42,52 @@ test("findRegions puts a colour's name in the middle of its longest row, with th
   const one = regions.find((r) => r.colour === 1);
   assert.deepEqual([one.x, one.width, one.height], [15, 20, 10]);
   assert.ok(one.y >= 5 && one.y < 15);
-  assert.deepEqual(regions.map((r) => r.colour).sort(), [1, 2], "unpainted ground has no region");
+  assert.deepEqual(regions.map((r) => r.colour).sort(), [1, 2], "unpainted ground has no region, and a stray pixel gets none");
 });
 
-test("findRegions follows the longest run when a colour has two pieces", () => {
+test("findRegions gives a colour in two separate areas one region in each, sized to its own area", () => {
   const political = new Uint8Array(SIDE * SIDE);
   for (let x = 0; x < 6; x++) political[2 * SIDE + x] = 1;
   for (let x = 10; x < 30; x++) political[20 * SIDE + x] = 1;
-  const [region] = findRegions(political, SIDE);
-  assert.deepEqual([region.x, region.y, region.width, region.height], [20, 20, 20, 1]);
+  const regions = findRegions(political, SIDE).map((r) => [r.colour, r.x, r.y, r.width, r.height]);
+  assert.deepEqual(regions, [[1, 3, 2, 6, 1], [1, 20, 20, 20, 1]]);
+});
+
+test("findRegions joins areas only side to side: a diagonal touch is two areas, a column joining two blocks is one", () => {
+  const diagonal = new Uint8Array(SIDE * SIDE);
+  for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) diagonal[y * SIDE + x] = 1;
+  for (let y = 3; y < 6; y++) for (let x = 3; x < 6; x++) diagonal[y * SIDE + x] = 1;
+  assert.equal(findRegions(diagonal, SIDE).length, 2);
+  const joined = new Uint8Array(SIDE * SIDE);
+  for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) joined[y * SIDE + x] = 1;
+  for (let y = 3; y < 8; y++) joined[y * SIDE + 1] = 1;
+  for (let y = 8; y < 11; y++) for (let x = 0; x < 3; x++) joined[y * SIDE + x] = 1;
+  assert.equal(findRegions(joined, SIDE).length, 1);
+});
+
+test("findRegions names palette colours that look the same once, as the first of them", () => {
+  const political = new Uint8Array(SIDE * SIDE);
+  for (let y = 5; y < 10; y++) {
+    for (let x = 5; x < 10; x++) political[y * SIDE + x] = 1;
+    for (let x = 10; x < 15; x++) political[y * SIDE + x] = 2;
+  }
+  const representative = Uint8Array.from({ length: 256 }, (_, i) => (i === 2 ? 1 : i));
+  assert.deepEqual(findRegions(political, SIDE).map((r) => r.colour).sort(), [1, 2]);
+  const merged = findRegions(political, SIDE, representative);
+  assert.deepEqual(merged.map((r) => [r.colour, r.width]), [[1, 10]]);
+});
+
+test("a colour with two separate areas has its name drawn in both, and in only one when it has one area", () => {
+  const split = new Uint8Array(SIDE * SIDE);
+  for (let y = 2; y < 8; y++) for (let x = 2; x < 8; x++) split[y * SIDE + x] = 1;
+  for (let y = 20; y < 30; y++) for (let x = 20; x < 36; x++) split[y * SIDE + x] = 1;
+  const two = fakeContext();
+  drawCountryNames(two.ctx, sceneOf(split, { vp: { x: 0, y: 0, k: 4, kFit: 1 } }));
+  assert.deepEqual(two.drawn.map((d) => d.text), ["Red", "Red"]);
+  assert.ok(two.drawn[1].size > two.drawn[0].size, "the larger area gets the larger name");
+  const one = fakeContext();
+  drawCountryNames(one.ctx, sceneOf(plane()));
+  assert.equal(one.drawn.filter((d) => d.text === "Red").length, 1);
 });
 
 test("a name is drawn over its region, sized to fit the room, using the colour's own name when the country has none", () => {

@@ -129,9 +129,33 @@ export function readTheme(style) {
 const SAME_COLOUR_TOLERANCE = 3;
 
 /**
+ * Groups palette colours that look the same on screen: each index maps to the first earlier index whose
+ * colour is within the eye-dropper tolerance, or to itself. countrylabels.js names such a group once.
+ * @param {string[]} palette the map's hex colours
+ * @returns {Uint8Array} 256 entries; entry i is the representative of 1-based palette index i (0 maps to 0)
+ */
+export function representativeColours(palette) {
+  const representative = Uint8Array.from({ length: 256 }, (_, i) => i);
+  const colours = palette.map((hex) => {
+    const colour = parseColour(hex);
+    return colour === null ? null : unpackColour(colour);
+  });
+  const roots = [];
+  colours.forEach((colour, i) => {
+    if (colour === null) return;
+    const root = roots.find((r) => Math.max(Math.abs(colours[r].r - colour.r), Math.abs(colours[r].g - colour.g), Math.abs(colours[r].b - colour.b)) < SAME_COLOUR_TOLERANCE);
+    if (root === undefined) roots.push(i);
+    else representative[i + 1] = root + 1;
+  });
+  return representative;
+}
+
+/**
  * The palette colour a sampled screen colour stands for. The map shows a colour as itself, faded toward
- * the land on Political, or pale on Culture, so a colour lifted from the screen by an eye dropper is
- * usually one of those and not the stored hex.
+ * the land (Political, or beneath Culture in Edit mode), pale (Culture), or blended over the faded
+ * Political colour or faded border line beneath it (Culture in Edit mode), so a colour lifted from the
+ * screen by an eye dropper is usually one of those and not the stored hex. The closest match wins, so
+ * an exact colour beats a near-equal palette neighbour.
  * @param {string} hex `#rrggbb` as sampled
  * @param {string[]} palette the map's hex colours
  * @param {{packed: object, numbers: object}} theme
@@ -141,17 +165,27 @@ export function shownColourIndex(hex, palette, theme) {
   const sampled = parseColour(hex);
   if (sampled === null) return null;
   const want = unpackColour(sampled);
-  const near = (packed) => {
+  const distance = (packed) => {
     const have = unpackColour(packed);
-    return Math.max(Math.abs(have.r - want.r), Math.abs(have.g - want.g), Math.abs(have.b - want.b)) < SAME_COLOUR_TOLERANCE;
+    return Math.max(Math.abs(have.r - want.r), Math.abs(have.g - want.g), Math.abs(have.b - want.b));
   };
-  for (let i = 0; i < palette.length; i++) {
-    const colour = parseColour(palette[i]);
-    if (colour === null) continue;
-    const shown = [colour, mixColour(theme.packed.land, colour, theme.numbers.politicalFade), mixColour(colour, WHITE, theme.numbers.cultureTint)];
-    if (shown.some(near)) return i + 1;
-  }
-  return null;
+  const { land, border } = theme.packed;
+  const { politicalFade, cultureTint, cultureBlend } = theme.numbers;
+  const colours = palette.map(parseColour);
+  // What Edit-Culture lays a culture colour over: bare land, the faded border line, or any faded Political colour.
+  const unders = [land, mixColour(land, border, politicalFade), ...colours.filter((c) => c !== null).map((c) => mixColour(land, c, politicalFade))];
+  let found = null;
+  let foundDistance = SAME_COLOUR_TOLERANCE;
+  colours.forEach((colour, i) => {
+    if (colour === null) return;
+    const shown = [colour, mixColour(land, colour, politicalFade), mixColour(colour, WHITE, cultureTint), ...unders.map((under) => mixColour(under, colour, cultureBlend))];
+    const closest = Math.min(...shown.map(distance));
+    if (closest < foundDistance) {
+      found = i + 1;
+      foundDistance = closest;
+    }
+  });
+  return found;
 }
 
 /**
@@ -165,7 +199,7 @@ export function makeSource(model, theme) {
   const { packed, numbers } = theme;
   const ground = new Uint32Array(16);
   for (let bits = 0; bits < 16; bits++) {
-    if (bits & (RIVER | LAKE)) ground[bits] = packed.water;
+    if (bits & RIVER) ground[bits] = packed.water;
     else if (bits & LAND) ground[bits] = packed.land;
     else if (bits & COAST) ground[bits] = packed.coast;
     else ground[bits] = packed.sea;

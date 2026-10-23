@@ -3,7 +3,7 @@
 // the renderer owns the view, the wheel, pinch and keys, and everything drawn.
 
 import { LOOKS, layersDrawn, layersOnScreen } from "./layers.js";
-import { createLayerImage, createRiverOverview, makeCanvas, makeSource, readTheme } from "./layerimage.js";
+import { createLayerImage, createRiverOverview, makeCanvas, makeSource, readTheme, representativeColours } from "./layerimage.js";
 import { drawCountryNames, findRegions } from "./countrylabels.js";
 import { createGlyphLibrary, drawMarkers, drawSelection, hitMarker, hitTag } from "./markers.js";
 import {
@@ -225,7 +225,7 @@ export function createRenderer({ canvas, model, glyphs }) {
 
   // Found on first use after a paint change, so a map with names off or another layer on screen pays nothing.
   function regionsNow() {
-    regions ??= findRegions(model.planes.political, n);
+    regions ??= findRegions(model.planes.political, n, representativeColours(model.palette));
     return regions;
   }
 

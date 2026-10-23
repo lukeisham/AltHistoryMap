@@ -86,3 +86,47 @@ test("a colour taken from the map's screen colours picks the country it came fro
   colourInput.dispatch("change");
   assert.deepEqual(added, ["#123456"]);
 });
+
+function withEyeDropper(hex, run) {
+  const saved = Object.getOwnPropertyDescriptor(globalThis, "EyeDropper");
+  if (hex === null) delete globalThis.EyeDropper;
+  else globalThis.EyeDropper = class { open() { return Promise.resolve({ sRGBHex: hex }); } };
+  const restore = () => (saved ? Object.defineProperty(globalThis, "EyeDropper", saved) : delete globalThis.EyeDropper);
+  return Promise.resolve(run()).finally(restore);
+}
+
+function eyeDropperSetup() {
+  const doc = fakeDocument();
+  const container = doc.createElement("div");
+  const colourInput = doc.createElement("input");
+  let opened = 0;
+  colourInput.click = () => opened++;
+  const added = [];
+  const state = createStore({ colour: 1, colour2: 2 });
+  const model = { palette: ["#b5473b", "#c98b2b"], designs: [], crests: [], countries: [], onChange() {} };
+  const editor = { addColour: (hex) => (added.push(hex), 3), editGate: () => true };
+  bindPalette({ container, colourInput, state, model, editor, countries: {}, glyphIds: [], shownColourIndex: (hex) => (hex === "#c98b2b" ? 2 : null), say() {} });
+  const button = container.find((n) => n.className === "swatch swatch-add swatch-eyedropper");
+  return { button, state, added, opened: () => opened };
+}
+
+test("the palette has an eye-dropper button beside +: a colour that stands for a palette colour selects it, any other is added, and with no EyeDropper it opens the colour input", async () => {
+  const known = eyeDropperSetup();
+  assert.ok(known.button, "the button is there");
+  await withEyeDropper("#c98b2b", async () => {
+    known.button.dispatch("click");
+    await new Promise((resolve) => setImmediate(resolve));
+  });
+  assert.deepEqual([known.state.get().colour, known.added], [2, []]);
+
+  const fresh = eyeDropperSetup();
+  await withEyeDropper("#123456", async () => {
+    fresh.button.dispatch("click");
+    await new Promise((resolve) => setImmediate(resolve));
+  });
+  assert.deepEqual([fresh.state.get().colour, fresh.added], [3, ["#123456"]]);
+
+  const none = eyeDropperSetup();
+  await withEyeDropper(null, async () => none.button.dispatch("click"));
+  assert.equal(none.opened(), 1);
+});

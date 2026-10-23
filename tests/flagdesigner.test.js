@@ -13,7 +13,7 @@ function cornerlessCrest() {
   return cells;
 }
 
-function setup({ palette = ["#ff0000", "#00ff00", "#0000ff"], crests = [], shields = [] } = {}) {
+function setup({ palette = ["#ff0000", "#00ff00", "#0000ff"], crests = [], shields = [], existing = null } = {}) {
   const doc = fakeDocument();
   const dialog = fakeDialog(doc);
   const opener = doc.createElement("button");
@@ -26,6 +26,7 @@ function setup({ palette = ["#ff0000", "#00ff00", "#0000ff"], crests = [], shiel
     getPalette: () => palette,
     addColour(hex) {
       added.push(hex);
+      if (existing !== null) return existing;
       if (addResult !== null) palette.push(hex);
       return addResult;
     },
@@ -178,6 +179,41 @@ test("the + swatch opens the colour picker; a picked colour joins the palette an
   t.pointer("pointerup", 1, 1);
   t.click("Add to library");
   assert.equal((await result)[1 * FLAG_W + 1], 4);
+});
+
+test("a picked colour that stands for a colour already in the palette selects that colour and adds no swatch", async () => {
+  const t = setup({ existing: 2 });
+  const result = t.designer.open({ cells: null, colour: 1, colour2: 3, editing: false, fileName: "x.png" });
+  t.colourInput().value = "#00ff00";
+  t.colourInput().dispatch("change");
+  assert.equal(t.swatchButtons().length, 3);
+  assert.match(t.swatchButtons()[1].getAttribute("aria-label"), /pen colour/);
+  t.pointer("pointerdown", 1, 1);
+  t.pointer("pointerup", 1, 1);
+  t.click("Add to library");
+  assert.equal((await result)[1 * FLAG_W + 1], 2);
+});
+
+test("the flag designer has an eye-dropper button beside +, with a pop-up term, that sends the sampled colour through addColour; without an EyeDropper it opens the colour input", async () => {
+  const t = setup({ existing: 2 });
+  t.designer.open({ cells: null, colour: 1, colour2: 3, editing: false, fileName: "x.png" });
+  const button = t.dialog.find((n) => n.className === "fd-swatch fd-swatch-add fd-swatch-eyedropper");
+  assert.ok(button, "the button is there");
+  assert.equal(button.getAttribute("data-term"), "tool:eyedropper");
+  globalThis.EyeDropper = class { open() { return Promise.resolve({ sRGBHex: "#00ff00" }); } };
+  try {
+    button.dispatch("click");
+    await new Promise((resolve) => setImmediate(resolve));
+  } finally {
+    delete globalThis.EyeDropper;
+  }
+  assert.deepEqual(t.added, ["#00ff00"]);
+  assert.equal(t.swatchButtons().length, 3, "no new swatch: the colour stood for one already there");
+  let opened = 0;
+  t.colourInput().click = () => opened++;
+  button.dispatch("click");
+  assert.equal(opened, 1);
+  t.designer.close();
 });
 
 test("a full palette says so and leaves the pen colour alone", () => {

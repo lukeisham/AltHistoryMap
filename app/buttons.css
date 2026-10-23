@@ -1,3 +1,9 @@
+.eyedropper-icon {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: middle;
+}
+
 .btn {
   padding: var(--s-1) var(--s-2);
   border: 1px solid var(--line-strong);

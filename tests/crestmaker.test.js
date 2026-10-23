@@ -5,7 +5,7 @@ import { defaultCrest, CREST_W, CREST_H } from "../app/crestcells.js";
 import { CREST_PNG_CELL } from "../app/pngexport.js";
 import { fakeDocument, fakeDialog } from "./fakedom.js";
 
-function setup(palette = ["#ff0000", "#00ff00", "#0000ff"]) {
+function setup(palette = ["#ff0000", "#00ff00", "#0000ff"], existing = null) {
   const doc = fakeDocument();
   const dialog = fakeDialog(doc);
   const opener = doc.createElement("button");
@@ -18,6 +18,7 @@ function setup(palette = ["#ff0000", "#00ff00", "#0000ff"]) {
     getPalette: () => palette,
     addColour(hex) {
       added.push(hex);
+      if (existing !== null) return existing;
       if (addResult !== null) palette.push(hex);
       return addResult;
     },
@@ -111,6 +112,40 @@ test("a picked colour joins the palette and colours the chosen part; a full pale
   assert.match(t.status(), /colour list is full/);
   t.byText("Add to library").dispatch("click");
   assert.equal((await result).chargeColour, 4);
+});
+
+test("a picked colour that stands for a colour already in the palette colours the part with that colour and adds no swatch", async () => {
+  const t = setup(undefined, 2);
+  const result = t.maker.open(START());
+  t.byText("Charge").dispatch("click");
+  const input = t.dialog.find((n) => n.className === "fd-colour-input");
+  input.value = "#00ff00";
+  input.dispatch("change");
+  assert.equal(t.dialog.findAll((n) => n.className === "fd-swatch").length, 4, "white plus the three palette colours");
+  t.byText("Add to library").dispatch("click");
+  assert.equal((await result).chargeColour, 2);
+});
+
+test("the crest maker has an eye-dropper button beside +, with a pop-up term, that sends the sampled colour through addColour; without an EyeDropper it opens the colour input", async () => {
+  const t = setup(undefined, 2);
+  t.maker.open(START());
+  const button = t.dialog.find((n) => n.className === "fd-swatch fd-swatch-add fd-swatch-eyedropper");
+  assert.ok(button, "the button is there");
+  assert.equal(button.getAttribute("data-term"), "tool:eyedropper");
+  globalThis.EyeDropper = class { open() { return Promise.resolve({ sRGBHex: "#00ff00" }); } };
+  try {
+    button.dispatch("click");
+    await new Promise((resolve) => setImmediate(resolve));
+  } finally {
+    delete globalThis.EyeDropper;
+  }
+  assert.deepEqual(t.added, ["#00ff00"]);
+  const input = t.dialog.find((n) => n.className === "fd-colour-input");
+  let opened = 0;
+  input.click = () => opened++;
+  button.dispatch("click");
+  assert.equal(opened, 1);
+  t.maker.close();
 });
 
 test("Save PNG sends a whole-crest picture at CREST_PNG_CELL px per cell under the given file name", async () => {

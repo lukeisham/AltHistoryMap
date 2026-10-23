@@ -9,6 +9,7 @@ import { CREST_W, CREST_H } from "./crestcells.js";
 import { cellsToPng, drawCells, FLAG_PNG_CELL } from "./pngexport.js";
 import { dialogParts } from "./dialogparts.js";
 import { bindTermTips } from "./termtip.js";
+import { createEyeDropperButton } from "./eyedropper.js";
 
 /** CSS pixels per design pixel on the editing canvas. */
 export const GRID_PX = 6;
@@ -126,7 +127,7 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, g
     colourInput.setAttribute("type", "color");
     colourInput.setAttribute("tabindex", "-1");
     colourInput.setAttribute("aria-hidden", "true");
-    colourInput.addEventListener("change", onColourPicked);
+    colourInput.addEventListener("change", () => onColourPicked(colourInput.value));
 
     const starterGroup = group("Starter layouts, using the pen colour and the second colour", "fd-group");
     for (const { kind, label } of STARTERS) {
@@ -275,14 +276,16 @@ export function createFlagDesigner({ dialog, getPalette, addColour, getCrests, g
     add.setAttribute("aria-label", "Add a colour");
     add.setAttribute("title", "Add a colour");
     add.addEventListener("click", () => ui.colourInput.click());
-    ui.swatchRow.replaceChildren(...nodes, add);
+    const dropper = createEyeDropperButton({ doc, className: "fd-swatch fd-swatch-add fd-swatch-eyedropper", onPick: onColourPicked, openPicker: () => ui.colourInput.click() });
+    dropper.setAttribute("data-term", "tool:eyedropper");
+    ui.swatchRow.replaceChildren(...nodes, add, dropper);
     ui.swatches = nodes;
     markSwatches();
   }
 
   // The colour joins the map's palette, so the map and every other flag and crest can use it too.
-  function onColourPicked() {
-    const index = addColour(ui.colourInput.value);
+  function onColourPicked(hex) {
+    const index = addColour(hex);
     if (index === null) {
       say("The colour list is full: a map holds up to 254 colours.");
       return;

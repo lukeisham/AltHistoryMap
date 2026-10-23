@@ -80,7 +80,7 @@ def _rivers_on_land_only(grid: bytearray) -> bytearray:
 
 
 def _coast(grid: bytearray) -> None:
-    """Marks every sea pixel with a land pixel directly left, right, above or below it."""
+    """Marks every water pixel, sea or lake, with a land pixel directly left, right, above or below it."""
     land_mask = int.from_bytes(bytes([LAND]) * N, "little")
     row_mask = int.from_bytes(bytes([0xFF]) * N, "little")
 
@@ -92,7 +92,7 @@ def _coast(grid: bytearray) -> None:
     above, here, below = 0, land_row(0), land_row(1)
     for y in range(N):
         row = int.from_bytes(grid[y * N : (y + 1) * N], "little")
-        wet = ~((row & land_mask) | ((row >> 2) & land_mask)) & land_mask
+        wet = ~row & land_mask
         # Land bits only reach neighbours within the row, so a shift never wraps to the next row.
         neighbours = above | below | ((here << 8) & row_mask) | (here >> 8)
         coast = neighbours & wet

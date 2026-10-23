@@ -21,7 +21,7 @@ test("the crest parts, colour roles, flag tools, starters and flag parts are def
     "part:shield", "part:division", "part:ordinary", "part:charge", "part:supporterLeft", "part:supporterRight", "part:supporterLeftFacing", "part:supporterRightFacing", "part:compartment", "part:ribbon", "part:topper", "role:topperColour",
     "role:compartmentColour", "role:ribbonColour",
     "role:field", "role:field2", "role:ordinaryColour", "role:chargeColour", "role:outline", "role:supporterLeftColour", "role:supporterRightColour",
-    "tool:pencil", "tool:erase", "tool:fill", "tool:crest", "tool:mirror",
+    "tool:pencil", "tool:erase", "tool:fill", "tool:crest", "tool:mirror", "tool:eyedropper",
     "starter:plain", "starter:stripes-h", "starter:stripes-v", "starter:cross", "starter:saltire",
     "flag:hoist", "flag:fly", "flag:canton",
   ]) {

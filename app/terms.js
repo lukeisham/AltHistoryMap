@@ -91,6 +91,7 @@ const TERMS = {
   "tool:fill": ["Fill", "Floods the connected area of one colour with the pen colour."],
   "tool:crest": ["Crest", "Stamps the chosen coat of arms onto the flag, centred on the cell you click. A coat of arms or badge on a flag is called a charge."],
   "tool:shield-only": ["Shield only", "Stamps just the shield, without its supporters, so a small emblem fits the middle of a flag."],
+  "tool:eyedropper": ["Eye dropper", "Picks a colour from anywhere on screen. A colour taken from a country on the map is that country's colour, not a new one."],
   "tool:mirror": ["Mirror", "Copies each cell you paint to the opposite side, left to right, so the design is symmetrical."],
 
   "starter:plain": ["Plain", "The whole flag in one colour. Flag designers call the background of a flag its field."],

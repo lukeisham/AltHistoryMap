@@ -4,7 +4,7 @@ import {
   CREST_W, CREST_H, SHIELD_W, SHIELD_H, SHIELD_X, SHIELD_Y, TRANSPARENT, SHAPES, DIVISIONS, ORDINARIES, CHARGES, SUPPORTERS,
   defaultCrest, normaliseCrest, renderCrest, renderShieldOnly, FACINGS, COMPARTMENTS, RIBBONS,
 } from "../app/crestcells.js";
-import { SUPPORTER_W } from "../app/supporters.js";
+import { SUPPORTER_W, LINE, rasterSupporter } from "../app/supporters.js";
 import { stampCrest } from "../app/flagcells.js";
 import { FLAG_W, FLAG_H } from "../app/model.js";
 
@@ -84,6 +84,16 @@ test("every supporter draws something, with its eye in the outline colour, and t
       }
     }
   }
+});
+
+test("a supporter's detail lines are painted in the outline colour, and the rest of its body in its own colour", () => {
+  const mask = rasterSupporter("soldier");
+  const cells = renderCrest(crest({ supporterLeft: "soldier", supporterLeftColour: 6, outline: 9 }));
+  const cellAt = (i) => cells[Math.floor(i / SUPPORTER_W) * CREST_W + (i % SUPPORTER_W)];
+  const lines = Array.from(mask, (v, i) => (v === LINE ? i : -1)).filter((i) => i >= 0);
+  assert.ok(lines.length > 0);
+  assert.ok(lines.every((i) => cellAt(i) === 9));
+  assert.ok(cells.includes(6), "the body is in the supporter's colour");
 });
 
 test("normaliseCrest keeps a good crest and refuses unknown parts, bad colours and non-objects", () => {

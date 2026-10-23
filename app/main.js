@@ -187,8 +187,6 @@ async function main() {
     nameTagInput: part("name-tag"),
     capitalRow: part("capital-row"),
     capitalInput: part("capital"),
-    colonyRow: part("colony-row"),
-    colonyInput: part("colony"),
     state,
   });
   bindPalette({ container: part("palette"), colourInput: part("colour-input"), state, model, editor, countries, glyphIds, say, shownColourIndex: shownIndex });

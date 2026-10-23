@@ -1,9 +1,10 @@
-// The colour swatches. A click sets the colour, Shift-click the second colour (the second colour of a flag). The + button adds a colour from the system picker.
+// The colour swatches. A click sets the colour, Shift-click the second colour (the second colour of a flag). The + button adds a colour from the system picker; the eye-dropper button beside it picks one from the screen.
 // A swatch is also a country: double-click opens its Key Facts, and a crest or flag design dropped on it is given to the country.
 
 import { MAX_PALETTE } from "./model.js";
 import { hasDragItem, readDragItem } from "./dragitem.js";
 import { countryName } from "./countrydata.js";
+import { createEyeDropperButton } from "./eyedropper.js";
 
 /**
  * @param {{
@@ -72,16 +73,19 @@ export function bindPalette({ container, colourInput, state, model, editor, coun
     add.setAttribute("aria-label", "Add a colour");
     add.title = "Add a colour";
     add.addEventListener("click", () => colourInput.click());
-    container.replaceChildren(...swatches, add);
+    const dropper = createEyeDropperButton({ doc, className: "swatch swatch-add swatch-eyedropper", onPick: takeColour, openPicker: () => colourInput.click() });
+    container.replaceChildren(...swatches, add, dropper);
     mark();
   }
 
-  colourInput.addEventListener("change", () => {
-    // An eye dropper reads what the map shows, so a colour taken from a country's land is that country's colour and not a new one.
-    const index = shownColourIndex(colourInput.value) ?? editor.addColour(colourInput.value);
+  // An eye dropper reads what the map shows, so a colour taken from a country's land is that country's colour and not a new one.
+  function takeColour(hex) {
+    const index = shownColourIndex(hex) ?? editor.addColour(hex);
     if (index === null) say(`The colour list is full: a map holds up to ${MAX_PALETTE} colours.`);
     else state.set({ colour: index });
-  });
+  }
+
+  colourInput.addEventListener("change", () => takeColour(colourInput.value));
 
   state.subscribe((value, changed) => {
     if (changed.includes("colour") || changed.includes("colour2")) mark();

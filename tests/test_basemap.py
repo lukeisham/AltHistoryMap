@@ -53,6 +53,17 @@ class BasemapTest(unittest.TestCase):
         self.assertFalse(east[i] & LAND)
         self.assertTrue(east[i - 1] & LAND)
 
+    def test_lakes_have_a_shoreline_like_the_sea_and_rivers_are_unchanged(self) -> None:
+        shore = [b for b in set(self.grid) if b & LAKE and b & COAST]
+        self.assertTrue(shore, "a lake pixel marked as coast")
+        self.assertFalse(any(b & LAND for b in shore), "lake pixels are never land")
+        self.assertFalse(self.bits(50, 42) & COAST, "the middle of the Caspian is open water")
+        cx, cy = pixel_at(50, 42)
+        row = [self.grid[cy * N + x] for x in range(cx - 400, cx + 400)]
+        edge = next(i for i, b in enumerate(row) if b & LAKE and b & COAST)
+        self.assertTrue(any(row[j] & LAND for j in (edge - 1, edge + 1)), "a lake shore pixel stands next to land")
+        self.assertTrue(all(b & LAND for b in set(self.grid) if b & RIVER), "rivers sit on land as before")
+
     def test_river_bit_never_sits_on_water_and_seam_is_land(self) -> None:
         for b in set(self.grid):
             if b & RIVER:

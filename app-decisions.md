@@ -20,6 +20,8 @@ later agent does not "restore" the old behaviour.
 | 2026-10-19 | Flag designer takes any colour; a flag shows enlarged when the pointer rests on it; a crest maker whose crests stamp into flags; flags and crests save as PNG; Purpose restated as input (people create imaginary maps, flags and crests) and output (saved imaginary maps, flags and crests) | app change |
 | 2026-10-19 | Larger flags and crests: flags are 120 x 80 cells, crests 58 x 40 cells with a 24 x 28 shield and an animal supporter on each side, and hovering a crest or flag term shows what it means. Reverses decision 10's 12 x 14 crest and its rejection of a bigger flag grid | app change |
 | 2026-10-19 | Countries: a Political colour holds a crest, a flag and key facts; a philosophy grid (nine alignment squares) steers the generators; mottos are Latin | app change |
+| 2026-10-23 | A country's name is drawn once on every separate area of its colour, each sized to its own area, and palette colours that look the same share one name. Reverses one name per colour, on its longest run | app change |
+| 2026-10-23 | Crest supporters are hand-drawn pixel art on the 30 x 60 grid, modelled on real heraldic figures (a Napoleonic grenadier, the lions and unicorns of royal arms), kept pixelated. Reverses Key decision 13's shape-built silhouettes | app change |
 | 2026-10-14 | App confirmed working; PRD and specs no longer required | `_build/prd.md` + `_build/specs/` |
 | 2026-10-14 | Build accepted; build docs retired | `_build/` |
 

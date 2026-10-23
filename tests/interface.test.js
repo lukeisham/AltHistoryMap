@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createModel, LAND, LAYERS, FLAG_W, FLAG_H } from "../app/model.js";
+import { createModel, LAND, LAYERS, FLAG_W, FLAG_H, N } from "../app/model.js";
 import { TOOLS_BY_LAYER, TOOL_KEYS, toolForLayer, keyForTool, STROKE_TOOLS, PLACING_TOOLS } from "../app/tools.js";
 import { createAppState, keepSelectionsValid } from "../app/state.js";
 import { createEditor } from "../app/editor.js";
@@ -9,6 +9,8 @@ import { bindLayerBar } from "../app/layerbar.js";
 import { createStage, intentFor, cursorFor } from "../app/stage.js";
 import { ITEM_TYPE } from "../app/dragitem.js";
 import { defaultCrest } from "../app/crestcells.js";
+import { encodeMap, decodeMap } from "../app/mapfile.js";
+import { cityAlpha } from "../app/markers.js";
 
 const SIDE = 16;
 const CELL = 10;
@@ -200,7 +202,7 @@ test("every editor operation refuses outside Edit mode", () => {
 });
 
 test("the tools offered by each layer match the spec, and every tool has one key", () => {
-  assert.deepEqual(TOOLS_BY_LAYER.political, ["paint", "erase", "fill", "border", "city", "flag", "label", "symbol"]);
+  assert.deepEqual(TOOLS_BY_LAYER.political, ["paint", "erase", "fill", "border", "city", "colony", "flag", "label", "symbol"]);
   assert.deepEqual(TOOLS_BY_LAYER.province, ["paint", "erase", "fill", "symbol"]);
   assert.deepEqual(TOOLS_BY_LAYER.culture, ["paint", "erase", "fill", "symbol"]);
   const offered = new Set(Object.values(TOOLS_BY_LAYER).flat());
@@ -452,6 +454,40 @@ test("with Name tag on the name is asked as before", async () => {
   await settle();
   assert.equal(env.asked(), 1);
   assert.equal(env.model.markers[0].name, "Placed");
+});
+
+test("the Colony tool places a colony, the City tool never does, and a capital ticked for City does not carry over to Colony", async () => {
+  const env = setup("edit");
+  env.state.set({ tool: "colony", capital: true });
+  click(env.canvas, 31, 31);
+  await settle();
+  env.state.set({ tool: "city" });
+  click(env.canvas, 71, 71);
+  await settle();
+  assert.deepEqual(env.model.markers.map((m) => [m.type, m.colony, m.capital]), [["city", true, false], ["city", false, true]]);
+  env.state.set({ capital: false });
+  click(env.canvas, 111, 111);
+  await settle();
+  assert.deepEqual([env.model.markers[2].colony, env.model.markers[2].capital], [false, false]);
+});
+
+test("Make city turns a colony into a plain city that fades with cities, undoes, and saves and reopens as a city", async () => {
+  const env = setup("edit");
+  env.state.set({ tool: "colony" });
+  click(env.canvas, 31, 31);
+  await settle();
+  const colony = env.model.markers[0];
+  assert.equal(colony.colony, true);
+  assert.equal(env.editor.setColony(colony.id, false), true);
+  assert.deepEqual([colony.type, colony.colony, colony.capital], ["city", false, false]);
+  assert.equal(cityAlpha(colony, 3), cityAlpha({ ...colony, colony: true }, 3), "a colony fades in with the other cities");
+  env.model.undo();
+  assert.equal(colony.colony, true);
+  const whole = createModel(new Uint8Array(N * N).fill(LAND), N);
+  const made = whole.addMarker({ type: "city", x: 5, y: 5, name: "Port", colour: 1, colony: true });
+  whole.editMarker(made.id, { colony: false });
+  const reopened = await decodeMap(await encodeMap(whole.snapshot()), []);
+  assert.deepEqual([reopened.markers[0].type, reopened.markers[0].colony], ["city", false]);
 });
 
 function dropOf(item, x, y) {

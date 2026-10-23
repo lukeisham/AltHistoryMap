@@ -4,6 +4,7 @@ import { createModel, LAND, RIVER, LAKE, COAST } from "../app/model.js";
 import { createRenderer, pixelColour, clampViewport, fadeFactor, pngFileName } from "../app/render.js";
 import { makeSource, parseColour, packColour, readTheme, mixColour, shownColourIndex, riverScale, riverMask, createRiverOverview } from "../app/layerimage.js";
 import { fitScale, homeViewport, zoomViewport, resizeViewport, readoutText, brushOutline } from "../app/viewport.js";
+import { drawCountryNames, findRegions } from "../app/countrylabels.js";
 import { markerVisible, cityAlpha, hitMarker, hitTag, drawMarkers, cityDotColour, createGlyphLibrary } from "../app/markers.js";
 
 const SIDE = 16;
@@ -58,9 +59,24 @@ test("political: ground, painted colour, and border over paint", () => {
   assert.equal(at(8, 0), SEA);
   assert.equal(at(8, 5), COAST_C);
   assert.equal(at(2, 2), WATER_C);
-  assert.equal(at(3, 3), WATER_C);
+  assert.equal(at(3, 3), SEA, "a lake is drawn like the sea");
   assert.equal(at(1, 1), parseColour(m.palette[1]));
   assert.equal(at(4, 4), BORDER_C);
+});
+
+test("a lake takes the sea colour with a coast-colour shoreline, and a river keeps the river colour in every look", () => {
+  const base = new Uint8Array(SIDE * SIDE).fill(LAND);
+  base[4 * SIDE + 4] = LAKE;
+  base[4 * SIDE + 5] = LAKE | COAST;
+  base[6 * SIDE + 6] = LAND | RIVER;
+  const m = createModel(base, SIDE);
+  const src = sourceOf(m);
+  for (const look of ["political", "province", "culture", "editCulture"]) {
+    const at = (x, y) => pixelColour(look, src, idx(x, y), x, y);
+    assert.equal(at(4, 4), SEA, `${look}: lake`);
+    assert.equal(at(5, 4), COAST_C, `${look}: lake shore`);
+    assert.equal(at(6, 6), WATER_C, `${look}: river`);
+  }
 });
 
 // A 4 x 4 block of land (x 4-7, y 8-11) painted with one province colour.
@@ -266,9 +282,9 @@ test("zoom bands: fully out shows no city, a little in shows capitals, further i
   const town = { type: "city" };
   assert.equal(cityAlpha(capital, 1), 0);
   assert.equal(cityAlpha(town, 1), 0);
-  assert.equal(cityAlpha(capital, 2), 1);
-  assert.equal(cityAlpha(town, 2), 0);
-  assert.equal(cityAlpha(town, 3.4), 1);
+  assert.equal(cityAlpha(capital, 3.6), 1);
+  assert.equal(cityAlpha(town, 3.6), 0);
+  assert.equal(cityAlpha(town, 5), 1);
 
   const placed = { id: 1, type: "city", x: 10, y: 10, layer: "political" };
   const out = { x: 0, y: 0, k: 1, kFit: 1 };
@@ -464,7 +480,7 @@ test("each look draws only the markers of its layers, with names fading in on zo
   const fakes = installFakes();
   try {
     const model = smallModel();
-    model.addMarker({ type: "city", x: 2, y: 2, name: "Rome", colour: 1 });
+    model.addMarker({ type: "city", x: 2, y: 2, name: "Rome", colour: 1, capital: true });
     model.addMarker({ type: "flag", x: 4, y: 4, name: "Flag", colour: 2 });
     model.addMarker({ type: "symbol", x: 6, y: 6, name: "Crown", colour: 3, glyph: "star", layer: "culture" });
     const canvas = fakeCanvas(160, 160);
@@ -475,12 +491,12 @@ test("each look draws only the markers of its layers, with names fading in on zo
 
     assert.equal(count("arc"), 0, "no city dot at world view");
     assert.deepEqual(names(), [], "names are hidden at world view");
-    assert.equal(count("stroke"), 1, "flag pole only; no city, no symbol on Political");
+    assert.equal(count("stroke"), 0, "no flag, no city, no symbol on Political at world view");
 
     canvas.log.length = 0;
     renderer.zoomAt(6, 10, 10);
     fakes.flush();
-    assert.deepEqual(names().sort(), ["Flag", "Rome"].sort(), "city and flag names appear once zoomed in");
+    assert.deepEqual(names().sort(), ["Flag", "Rome"].sort(), "capital and flag names appear once zoomed in");
 
     canvas.log.length = 0;
     renderer.setLook("culture");
@@ -691,4 +707,123 @@ test("shownColourIndex finds the palette colour a sampled screen colour came fro
   assert.equal(shownColourIndex("#0000ff", palette, theme), 2);
   assert.equal(shownColourIndex(faded, palette, theme), 2);
   assert.equal(shownColourIndex("#00ff00", palette, theme), null);
+});
+
+// The colour a look shows at a pixel, as the `#rrggbb` an eye dropper would read from the screen.
+function shownHex(look, src, x, y) {
+  const packed = pixelColour(look, src, idx(x, y), x, y);
+  return `#${[packed & 255, (packed >>> 8) & 255, (packed >>> 16) & 255].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+test("shownColourIndex gives a country's own colour for every pixel of it in every look, beside a border line or a coast too", () => {
+  const m = smallModel();
+  const theme = readTheme(fakeStyle());
+  m.planes.political.fill(0);
+  for (let y = 0; y < SIDE; y++) for (let x = 0; x < 8; x++) m.planes.political[idx(x, y)] = 1 + ((x >> 1) % 3);
+  m.planes.border[idx(3, 4)] = 1;
+  for (let y = 6; y < 10; y++) for (let x = 5; x < 8; x++) m.planes.culture[idx(x, y)] = 4;
+  m.planes.culture[idx(6, 12)] = 5;
+  for (let x = 0; x < 3; x++) m.planes.province[idx(x, 2)] = 2;
+  const src = sourceOf(m);
+  const painted = (plane, x, y) => m.planes[plane][idx(x, y)];
+  const misses = [];
+  for (let y = 0; y < SIDE; y++) {
+    for (let x = 0; x < SIDE; x++) {
+      const border = m.planes.border[idx(x, y)] !== 0;
+      const checks = [];
+      if (painted("political", x, y) !== 0 && !border) checks.push(["political", painted("political", x, y)], ["province", painted("political", x, y)]);
+      if (painted("culture", x, y) !== 0 && painted("political", x, y) !== 0) checks.push(["culture", painted("culture", x, y)], ["editCulture", painted("culture", x, y)]);
+      if (painted("political", x, y) !== 0 && painted("culture", x, y) === 0 && !border) checks.push(["editCulture", painted("political", x, y)]);
+      for (const [look, want] of checks) {
+        if (look === "province" && painted("province", x, y) !== 0 && pixelColour(look, src, idx(x, y), x, y) === BLACK_C) continue;
+        const got = shownColourIndex(shownHex(look, src, x, y), m.palette, theme);
+        if (got !== want) misses.push(`${look} (${x}, ${y}) wanted ${want} got ${got}`);
+      }
+    }
+  }
+  assert.deepEqual(misses, []);
+});
+
+test("shownColourIndex prefers an exact colour to a near-equal palette neighbour, and a colour the map never shows matches nothing", () => {
+  const theme = readTheme(fakeStyle());
+  const palette = ["#ff0000", "#ff0102", "#00ff00"];
+  assert.equal(shownColourIndex("#ff0102", palette, theme), 2);
+  assert.equal(shownColourIndex("#ff0000", palette, theme), 1);
+  assert.equal(shownColourIndex("#123456", palette, theme), null);
+});
+
+test("country names follow the Political paint through paint, undo and redo, and colours that look the same share one name", () => {
+  const fakes = installFakes();
+  try {
+    const model = smallModel();
+    const canvas = fakeCanvas(160, 160);
+    const renderer = createRenderer({ canvas, model, glyphs: [] });
+    renderer.zoomAt(3, 0, 0);
+    const named = () => {
+      fakes.flush();
+      const texts = canvas.log.filter(([n]) => n === "fillText").map(([, text]) => text);
+      canvas.log.length = 0;
+      return texts;
+    };
+    const paint = (colour, x0, x1) => {
+      model.beginStroke({ tool: "paint", layer: "political", colour, size: 3 });
+      for (let x = x0; x <= x1; x++) model.strokeTo(x + 0.5, 3.5);
+      model.endStroke();
+    };
+    named();
+
+    model.setCountry(1, { colour: 1, name: "Aurea" });
+    paint(1, 2, 6);
+    assert.deepEqual(named(), ["Aurea"]);
+    model.undo();
+    assert.deepEqual(named().filter((text) => text === "Aurea"), [], "undo takes the name away");
+    model.redo();
+    assert.deepEqual(named(), ["Aurea"]);
+
+    const second = model.addColour(model.palette[0]);
+    assert.equal(second, 1, "the same hex is never added twice");
+    const near = model.addColour("#" + model.palette[0].slice(1, 6) + (Number.parseInt(model.palette[0][6], 16) ^ 1).toString(16));
+    model.setCountry(near, { colour: near, name: "Aurea" });
+    paint(near, 0, 1);
+    assert.deepEqual(named(), ["Aurea"], "a colour that looks the same joins the area it touches and gets no extra name");
+  } finally {
+    fakes.restore();
+  }
+});
+
+// A context that records the text drawn; a character is 0.5 of the font size wide.
+function nameContext() {
+  const drawn = [];
+  const ctx = {
+    font: "",
+    measureText: (text) => ({ width: text.length * 0.5 * Number.parseFloat(ctx.font) }),
+    strokeText() {},
+    fillText: (text) => drawn.push(text),
+  };
+  return { ctx, drawn };
+}
+
+test("five zoom levels: colours only, then flags, then country names, then capitals, then every city; a hidden flag cannot be hit", () => {
+  const flag = { id: 1, type: "flag", x: 2, y: 2, name: "", colour: 1, design: -1, layer: "political", tagDx: 0, tagDy: 0 };
+  const capital = { id: 2, type: "city", x: 4, y: 4, name: "", colour: 1, layer: "political", capital: true };
+  const town = { id: 3, type: "city", x: 6, y: 6, name: "", colour: 1, layer: "political" };
+  const political = new Uint8Array(SIDE * SIDE);
+  for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) political[y * SIDE + x] = 1;
+  const stage = { w: 4000, h: 4000 };
+  const shown = (z) => {
+    const vp = { x: 0, y: 0, k: z, kFit: 1 };
+    const flagHit = hitMarker([flag], ["political"], vp, 2.5 * z, 2.5 * z) !== null;
+    const markers = recordingContext();
+    withPath2D(() => drawMarkers(markers.ctx, markerScene([flag, capital, town], { vp, stage })));
+    const arcs = markers.log.filter(([name]) => name === "arc").length;
+    const flagDrawn = markers.log.some(([name]) => name === "lineTo");
+    const names = nameContext();
+    drawCountryNames(names.ctx, { vp, stage, theme: readTheme(fakeStyle()), palette: ["#ff0000"], countries: [], countryRegions: findRegions(political, SIDE) });
+    return { flag: flagHit && flagDrawn, name: names.drawn.length > 0, capital: arcs >= 3, cities: arcs >= 5 };
+  };
+  assert.deepEqual(shown(1), { flag: false, name: false, capital: false, cities: false });
+  assert.deepEqual(shown(1.5), { flag: true, name: false, capital: false, cities: false });
+  assert.deepEqual(shown(2.3), { flag: true, name: true, capital: false, cities: false });
+  assert.deepEqual(shown(3.3), { flag: true, name: true, capital: true, cities: false });
+  assert.deepEqual(shown(5.5), { flag: true, name: true, capital: true, cities: true });
 });

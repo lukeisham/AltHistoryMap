@@ -4,9 +4,12 @@
 // both from its frame; the text comes from countrydata.js, so a blank name shows the colour's own.
 
 import { countryName } from "./countrydata.js";
+import { fadeFactor, ZOOM_FADES } from "./viewport.js";
 
 // The plane is read on a grid of about this many samples a side, so a 4096-pixel plane costs a million reads.
 const SAMPLES_PER_SIDE = 1024;
+// An area of fewer sampled cells than this cannot hold a readable name at any zoom.
+const MIN_AREA_CELLS = 4;
 const MIN_SIZE = 10;
 const MAX_SIZE = 30;
 // How much of the room the name may fill, across and down.
@@ -17,43 +20,81 @@ const HALO_SHARE = 0.18;
 const CULL_MARGIN = 40;
 
 /**
- * Where each painted political colour has room for its name: the middle of its longest horizontal run,
- * with the run's length and the height of the colour above and below that point.
+ * Where each separate area of a painted political colour has room for its name: the middle of that
+ * area's longest horizontal run, with the run's length and the height of the colour above and below
+ * that point. An area is four-way connected on the sampling grid, and one too small to hold a name is
+ * left out, so a stray pixel gets none. Colours that share a representative are one colour.
  * @param {Uint8Array} political n * n palette indexes, 0 unpainted
  * @param {number} n side of the plane in grid pixels
- * @returns {{colour: number, x: number, y: number, width: number, height: number}[]} grid pixels
+ * @param {Uint8Array} [representative] palette index -> the index its name belongs to (see `representativeColours`)
+ * @returns {{colour: number, x: number, y: number, width: number, height: number}[]} grid pixels; `colour` is the representative
  */
-export function findRegions(political, n) {
+export function findRegions(political, n, representative = null) {
   const stride = Math.max(1, Math.floor(n / SAMPLES_PER_SIDE));
-  const longest = new Map();
+  const rep = (value) => (representative ? representative[value] : value);
 
+  const parent = [];
+  const runs = [];
+  const find = (i) => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
+  };
+
+  let previous = [];
   for (let y = 0; y < n; y += stride) {
-    let runColour = 0;
-    let runStart = 0;
+    const current = [];
+    let colour = 0;
+    let start = 0;
     const close = (end) => {
-      const length = end - runStart;
-      if (runColour !== 0 && length > (longest.get(runColour)?.width ?? 0)) {
-        longest.set(runColour, { colour: runColour, x: runStart + length / 2, y, width: length });
-      }
+      if (colour === 0) return;
+      const id = runs.length;
+      parent.push(id);
+      runs.push({ colour, start, end, y });
+      current.push(id);
     };
     for (let x = 0; x < n; x += stride) {
-      const colour = political[y * n + x];
-      if (colour === runColour) continue;
+      const next = rep(political[y * n + x]);
+      if (next === colour) continue;
       close(x);
-      runColour = colour;
-      runStart = x;
+      colour = next;
+      start = x;
     }
     close(n);
+    // Both lists run left to right, so one pass joins every run to the runs it touches above it.
+    let above = 0;
+    for (const id of current) {
+      const run = runs[id];
+      while (above < previous.length && runs[previous[above]].end <= run.start) above++;
+      for (let k = above; k < previous.length && runs[previous[k]].start < run.end; k++) {
+        if (runs[previous[k]].colour === run.colour) parent[find(id)] = find(previous[k]);
+      }
+    }
+    previous = current;
   }
 
-  return [...longest.values()].map((region) => {
-    const column = Math.min(n - 1, Math.floor(region.x / stride) * stride);
-    let top = region.y;
-    let bottom = region.y;
-    while (top - stride >= 0 && political[(top - stride) * n + column] === region.colour) top -= stride;
-    while (bottom + stride < n && political[(bottom + stride) * n + column] === region.colour) bottom += stride;
-    return { ...region, height: bottom - top + stride };
+  const areas = new Map();
+  runs.forEach((run, id) => {
+    const root = find(id);
+    const area = areas.get(root) ?? { colour: run.colour, cells: 0, longest: null };
+    area.cells += (run.end - run.start) / stride;
+    if (!area.longest || run.end - run.start > area.longest.end - area.longest.start) area.longest = run;
+    areas.set(root, area);
   });
+
+  return [...areas.values()]
+    .filter((area) => area.cells >= MIN_AREA_CELLS)
+    .map(({ colour, longest }) => {
+      const width = longest.end - longest.start;
+      const column = Math.min(n - 1, Math.floor((longest.start + width / 2) / stride) * stride);
+      let top = longest.y;
+      let bottom = longest.y;
+      while (top - stride >= 0 && rep(political[(top - stride) * n + column]) === colour) top -= stride;
+      while (bottom + stride < n && rep(political[(bottom + stride) * n + column]) === colour) bottom += stride;
+      return { colour, x: longest.start + width / 2, y: longest.y, width, height: bottom - top + stride };
+    });
 }
 
 /**
@@ -64,7 +105,10 @@ export function findRegions(political, n) {
  */
 export function drawCountryNames(ctx, scene) {
   const { vp, stage, theme, palette, countries, countryRegions } = scene;
+  const alpha = fadeFactor(vp.k / vp.kFit, ZOOM_FADES.countryName[0], ZOOM_FADES.countryName[1]);
+  if (alpha <= 0) return;
   const recordOf = new Map(countries.map((country) => [country.colour, country]));
+  ctx.globalAlpha = alpha;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
@@ -86,4 +130,5 @@ export function drawCountryNames(ctx, scene) {
     ctx.fillStyle = theme.css.ink;
     ctx.fillText(name, sx, sy);
   }
+  ctx.globalAlpha = 1;
 }

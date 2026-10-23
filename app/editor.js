@@ -6,7 +6,7 @@ import { GLYPHS } from "./glyphs.js";
 import { PLACING_TOOLS, NAME_TAG_TOOLS } from "./tools.js";
 
 const LAND_ONLY = "Painting, filling and borders work on dry land only, not on the sea, rivers or lakes.";
-const DEFAULT_NAMES = { city: "City", flag: "Flag", label: "Label" };
+const DEFAULT_NAMES = { city: "City", colony: "Colony", flag: "Flag", label: "Label" };
 
 /**
  * @param {{
@@ -86,15 +86,16 @@ export function createEditor({ model, state, say }) {
      */
     place(pixel, name) {
       if (!editGate()) return null;
-      const { tool, layer, colour, design, glyph, capital, colony } = state.get();
+      const { tool, layer, colour, design, glyph, capital } = state.get();
       if (!PLACING_TOOLS.includes(tool)) {
         console.warn("editor: place called with a tool that places nothing", tool);
         return null;
       }
-      const spec = { type: tool, x: pixel.x, y: pixel.y, name, colour };
+      // A colony is a city marker with `colony` set; the Colony tool is only a way to place one.
+      const spec = { type: tool === "colony" ? "city" : tool, x: pixel.x, y: pixel.y, name, colour };
       if (tool === "flag") spec.design = design;
       if (tool === "city" && capital) spec.capital = true;
-      else if (tool === "city" && colony) spec.colony = true;
+      if (tool === "colony") spec.colony = true;
       if (tool === "symbol") Object.assign(spec, { glyph, layer });
       return model.addMarker(spec);
     },

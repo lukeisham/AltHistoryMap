@@ -119,6 +119,18 @@ export function screenToGrid(vp, sx, sy, n) {
 }
 
 /**
+ * The zoom ratios (zoom divided by the fit-to-screen zoom) over which each kind of mark fades in, in the
+ * order they appear going in. Zoomed fully out (z = 1) only the country colours show. markers.js fades
+ * flags, capitals and cities by these, and countrylabels.js fades country names.
+ */
+export const ZOOM_FADES = {
+  flag: [1.2, 1.6],
+  countryName: [2.0, 2.6],
+  capital: [3.0, 3.6],
+  city: [4.2, 5.0],
+};
+
+/**
  * Opacity of a mark that fades in as the zoom ratio z rises from `from` to `to`.
  * @param {number} z Zoom relative to the whole-world view.
  * @param {number} from

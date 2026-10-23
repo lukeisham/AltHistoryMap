@@ -48,3 +48,9 @@
   color: var(--ink-2);
   line-height: 1;
 }
+
+.swatch-eyedropper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

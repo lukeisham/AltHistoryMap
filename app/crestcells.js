@@ -7,7 +7,7 @@
 // the map file stores (mapfile.js), so a saved crest stays editable. flagcells.js stamps the result
 // onto a flag.
 
-import { SUPPORTERS, SUPPORTER_W, SUPPORTER_H, EYE, rasterSupporter } from "./supporters.js";
+import { SUPPORTERS, SUPPORTER_W, SUPPORTER_H, EYE, LINE, rasterSupporter } from "./supporters.js";
 
 export { SUPPORTERS };
 
@@ -470,7 +470,7 @@ function ribbonMask() {
   return mask;
 }
 
-// One supporter painted into the crest: its silhouette in its own colour, the rim and the eye in the outline colour.
+// One supporter painted into the crest: its silhouette in its own colour, the rim, detail lines and eye in the outline colour.
 function paintSupporter(cells, animalId, colour, outline, side, facing) {
   if (animalId === "none") return;
   const mask = rasterSupporter(animalId);
@@ -483,7 +483,7 @@ function paintSupporter(cells, animalId, colour, outline, side, facing) {
       // The mask faces right. Facing the shield, that is as drawn on the left and mirrored on the right; facing away reverses both.
       const mirrored = (side === "right") !== (facing === "outward");
       const cx = left + (mirrored ? SUPPORTER_W - 1 - x : x);
-      cells[y * CREST_W + cx] = mask[i] === EYE || rim[i] ? outline : colour;
+      cells[y * CREST_W + cx] = mask[i] === EYE || mask[i] === LINE || rim[i] ? outline : colour;
     }
   }
 }

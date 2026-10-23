@@ -217,6 +217,12 @@
   line-height: 1;
 }
 
+.fd-swatch-eyedropper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .fd-colour-input {
   position: absolute;
   width: 0;

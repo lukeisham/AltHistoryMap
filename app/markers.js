@@ -3,14 +3,12 @@
 // the same visibility rule and the same screen geometry.
 
 import { BLOCK_COLS, BLOCK_ROWS, flagBlocks } from "./flagblocks.js";
-import { fadeFactor } from "./viewport.js";
+import { fadeFactor, ZOOM_FADES } from "./viewport.js";
 import { parseColour, unpackColour } from "./layerimage.js";
 
 export const HIT_RADIUS = 14;
 
-const CAPITAL_FADE = [1.2, 1.8];
-const CITY_FADE = [2.4, 3.4];
-const FLAG_FADE = [1.4, 2.6];
+const { capital: CAPITAL_FADE, city: CITY_FADE, flag: FLAG_FADE } = ZOOM_FADES;
 const LABEL_FADE = [0.9, 1.7];
 const SYMBOL_FADE = [2.2, 3.2];
 const DRAW_ORDER = ["label", "city", "flag", "symbol"];
@@ -225,7 +223,10 @@ function drawFlagCloth(ctx, scene, marker, left, top) {
   ctx.strokeRect(left, top, FLAG_CLOTH_W, FLAG_CLOTH_H);
 }
 
-function drawFlag(ctx, scene, marker, sx, sy) {
+function drawFlag(ctx, scene, marker, sx, sy, z) {
+  const alpha = fadeFactor(z, FLAG_FADE[0], FLAG_FADE[1]);
+  if (alpha <= 0) return;
+  ctx.globalAlpha = alpha;
   const top = sy - POLE_HEIGHT;
   ctx.lineWidth = POLE_WIDTH;
   ctx.strokeStyle = scene.theme.css.ink;
@@ -234,6 +235,7 @@ function drawFlag(ctx, scene, marker, sx, sy) {
   ctx.lineTo(sx, top);
   ctx.stroke();
   drawFlagCloth(ctx, scene, marker, sx, top);
+  ctx.globalAlpha = 1;
 }
 
 function drawSolidShape(ctx, scene, marker, path, sx, sy) {
@@ -284,8 +286,8 @@ function drawSymbol(ctx, scene, marker, sx, sy) {
 }
 
 /**
- * How visible a city is at a zoom: a capital appears a little way in, any other city further in.
- * Zoomed fully out (z = 1) neither shows, so only country names remain.
+ * How visible a city is at a zoom: a capital appears first, any other city (a colony is one) further in
+ * (see ZOOM_FADES). Zoomed fully out (z = 1) neither shows.
  * @param {{capital?: boolean}} marker
  * @param {number} z Screen pixels per grid pixel divided by the fit-to-screen scale.
  * @returns {number} 0 to 1
@@ -386,6 +388,7 @@ export function hitMarker(markers, layers, vp, sx, sy) {
   for (const marker of markers) {
     if (!markerVisible(marker, layers)) continue;
     if (marker.type === "city" && cityAlpha(marker, z) <= 0) continue;
+    if (marker.type === "flag" && fadeFactor(z, FLAG_FADE[0], FLAG_FADE[1]) <= 0) continue;
     const anchor = anchorOf(marker, vp);
     let distance = Math.hypot(anchor.sx - sx, anchor.sy - sy);
     if (marker.type === "flag") {

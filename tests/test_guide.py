@@ -480,9 +480,48 @@ class GuideBoundaryTest(unittest.TestCase):
 
 
 
+    def test_zoom_levels_come_from_one_table_that_the_guide_states(self) -> None:
+        row = row_starting(self.section, "`markers.js`")
+        viewport = app_source("viewport.js")
+        for key, pair in (("flag", "1.2 to 1.6"), ("countryName", "2.0 to 2.6"), ("capital", "3.0 to 3.6"), ("city", "4.2 to 5.0")):
+            numbers = pair.replace(" to ", ", ")
+            self.assertIn(f"{key}: [{numbers}]", viewport)
+            self.assertIn(pair, row)
+        self.assertIn("ZOOM_FADES", app_source("markers.js"))
+        self.assertIn("ZOOM_FADES", app_source("countrylabels.js"))
+        self.assertTrue(imports("markers.js", "viewport.js") and imports("countrylabels.js", "viewport.js"))
+
+    def test_the_eye_dropper_button_is_placed_by_the_palette_and_both_dialogs(self) -> None:
+        row = row_starting(self.section, "`eyedropper.js`")
+        for name in ("palette.js", "flagdesigner.js", "crestmaker.js", "createEyeDropperButton", "window.EyeDropper", "swatch-eyedropper", "fd-swatch-eyedropper", "eyedropper-icon", "buttons.css", "tool:eyedropper", "terms.js", "shownColourIndex", "addColour"):
+            self.assertIn(name, row)
+        for module in ("palette.js", "flagdesigner.js", "crestmaker.js"):
+            self.assertTrue(imports(module, "eyedropper.js"), module)
+            self.assertIn("createEyeDropperButton(", app_source(module))
+        self.assertIn(".eyedropper-icon", (APP / "buttons.css").read_text(encoding="utf-8"))
+        self.assertIn('"tool:eyedropper"', app_source("terms.js"))
+
+    def test_lakes_draw_like_the_sea_and_only_rivers_in_the_river_colour(self) -> None:
+        row = next(line for line in self.section.splitlines() if "`render.js`, `layerimage.js`" in line)
+        for name in ("RIVER bit", "river colour", "sea colour", "lake", "COAST"):
+            self.assertIn(name, row)
+        self.assertIn("if (bits & RIVER) ground[bits] = packed.water;", app_source("layerimage.js"))
+        basemap = (ROOT / "build" / "build_basemap.py").read_text(encoding="utf-8")
+        self.assertIn("wet = ~row & land_mask", basemap)
+
+    def test_the_colony_tool_places_a_colony_city_and_make_city_clears_it(self) -> None:
+        row = row_starting(self.section, "`markers.js`")
+        for name in ("Colony tool", "tools.js", "key `O`", "editor.js", "Make city", "markerinfo.js", "editor.setColony"):
+            self.assertIn(name, row)
+        tools = app_source("tools.js")
+        self.assertIn('O: "colony"', tools)
+        self.assertRegex(tools, r'political: \[[^\]]*"city", "colony", "flag"')
+        self.assertIn('type: tool === "colony" ? "city" : tool', app_source("editor.js"))
+        self.assertIn("editor.setColony(id, colony)", app_source("stage.js"))
+
     def test_country_names_travel_from_the_button_through_the_renderer_to_the_picture(self) -> None:
         row = row_starting(self.section, "`countrylabels.js`")
-        for name in ("render.js", "findRegions(political, n)", "drawCountryNames", "scene.countryRegions", "countryNames", "renderer.setCountryNames", "ahm.prefs", 'data-action="country-names"', "layerbar.js", "main.js", "countrydata.js"):
+        for name in ("render.js", "findRegions(political, n, representative)", "representativeColours(palette)", "layerimage.js", "drawCountryNames", "scene.countryRegions", "countryNames", "renderer.setCountryNames", "ahm.prefs", 'data-action="country-names"', "layerbar.js", "main.js", "countrydata.js"):
             self.assertIn(name, row)
         render = app_source("render.js")
         self.assertTrue(imports("render.js", "countrylabels.js") and imports("countrylabels.js", "countrydata.js"))
@@ -495,6 +534,9 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("countryNames", app_source("recovery.js"))
         for kind in ("`all`", "`palette`"):
             self.assertIn(kind, row)
+        self.assertIn("representativeColours(model.palette)", render)
+        self.assertEqual(js_constant(APP / "countrylabels.js", "MIN_AREA_CELLS"), 4)
+        self.assertIn("under four samples", row)
         self.assertEqual(js_constant(APP / "countrylabels.js", "MIN_SIZE"), 10)
         self.assertIn(f"below {js_constant(APP / 'countrylabels.js', 'MIN_SIZE')} screen pixels", row)
         self.assertIn(f"about {js_constant(APP / 'countrylabels.js', 'SAMPLES_PER_SIDE')} samples", row)

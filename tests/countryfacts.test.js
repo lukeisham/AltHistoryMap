@@ -121,3 +121,43 @@ test("the Currency Generate button fills the field from the country's name and G
   t.generate("currency").dispatch("click");
   assert.match(t.input("Currency").value, /^(Valorian|Valoria) \p{L}+$/u);
 });
+
+test("Relationship sets a kind and an overlord and Save returns them; None clears both", async () => {
+  const t = setup();
+  const others = [{ colour: 1, name: "Brick red", loops: false }, { colour: 2, name: "Amber", loops: false }];
+  const kind = () => t.dialog.find((n) => n.tagName === "select" && n.getAttribute("aria-label") === "Relationship");
+  const target = () => t.dialog.find((n) => n.tagName === "select" && n.getAttribute("aria-label") === "Answers to");
+  const first = t.facts.open(START({ others }));
+  kind().value = "client";
+  kind().dispatch("change");
+  assert.equal(target().value, "1", "the first country that would not make a loop is chosen");
+  target().value = "2";
+  target().dispatch("change");
+  t.byText("Save").dispatch("click");
+  const saved = await first;
+  assert.deepEqual([saved.relation, saved.overlord], ["client", 2]);
+
+  const second = t.facts.open(START({ others, record: { relation: "colony", overlord: 2 } }));
+  assert.equal(kind().value, "colony");
+  kind().value = "none";
+  kind().dispatch("change");
+  t.byText("Save").dispatch("click");
+  const cleared = await second;
+  assert.deepEqual([cleared.relation, cleared.overlord], ["", 0]);
+});
+
+test("choosing an overlord that already answers to this country is refused with a message", async () => {
+  const t = setup();
+  const others = [{ colour: 1, name: "Brick red", loops: false }, { colour: 2, name: "Amber", loops: true }];
+  const target = () => t.dialog.find((n) => n.tagName === "select" && n.getAttribute("aria-label") === "Answers to");
+  const kind = () => t.dialog.find((n) => n.tagName === "select" && n.getAttribute("aria-label") === "Relationship");
+  const result = t.facts.open(START({ others }));
+  kind().value = "dominion";
+  kind().dispatch("change");
+  target().value = "2";
+  target().dispatch("change");
+  assert.equal(target().value, "1");
+  assert.match(t.dialog.find((n) => n.className === "fd-status").textContent, /Amber already answers to this country/);
+  t.byText("Cancel").dispatch("click");
+  await result;
+});

@@ -3,11 +3,11 @@
 // colour (see countrydata.js); its crest and flag are indexes into the map's lists, so a crest edited
 // later shows its new look on the country.
 
-import { countryName } from "./countrydata.js";
+import { countryName, relationLoops } from "./countrydata.js";
 
 /**
  * @param {{
- *   facts: {open: (start: {colour: number, name: string, record: object | null, editable: boolean}) => Promise<object | null>},
+ *   facts: {open: (start: {colour: number, name: string, record: object | null, editable: boolean, others: object[]}) => Promise<object | null>},
  *   model: {n: number, palette: string[], countries: object[], planes: {political: Uint8Array}},
  *   editor: {editGate: () => boolean, setCountry: (colour: number, patch: object) => boolean},
  *   say: (text: string) => void
@@ -21,7 +21,7 @@ import { countryName } from "./countrydata.js";
  */
 export function createCountries({ facts, model, editor, say }) {
   const recordOf = (colour) => model.countries.find((country) => country.colour === colour) ?? null;
-  const nameOf = (colour) => countryName(recordOf(colour), model.palette[colour - 1], colour);
+  const nameOf = (colour) => countryName(recordOf(colour), model.palette, colour);
   const colourAt = ({ x, y }) => model.planes.political[y * model.n + x];
 
   // The pop-up resolves with the edited facts, or null when the person backs out or only looked.
@@ -30,7 +30,11 @@ export function createCountries({ facts, model, editor, say }) {
       console.warn("countries: no colour", colour);
       return;
     }
-    const result = await facts.open({ colour, name: nameOf(colour), record: recordOf(colour), editable: editor.editGate() });
+    const others = model.palette
+      .map((_, i) => i + 1)
+      .filter((other) => other !== colour)
+      .map((other) => ({ colour: other, name: nameOf(other), loops: relationLoops(model.countries, colour, other) }));
+    const result = await facts.open({ colour, name: nameOf(colour), record: recordOf(colour), editable: editor.editGate(), others });
     if (result && !editor.setCountry(colour, result)) say("The key facts could not be saved.");
   }
 

@@ -25,8 +25,8 @@ export function bindPalette({ container, colourInput, state, model, editor, coun
   let swatches = [];
 
   // The hover text is the country's name; a colour nobody has named shows the colour's own name.
-  function nameOf(hex, index) {
-    return countryName(model.countries.find((country) => country.colour === index), hex, index);
+  function nameOf(index) {
+    return countryName(model.countries.find((country) => country.colour === index), model.palette, index);
   }
 
   function swatch(hex, index) {
@@ -34,7 +34,7 @@ export function bindPalette({ container, colourInput, state, model, editor, coun
     node.type = "button";
     node.className = "swatch";
     node.style.backgroundColor = hex;
-    node.title = nameOf(hex, index);
+    node.title = nameOf(index);
     node.addEventListener("click", (event) => {
       if (event.shiftKey) state.set({ colour2: index });
       else state.set({ colour: index });
@@ -92,7 +92,7 @@ export function bindPalette({ container, colourInput, state, model, editor, coun
   });
   model.onChange((notice) => {
     if (notice.all || notice.palette) render();
-    else if (notice.countries) swatches.forEach((node, i) => (node.title = nameOf(model.palette[i], i + 1)));
+    else if (notice.countries) swatches.forEach((node, i) => (node.title = nameOf(i + 1)));
   });
   render();
   return { render };

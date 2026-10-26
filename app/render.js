@@ -225,7 +225,7 @@ export function createRenderer({ canvas, model, glyphs }) {
 
   // Found on first use after a paint change, so a map with names off or another layer on screen pays nothing.
   function regionsNow() {
-    regions ??= findRegions(model.planes.political, n, representativeColours(model.palette));
+    regions ??= findRegions(model.planes.political, n, representativeColours(model.palette), model.base);
     return regions;
   }
 
@@ -276,6 +276,8 @@ export function createRenderer({ canvas, model, glyphs }) {
     if (notice.all || notice.palette) {
       needsRebuild = true;
       regions = null;
+    } else if (notice.countries) {
+      needsRebuild = true;
     } else if (notice.rect) {
       if (notice.layer === "political") regions = null;
       if (!layersDrawn(look).includes(notice.layer)) return;

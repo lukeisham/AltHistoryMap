@@ -7,6 +7,14 @@ import { ALIGNMENTS, ALIGNMENT_IDS, GOVERNMENT_TYPES } from "./alignmentpools.js
 
 export { ALIGNMENTS };
 
+/** How a country can answer to another: the share of the other colour mixed into its own on the Political look. */
+export const RELATIONS = [
+  { id: "dominion", label: "Dominion", share: 0.25 },
+  { id: "client", label: "Client State", share: 0.45 },
+  { id: "colony", label: "Colony", share: 0.65 },
+];
+const RELATION_IDS = RELATIONS.map((relation) => relation.id);
+
 export const MAX_FIELD = 60;
 export const MAX_MOTTO = 80;
 /** Suggestions for the Type of Government field; any text is allowed. */
@@ -32,6 +40,8 @@ const COLOUR_NAMES = [
   ["Brown", "#8a5a3c"], ["Chestnut", "#6b3a22"], ["Tan", "#c8a878"], ["Sand", "#e0cf9a"], ["Olive", "#7a7a2e"],
 ];
 const FAR_FROM_NAMED = 90;
+/** Channel difference below which two colours count as the same; screen sampling rounds each channel. layerimage.js groups colours by it too. */
+export const SAME_COLOUR_TOLERANCE = 3;
 
 const rgb = (hex) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16));
 
@@ -50,6 +60,37 @@ export function colourNameFor(hex, index) {
   return best && best.distance <= FAR_FROM_NAMED ? best.name : `Colour ${index}`;
 }
 
+const looksSame = (a, b) => Math.max(...rgb(a).map((v, i) => Math.abs(v - rgb(b)[i]))) < SAME_COLOUR_TOLERANCE;
+const lightness = (hex) => {
+  const [r, g, b] = rgb(hex);
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+};
+
+/**
+ * The name a colour goes by when its country has none. Colours that look the same share one name; two
+ * different colours whose nearest named colour is the same differ by a lightness word, so two countries
+ * are never called the same. Dark, base and Light by lightness; a fourth or later colour takes its number.
+ * @param {string[]} palette the map's hex colours
+ * @param {number} colour 1-based palette index
+ * @returns {string}
+ */
+export function defaultColourName(palette, colour) {
+  const root = (index) => palette.findIndex((hex, earlier) => earlier <= index && looksSame(hex, palette[index])) + 1;
+  const base = colourNameFor(palette[colour - 1], root(colour - 1));
+  const sameName = palette
+    .map((_, i) => i + 1)
+    .filter((i) => root(i - 1) === i && colourNameFor(palette[i - 1], i) === base);
+  if (sameName.length < 2) return base;
+  const own = root(colour - 1);
+  const ranked = sameName.sort((a, b) => lightness(palette[a - 1]) - lightness(palette[b - 1]));
+  const rank = ranked.indexOf(own);
+  const word = (adjective) => `${adjective} ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
+  if (ranked.length === 2) return rank === 0 ? base : word("Light");
+  if (rank === 0) return word("Dark");
+  if (rank === ranked.length - 1) return word("Light");
+  return rank === 1 ? base : `${base} ${own}`;
+}
+
 /**
  * @param {number} colour 1-based palette index
  * @returns {object} A country with nothing set.
@@ -64,11 +105,27 @@ export function blankCountry(colour) {
  */
 export function isBlank(country) {
   const blank = blankCountry(country.colour);
-  return Object.keys(blank).every((key) => country[key] === blank[key]);
+  return !country.relation && Object.keys(blank).every((key) => country[key] === blank[key]);
 }
 
 /**
- * The one validator for a country. Text is trimmed.
+ * @param {{colour: number, overlord?: number}[]} countries the map's country records
+ * @param {number} colour the country that would answer to `overlord`
+ * @param {number} overlord the colour it would answer to
+ * @returns {boolean} True when following the overlords from `overlord` comes back to `colour`.
+ */
+export function relationLoops(countries, colour, overlord) {
+  const seen = new Set();
+  for (let at = overlord; at && !seen.has(at); at = countries.find((country) => country.colour === at)?.overlord) {
+    if (at === colour) return true;
+    seen.add(at);
+  }
+  return false;
+}
+
+/**
+ * The one validator for a country. Text is trimmed. `overlord` and `relation` are kept only as a pair; a
+ * country with neither has neither key.
  * @param {unknown} country
  * @param {number} paletteLength
  * @param {number} designCount
@@ -77,26 +134,28 @@ export function isBlank(country) {
  */
 export function normaliseCountry(country, paletteLength, designCount, crestCount) {
   if (!country || typeof country !== "object") return null;
-  const { colour, alignment = "", flag = -1, crest = -1 } = country;
+  const { colour, alignment = "", flag = -1, crest = -1, overlord = 0, relation = "" } = country;
   if (!Number.isInteger(colour) || colour < 1 || colour > paletteLength) return null;
   if (alignment !== "" && !ALIGNMENT_IDS.includes(alignment)) return null;
   if (!Number.isInteger(flag) || flag < -1 || flag >= designCount) return null;
   if (!Number.isInteger(crest) || crest < -1 || crest >= crestCount) return null;
+  const related = relation !== "" || overlord !== 0;
+  if (related && (!RELATION_IDS.includes(relation) || !Number.isInteger(overlord) || overlord < 1 || overlord > paletteLength || overlord === colour)) return null;
   const clean = { colour, alignment, flag, crest };
   for (const { key, max } of TEXT_FIELDS) {
     const text = country[key] ?? "";
     if (typeof text !== "string" || text.trim().length > max) return null;
     clean[key] = text.trim();
   }
-  return { ...blankCountry(colour), ...clean };
+  return { ...blankCountry(colour), ...clean, ...(related ? { overlord, relation } : {}) };
 }
 
 /**
  * @param {object | null | undefined} country the stored record, if any
- * @param {string} hex the colour's hex value
+ * @param {string[]} palette the map's hex colours
  * @param {number} colour its 1-based palette index
  * @returns {string} the name set on the country, or the colour's name
  */
-export function countryName(country, hex, colour) {
-  return country?.name || colourNameFor(hex, colour);
+export function countryName(country, palette, colour) {
+  return country?.name || defaultColourName(palette, colour);
 }

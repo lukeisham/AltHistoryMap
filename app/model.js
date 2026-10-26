@@ -2,7 +2,7 @@
 // interface.js calls every edit operation; mapfile.js reads snapshot() and calls replace().
 
 import { normaliseCrest } from "./crestcells.js";
-import { blankCountry, isBlank, normaliseCountry } from "./countrydata.js";
+import { blankCountry, isBlank, normaliseCountry, relationLoops } from "./countrydata.js";
 
 export const N = 4096;
 export const LAND = 1;
@@ -755,13 +755,14 @@ export function createModel(base, n = N) {
      * Sets facts on a country (a political palette colour). One undo step; a country left with nothing
      * set is removed from the list, so the list holds only countries someone has described.
      * @param {number} colour 1-based palette index
-     * @param {object} patch any of name, ruler, government, motto, currency, demonym, alignment, flag, crest
+     * @param {object} patch any of name, ruler, government, motto, currency, demonym, alignment, flag, crest, overlord, relation
      * @returns {boolean} False when the colour or a value is not valid for this map.
      */
     setCountry(colour, patch) {
       const old = model.countries.find((country) => country.colour === colour) ?? null;
       const clean = normaliseCountry({ ...(old ?? blankCountry(colour)), ...patch, colour }, model.palette.length, model.designs.length, model.crests.length);
       if (!clean) return fail("country is not valid for this map", { colour, patch });
+      if (clean.overlord && relationLoops(model.countries, colour, clean.overlord)) return fail("country would answer to itself", { colour, patch });
       const next = isBlank(clean) ? null : clean;
       if (JSON.stringify(next) === JSON.stringify(old)) return true;
       const write = (value) => {

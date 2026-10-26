@@ -5,7 +5,7 @@ import { createRenderer, pixelColour, clampViewport, fadeFactor, pngFileName } f
 import { makeSource, parseColour, packColour, readTheme, mixColour, shownColourIndex, riverScale, riverMask, createRiverOverview } from "../app/layerimage.js";
 import { fitScale, homeViewport, zoomViewport, resizeViewport, readoutText, brushOutline } from "../app/viewport.js";
 import { drawCountryNames, findRegions } from "../app/countrylabels.js";
-import { markerVisible, cityAlpha, hitMarker, hitTag, drawMarkers, cityDotColour, createGlyphLibrary } from "../app/markers.js";
+import { markerVisible, cityAlpha, symbolAlpha, hitMarker, hitTag, drawMarkers, cityDotColour, createGlyphLibrary } from "../app/markers.js";
 
 const SIDE = 16;
 const TOKENS = {
@@ -826,4 +826,34 @@ test("five zoom levels: colours only, then flags, then country names, then capit
   assert.deepEqual(shown(2.3), { flag: true, name: true, capital: false, cities: false });
   assert.deepEqual(shown(3.3), { flag: true, name: true, capital: true, cities: false });
   assert.deepEqual(shown(5.5), { flag: true, name: true, capital: true, cities: true });
+});
+
+test("a symbol shows and answers a click with the capitals, not with the cities", () => {
+  const capital = { id: 1, type: "city", capital: true, x: 10, y: 10, layer: "political" };
+  const town = { id: 2, type: "city", x: 20, y: 20, layer: "political" };
+  const symbol = { id: 3, type: "symbol", x: 30, y: 30, layer: "political" };
+  const shows = (z) => [symbolAlpha(z) > 0, cityAlpha(capital, z) > 0, cityAlpha(town, z) > 0];
+  assert.deepEqual(shows(2.3), [false, false, false]);
+  assert.deepEqual(shows(3.3), [true, true, false]);
+  assert.deepEqual(shows(5.5), [true, true, true]);
+  const hitAt = (z) => hitMarker([symbol], ["political"], { x: 0, y: 0, k: z, kFit: 1 }, 30 * z, 30 * z)?.id ?? null;
+  assert.equal(hitAt(2.3), null, "a hidden symbol is not hit");
+  assert.equal(hitAt(3.3), 3);
+});
+
+test("a country that answers to another shows its colour mixed toward the overlord's on Political only; the palette is unchanged", () => {
+  const m = smallModel();
+  m.planes.political[idx(1, 1)] = 2;
+  const own = parseColour(m.palette[1]);
+  const overlord = parseColour(m.palette[0]);
+  const before = [...m.palette];
+  const shades = { dominion: 0.25, client: 0.45, colony: 0.65 };
+  for (const [relation, share] of Object.entries(shades)) {
+    m.setCountry(2, { relation, overlord: 1 });
+    const src = sourceOf(m);
+    assert.equal(pixelColour("political", src, idx(1, 1), 1, 1), mixColour(own, overlord, share), relation);
+  }
+  assert.deepEqual(m.palette, before);
+  m.setCountry(2, { relation: "", overlord: 0 });
+  assert.equal(pixelColour("political", sourceOf(m), idx(1, 1), 1, 1), own, "None restores the colour");
 });

@@ -358,3 +358,15 @@ test("a colony is a city variant that never is also a capital, and undoes", () =
   m.undo();
   assert.deepEqual([town.capital, town.colony], [true, false]);
 });
+
+test("countries: a relationship is one undo step, None clears it, and a self-link or a loop is refused", () => {
+  const m = smallModel();
+  assert.equal(m.setCountry(2, { relation: "dominion", overlord: 1 }), true);
+  assert.deepEqual([m.countries[0].relation, m.countries[0].overlord], ["dominion", 1]);
+  assert.equal(m.setCountry(2, { relation: "dominion", overlord: 2 }), false, "its own overlord");
+  assert.equal(m.setCountry(1, { relation: "colony", overlord: 2 }), false, "1 under 2 under 1");
+  assert.equal(m.setCountry(2, { relation: "", overlord: 0 }), true);
+  assert.deepEqual(m.countries, [], "a country left with nothing is removed");
+  m.undo();
+  assert.equal(m.countries[0].relation, "dominion");
+});

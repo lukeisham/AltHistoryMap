@@ -521,7 +521,7 @@ class GuideBoundaryTest(unittest.TestCase):
 
     def test_country_names_travel_from_the_button_through_the_renderer_to_the_picture(self) -> None:
         row = row_starting(self.section, "`countrylabels.js`")
-        for name in ("render.js", "findRegions(political, n, representative)", "representativeColours(palette)", "layerimage.js", "drawCountryNames", "scene.countryRegions", "countryNames", "renderer.setCountryNames", "ahm.prefs", 'data-action="country-names"', "layerbar.js", "main.js", "countrydata.js"):
+        for name in ("render.js", "findRegions(political, n, representative, base)", "representativeColours(palette)", "layerimage.js", "drawCountryNames", "scene.countryRegions", "countryNames", "renderer.setCountryNames", "ahm.prefs", 'data-action="country-names"', "layerbar.js", "main.js", "countrydata.js"):
             self.assertIn(name, row)
         render = app_source("render.js")
         self.assertTrue(imports("render.js", "countrylabels.js") and imports("countrylabels.js", "countrydata.js"))
@@ -540,6 +540,39 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertEqual(js_constant(APP / "countrylabels.js", "MIN_SIZE"), 10)
         self.assertIn(f"below {js_constant(APP / 'countrylabels.js', 'MIN_SIZE')} screen pixels", row)
         self.assertIn(f"about {js_constant(APP / 'countrylabels.js', 'SAMPLES_PER_SIDE')} samples", row)
+
+    def test_islands_symbols_and_default_names_are_stated_as_the_code_holds_them(self) -> None:
+        labels = row_starting(self.section, "`countrylabels.js`")
+        self.assertIn(f"`ISLAND_GAP` ({js_constant(APP / 'countrylabels.js', 'ISLAND_GAP')} grid pixels", labels)
+        self.assertIn("a quarter", labels)
+        self.assertIn("`tiny` region", labels)
+        self.assertIn("SINGLE_PIXEL_K", labels)
+        self.assertEqual(js_constant(APP / "countrylabels.js", "ISLAND_AREA_SHARE"), 0.25)
+        self.assertIn("findRegions(model.planes.political, n, representativeColours(model.palette), model.base)", app_source("render.js"))
+        self.assertIn("symbolAlpha(z)", row_starting(self.section, "`markers.js`"))
+        self.assertIn("symbolAlpha(z) <= 0", app_source("markers.js"))
+        names = row_starting(self.section, "`countrydata.js`")
+        self.assertIn("`defaultColourName(palette, colour)`", names)
+        self.assertIn("countryName(country, palette, colour)", app_source("countrydata.js").replace("export function ", ""))
+
+    def test_a_relationship_is_stored_mixed_on_the_political_look_and_chosen_in_key_facts(self) -> None:
+        row = row_starting(self.section, "`countrydata.js`")
+        source = app_source("countrydata.js")
+        for relation, share in (("dominion", "0.25"), ("client", "0.45"), ("colony", "0.65")):
+            self.assertRegex(source, rf'id: "{relation}", label: "[A-Za-z ]+", share: {share}')
+            self.assertIn(share, row)
+        for name in ("relation", "overlord", "relationLoops"):
+            self.assertIn(f"`{name}", row)
+        self.assertTrue(imports("layerimage.js", "countrydata.js") and imports("model.js", "countrydata.js") and imports("countries.js", "countrydata.js"))
+        self.assertIn("relationLoops(model.countries, colour, clean.overlord)", app_source("model.js"))
+        self.assertIn("relationLoops(countries, country.colour, country.overlord)", app_source("mapfile.js"))
+        self.assertIn("shown[colour] = mixColour(", app_source("layerimage.js"))
+        self.assertIn("src.shown[src.political[i]]", app_source("layerimage.js"))
+        self.assertIn("} else if (notice.countries) {", app_source("render.js"))
+        self.assertIn("others", row_starting(self.section, "`countries.js`"))
+        self.assertIn("editable: editor.editGate(), others })", app_source("countries.js"))
+        self.assertIn('aria-label="Relationship"', row_starting(self.section, "`countries.js`"))
+        self.assertIn('"Relationship"', app_source("countryfacts.js"))
 
     def test_a_dropped_map_file_reaches_the_open_action_and_the_browser_is_stopped_from_navigating(self) -> None:
         row = row_starting(self.section, "`filedrop.js`")

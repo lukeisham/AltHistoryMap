@@ -385,3 +385,18 @@ test("a bad country is refused: unknown alignment, colour outside the palette, a
   const fine = await decodeMap(await craft({ header: validHeader({ countries: [{ ...blank, name: "Fine" }] }) }), GLYPHS);
   assert.equal(fine.countries[0].name, "Fine");
 });
+
+test("a relationship survives a save and open, a map without one shows none, and a loop in a file is refused", async () => {
+  const model = fullModel();
+  model.setCountry(2, { relation: "colony", overlord: 3 });
+  const after = await decodeMap(await encodeMap(model.snapshot()), GLYPHS);
+  assert.deepEqual(after.countries, model.countries);
+  assert.deepEqual([after.countries[0].relation, after.countries[0].overlord], ["colony", 3]);
+  const plain = fullModel();
+  plain.setCountry(2, { name: "Aurea" });
+  const unrelated = await decodeMap(await encodeMap(plain.snapshot()), GLYPHS);
+  assert.equal("relation" in unrelated.countries[0] || "overlord" in unrelated.countries[0], false);
+  const blank = { colour: 1, name: "", ruler: "", government: "", motto: "", currency: "", demonym: "", alignment: "", flag: -1, crest: -1 };
+  const loop = [{ ...blank, colour: 1, relation: "client", overlord: 2 }, { ...blank, colour: 2, relation: "client", overlord: 1 }];
+  await assertRejected(await craft({ header: validHeader({ countries: loop }) }), /answers to itself/);
+});

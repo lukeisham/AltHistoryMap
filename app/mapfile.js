@@ -18,7 +18,7 @@ import {
 } from "./model.js";
 import { collectBounded, StreamLimitError } from "./streams.js";
 import { normaliseCrest } from "./crestcells.js";
-import { normaliseCountry } from "./countrydata.js";
+import { normaliseCountry, relationLoops } from "./countrydata.js";
 import { upscaleLegacyFlag } from "./flagcells.js";
 
 export const MAGIC = "AHMAP001";
@@ -234,6 +234,7 @@ function checkHeader(h, glyphs) {
     return clean;
   });
   if (new Set(countries.map((country) => country.colour)).size !== countries.length) throw new MapFileError("A country in this file is listed twice");
+  if (countries.some((country) => country.overlord && relationLoops(countries, country.colour, country.overlord))) throw new MapFileError("A country in this file answers to itself");
 
   if (!Array.isArray(h.markers)) throw new MapFileError("The markers in this file are not valid");
   const seen = new Set();

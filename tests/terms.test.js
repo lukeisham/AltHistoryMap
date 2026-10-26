@@ -38,3 +38,10 @@ test("every philosophy square has a name and a definition", () => {
     assert.ok(term && term.text.length > 20, `alignment:${id} has no definition`);
   }
 });
+
+test("each relationship has a name and a definition", () => {
+  for (const id of ["none", "dominion", "client", "colony"]) {
+    const term = termFor(`relation:${id}`);
+    assert.ok(term && term.text.length > 20, `relation:${id} has no definition`);
+  }
+});

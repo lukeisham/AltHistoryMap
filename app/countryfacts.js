@@ -5,7 +5,7 @@
 // (namegen.js). It shares the dialog chrome classes of flagdesigner.css and adds countryfacts.css.
 // All DOM comes from dialog.ownerDocument, so a test can hand it a fake document.
 
-import { ALIGNMENTS, GOVERNMENTS, MAX_FIELD, MAX_MOTTO, colourNameFor } from "./countrydata.js";
+import { ALIGNMENTS, GOVERNMENTS, MAX_FIELD, MAX_MOTTO, RELATIONS, defaultColourName } from "./countrydata.js";
 import { STYLES, generateAll, makeCurrency, makeDemonym, makeGovernment, makeMotto, makeName, makeRuler } from "./namegen.js";
 import { CREST_W, CREST_H, renderCrest } from "./crestcells.js";
 import { FLAG_W, FLAG_H } from "./model.js";
@@ -33,7 +33,7 @@ const DATALIST_ID = "kf-governments";
  *   rng: () => number
  * }} options getPalette, getDesigns and getCrests are re-read on every open(); rng is Math.random in the app.
  * @returns {{
- *   open: (start: {colour: number, name: string, record: object | null, editable: boolean}) => Promise<object | null>,
+ *   open: (start: {colour: number, name: string, record: object | null, editable: boolean, others: {colour: number, name: string, loops: boolean}[]}) => Promise<object | null>,
  *   close: () => void
  * }}
  */
@@ -51,6 +51,7 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
   let opener = null;
   let pending = null;
   let white = "#fff";
+  let others = [];
 
   const TEXT_ROWS = [
     { key: "name", label: "Name", max: MAX_FIELD, make: (v) => makeName(v.style, v.alignment, v.government, rng) },
@@ -122,6 +123,20 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
       datalist.append(option);
     }
 
+    const relationSelect = el("select", "kf-input");
+    relationSelect.setAttribute("aria-label", "Relationship");
+    relationSelect.addEventListener("change", onRelation);
+    for (const [id, label] of [["none", "None"], ...RELATIONS.map(({ id, label }) => [id, label])]) {
+      const option = el("option", "", label);
+      option.value = id;
+      relationSelect.append(option);
+    }
+    const overlordSelect = el("select", "kf-input");
+    overlordSelect.setAttribute("aria-label", "Answers to");
+    overlordSelect.addEventListener("change", onOverlord);
+    const relationRow = el("div", "kf-relation");
+    relationRow.append(relationSelect, overlordSelect);
+
     const fieldsBox = el("div", "kf-fields");
     const rows = TEXT_ROWS.map((row) => {
       const input = el("input", "kf-input");
@@ -144,7 +159,7 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
     const saveBtn = button("Save", () => settle(collect()), "fd-btn fd-btn-primary");
     actions.append(cancelBtn, saveBtn);
 
-    body.append(closeButton(() => settle(null)), heading, top, flagCaption, flagRow, crestCaption, crestRow, el("span", "fd-caption", "Philosophy"), grid, styleRow, datalist, fieldsBox, status, actions);
+    body.append(closeButton(() => settle(null)), heading, top, flagCaption, flagRow, crestCaption, crestRow, el("span", "fd-caption", "Philosophy"), grid, el("span", "fd-caption", "Relationship to another country"), relationRow, styleRow, datalist, fieldsBox, status, actions);
     dialog.className = "fd";
     dialog.append(body);
     bindTermTips(dialog);
@@ -155,7 +170,7 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
       if (event.target === dialog) settle(null);
     });
 
-    return { heading, flagSlot, crestSlot, flagRow, crestRow, flagCaption, crestCaption, cells, styleRow, styleSelect, allButton, rows, status, cancelBtn, saveBtn };
+    return { heading, flagSlot, crestSlot, flagRow, crestRow, flagCaption, crestCaption, cells, styleRow, styleSelect, allButton, relationSelect, overlordSelect, rows, status, cancelBtn, saveBtn };
   }
 
   function readTheme() {
@@ -167,7 +182,7 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
   }
 
   const hex = () => palette[colour - 1];
-  const defaultName = () => colourNameFor(hex(), colour);
+  const defaultName = () => defaultColourName(palette, colour);
   const rowOf = (key) => ui.rows.find((row) => row.key === key);
   const values = () => ({
     style: ui.styleSelect.value,
@@ -197,6 +212,44 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
       rowOf(key).input.value = text;
       onTyped(key);
     }
+  }
+
+  // A relationship is a kind and the country it answers to; the two always change together.
+  function onRelation() {
+    if (!editable) return;
+    const kind = ui.relationSelect.value;
+    if (kind === "none") {
+      facts.relation = "";
+      facts.overlord = 0;
+    } else {
+      const choice = others.find((other) => !other.loops);
+      if (!choice) {
+        say("No other country can be its overlord without a loop.");
+        ui.relationSelect.value = facts.relation || "none";
+        return;
+      }
+      facts.relation = kind;
+      if (!facts.overlord) facts.overlord = choice.colour;
+    }
+    redrawRelation();
+  }
+
+  function onOverlord() {
+    if (!editable) return;
+    const chosen = others.find((other) => String(other.colour) === ui.overlordSelect.value);
+    if (!chosen || chosen.loops) {
+      say(`${chosen?.name ?? "That country"} already answers to this country, so that would make a loop.`);
+      ui.overlordSelect.value = String(facts.overlord);
+      return;
+    }
+    facts.overlord = chosen.colour;
+  }
+
+  function redrawRelation() {
+    ui.relationSelect.value = facts.relation || "none";
+    ui.relationSelect.setAttribute("data-term", `relation:${facts.relation || "none"}`);
+    ui.overlordSelect.hidden = !facts.relation;
+    if (facts.relation) ui.overlordSelect.value = String(facts.overlord);
   }
 
   function pickAlignment(id) {
@@ -306,6 +359,8 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
     for (const { node } of ui.cells) node.setAttribute("aria-disabled", String(!editable));
     for (const node of [ui.flagRow, ui.crestRow, ui.flagCaption, ui.crestCaption]) node.hidden = !editable;
     ui.styleRow.hidden = !editable;
+    ui.relationSelect.disabled = !editable;
+    ui.overlordSelect.disabled = !editable;
     ui.saveBtn.hidden = !editable;
     ui.cancelBtn.textContent = editable ? "Cancel" : "Close";
   }
@@ -322,6 +377,8 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
       alignment: facts.alignment,
       flag: facts.flag,
       crest: facts.crest,
+      overlord: facts.overlord,
+      relation: facts.relation,
     };
   }
 
@@ -336,7 +393,7 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
   }
 
   return {
-    open({ colour: start, record, editable: canEdit }) {
+    open({ colour: start, record, editable: canEdit, others: candidates = [] }) {
       if (pending) settle(null);
       palette = [...getPalette()];
       designs = getDesigns();
@@ -345,12 +402,21 @@ export function createCountryFacts({ dialog, getPalette, getDesigns, getCrests, 
       readTheme();
       colour = start;
       editable = canEdit;
-      facts = { name: "", ruler: "", government: "", motto: "", currency: "", demonym: "", alignment: "", flag: -1, crest: -1, ...record };
+      facts = { name: "", ruler: "", government: "", motto: "", currency: "", demonym: "", alignment: "", flag: -1, crest: -1, overlord: 0, relation: "", ...record };
+      others = candidates;
+      ui.overlordSelect.replaceChildren(
+        ...others.map(({ colour: other, name }) => {
+          const option = el("option", "", name);
+          option.value = String(other);
+          return option;
+        }),
+      );
 
       for (const row of ui.rows) row.input.value = facts[row.key];
       rowOf("name").input.setAttribute("placeholder", defaultName());
       showHeading();
       renderChoosers();
+      redrawRelation();
       applyMode();
       say("");
       redraw();

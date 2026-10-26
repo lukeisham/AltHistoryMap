@@ -126,3 +126,132 @@ test("a name outside the stage, and a colour the palette lacks, are skipped", ()
   drawCountryNames(missing.ctx, sceneOf(plane(), { palette: [] }));
   assert.deepEqual(missing.drawn, []);
 });
+
+// A colour in two areas: a 40 x 20 block and a 12 x 12 block, fitted into SIDE.
+function twoAreas() {
+  const split = new Uint8Array(SIDE * SIDE);
+  for (let y = 2; y < 22; y++) for (let x = 2; x < 38; x++) split[y * SIDE + x] = 1;
+  for (let y = 28; y < 38; y++) for (let x = 20; x < 34; x++) split[y * SIDE + x] = 1;
+  return split;
+}
+
+test("findRegions marks a colour's largest area, and only that one", () => {
+  const regions = findRegions(twoAreas(), SIDE);
+  assert.deepEqual(regions.map((r) => r.largest), [true, false]);
+});
+
+test("a colour's smaller area is named only from the capitals level, its largest from the names level", () => {
+  const names = (k) => {
+    const { ctx, drawn } = fakeContext();
+    drawCountryNames(ctx, sceneOf(twoAreas(), { vp: { x: 0, y: 0, k, kFit: 1 } }));
+    return drawn.length;
+  };
+  assert.equal(names(1.5), 0, "below the names level nothing shows");
+  assert.equal(names(2.3), 1, "at the names level only the largest area is named");
+  assert.equal(names(3.3), 2, "at the capitals level the other area is named too");
+});
+
+const ISLAND_SIDE = 640;
+
+// Land everywhere in the mainland block (x 10..210, y 100..400) and an island block of the given
+// width at the given x gap from it; a country paints both, so the island is the smaller area.
+function islandWorld(gap, width = 100) {
+  const base = new Uint8Array(ISLAND_SIDE * ISLAND_SIDE);
+  const political = new Uint8Array(ISLAND_SIDE * ISLAND_SIDE);
+  const land = (x0, x1, y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        base[y * ISLAND_SIDE + x] = 1;
+        political[y * ISLAND_SIDE + x] = 1;
+      }
+    }
+  };
+  land(10, 210, 100, 400);
+  const left = 210 + gap;
+  land(left, Math.min(ISLAND_SIDE, left + width), 200, 200 + width);
+  return { base, political, island: { left, right: left + width, top: 200, bottom: 200 + width } };
+}
+
+test("an area 200 pixels of water from the mainland is an island and one 10 pixels away is not", () => {
+  const far = islandWorld(200);
+  const farRegions = findRegions(far.political, ISLAND_SIDE, null, far.base);
+  assert.deepEqual(farRegions.map((r) => r.island), [false, true]);
+  const near = islandWorld(10);
+  assert.deepEqual(findRegions(near.political, ISLAND_SIDE, null, near.base).map((r) => r.island), [false, false]);
+  assert.deepEqual(findRegions(far.political, ISLAND_SIDE).map((r) => r.island), [false, false], "no basemap, no island");
+});
+
+// A context that records each single letter's turn and place; a whole word drawn straight is ignored.
+function curvedContext() {
+  const letters = [];
+  let at = { x: 0, y: 0, angle: 0 };
+  const stack = [];
+  const ctx = {
+    font: "",
+    measureText: (text) => ({ width: text.length * 0.5 * Number.parseFloat(ctx.font) }),
+    strokeText() {},
+    fillText: (text) => text.length === 1 && letters.push({ text, ...at, size: Number.parseFloat(ctx.font) }),
+    save: () => stack.push(at),
+    restore: () => (at = stack.pop()),
+    translate: (x, y) => (at = { ...at, x: at.x + x, y: at.y + y }),
+    rotate: (angle) => (at = { ...at, angle: at.angle + angle }),
+  };
+  return { ctx, letters };
+}
+
+function islandScene(world, k, over = {}) {
+  return {
+    vp: { x: 0, y: 0, k, kFit: 1 },
+    stage: { w: 4000, h: 4000 },
+    theme: { font: "serif", css: { land: "#fff", ink: "#000" } },
+    palette: ["#d02020"],
+    countries: [{ colour: 1, name: "Isle" }],
+    countryRegions: findRegions(world.political, ISLAND_SIDE, null, world.base),
+    ...over,
+  };
+}
+
+test("an island's name is drawn letter by letter outside the shore, within a text height of it, and never upside down", () => {
+  const world = islandWorld(200);
+  const k = 3;
+  const { ctx, letters } = curvedContext();
+  drawCountryNames(ctx, islandScene(world, k));
+  assert.deepEqual(letters.map((l) => l.text), ["I", "s", "l", "e"]);
+  const { left, right, top, bottom } = world.island;
+  for (const letter of letters) {
+    const gx = letter.x / k;
+    const gy = letter.y / k;
+    const dx = Math.max(left - gx, 0, gx - right);
+    const dy = Math.max(top - gy, 0, gy - bottom);
+    const distance = Math.hypot(dx, dy);
+    assert.ok(distance > 0, `letter ${letter.text} is over the island`);
+    assert.ok(distance * k <= letter.size * 1.01, `letter ${letter.text} is further than a text height from the shore`);
+    assert.ok(Math.abs(letter.angle) <= Math.PI / 2 + 1e-9, `letter ${letter.text} is upside down`);
+  }
+});
+
+test("an island's name grows with the island's width and with the zoom, up to the largest size", () => {
+  const sizeOf = (width, k) => {
+    const world = islandWorld(200, width);
+    const { ctx, letters } = curvedContext();
+    drawCountryNames(ctx, islandScene(world, k, { vp: { x: 0, y: 0, k, kFit: 0.1 } }));
+    return letters[0]?.size;
+  };
+  assert.ok(Math.abs(sizeOf(100, 0.25) * 2 - sizeOf(100, 0.5)) < 1e-6, "doubling the zoom doubles the size");
+  assert.ok(Math.abs(sizeOf(60, 0.5) * 2 - sizeOf(120, 0.5)) < 1e-6, "doubling the island doubles the size");
+  assert.equal(sizeOf(100, 5), 30, "the size stops at the largest");
+});
+
+test("a colour whose every area is too small for a name still gets one, at the smallest size, once zoomed to single pixels", () => {
+  const lone = new Uint8Array(SIDE * SIDE);
+  for (let y = 5; y < 15; y++) for (let x = 5; x < 25; x++) lone[y * SIDE + x] = 1;
+  lone[30 * SIDE + 30] = 2;
+  const regions = findRegions(lone, SIDE);
+  assert.deepEqual(regions.map((r) => [r.colour, Boolean(r.tiny)]), [[1, false], [2, true]]);
+  const near = fakeContext();
+  drawCountryNames(near.ctx, sceneOf(lone, { vp: { x: -400, y: -400, k: 20, kFit: 1 }, stage: { w: 600, h: 600 }, countryRegions: regions }));
+  assert.deepEqual(near.drawn.map((d) => [d.text, d.size]).filter(([text]) => text === "Green"), [["Green", 10]]);
+  const far = fakeContext();
+  drawCountryNames(far.ctx, sceneOf(lone, { vp: { x: -200, y: -200, k: 8, kFit: 1 }, stage: { w: 600, h: 600 }, countryRegions: regions }));
+  assert.equal(far.drawn.some((d) => d.text === "Green"), false, "below single-pixel zoom the lone pixel is not named");
+});

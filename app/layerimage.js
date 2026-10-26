@@ -3,6 +3,7 @@
 // one definition of what each look shows. layers.js names the looks.
 
 import { LAND, RIVER, LAKE, COAST } from "./model.js";
+import { RELATIONS, SAME_COLOUR_TOLERANCE } from "./countrydata.js";
 
 const TOKENS = {
   sea: "--map-sea",
@@ -125,9 +126,6 @@ export function readTheme(style) {
   return { packed, css, numbers, font };
 }
 
-// Channel difference below which two colours count as the same; screen sampling rounds each channel.
-const SAME_COLOUR_TOLERANCE = 3;
-
 /**
  * Groups palette colours that look the same on screen: each index maps to the first earlier index whose
  * colour is within the eye-dropper tolerance, or to itself. countrylabels.js names such a group once.
@@ -218,12 +216,19 @@ export function makeSource(model, theme) {
     pale[i + 1] = mixColour(colour, WHITE, numbers.cultureTint);
     faded[i + 1] = mixColour(packed.land, colour, numbers.politicalFade);
   });
+  // A country that answers to another shows its own colour mixed toward the other's; the palette itself is untouched.
+  const shown = new Uint32Array(palette);
+  for (const { colour, overlord, relation } of model.countries) {
+    const share = RELATIONS.find((kind) => kind.id === relation)?.share;
+    if (share !== undefined && palette[colour] !== 0 && palette[overlord] !== 0) shown[colour] = mixColour(palette[colour], palette[overlord], share);
+  }
   const { political, border, province, culture } = model.planes;
   return {
     n: model.n,
     base: model.base,
     ground,
     palette,
+    shown,
     pale,
     faded,
     political,
@@ -239,7 +244,7 @@ export function makeSource(model, theme) {
 function politicalPixel(src, i) {
   const g = src.ground[src.base[i] & 15];
   if (src.border[i] !== 0) return src.borderColour;
-  const c = src.palette[src.political[i]];
+  const c = src.shown[src.political[i]];
   return c !== 0 ? c : g;
 }
 

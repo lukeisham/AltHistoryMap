@@ -10,7 +10,6 @@ export const HIT_RADIUS = 14;
 
 const { capital: CAPITAL_FADE, city: CITY_FADE, flag: FLAG_FADE } = ZOOM_FADES;
 const LABEL_FADE = [0.9, 1.7];
-const SYMBOL_FADE = [2.2, 3.2];
 const DRAW_ORDER = ["label", "city", "flag", "symbol"];
 
 const NAME_SIZE = 12;
@@ -279,10 +278,24 @@ function drawGlyphOnDisc(ctx, scene, marker, path, sx, sy) {
   ctx.restore();
 }
 
-function drawSymbol(ctx, scene, marker, sx, sy) {
+/**
+ * How visible a symbol is at a zoom: it appears with the capitals (see ZOOM_FADES), so a hidden symbol
+ * cannot be clicked and its name tag fades with it.
+ * @param {number} z Screen pixels per grid pixel divided by the fit-to-screen scale.
+ * @returns {number} 0 to 1
+ */
+export function symbolAlpha(z) {
+  return fadeFactor(z, CAPITAL_FADE[0], CAPITAL_FADE[1]);
+}
+
+function drawSymbol(ctx, scene, marker, sx, sy, z) {
+  const alpha = symbolAlpha(z);
+  if (alpha <= 0) return;
+  ctx.globalAlpha = alpha;
   const path = scene.glyphs.get(marker.glyph);
   if (path && scene.glyphs.isSolid(marker.glyph)) drawSolidShape(ctx, scene, marker, path, sx, sy);
   else drawGlyphOnDisc(ctx, scene, marker, path, sx, sy);
+  ctx.globalAlpha = 1;
 }
 
 /**
@@ -309,7 +322,7 @@ function tagSpec(marker, sx, sy, z) {
   } else if (marker.type === "flag") {
     spec = { x: sx + FLAG_CLOTH_W + NAME_GAP, y: sy - POLE_HEIGHT + FLAG_CLOTH_H / 2, align: "left", fade: FLAG_FADE };
   } else {
-    spec = { x: sx, y: sy + SYMBOL_RADIUS + NAME_SIZE * 0.8, align: "center", fade: SYMBOL_FADE };
+    spec = { x: sx, y: sy + SYMBOL_RADIUS + NAME_SIZE * 0.8, align: "center", fade: CAPITAL_FADE };
   }
   const alpha = fadeFactor(z, spec.fade[0], spec.fade[1]);
   if (alpha <= 0) return null;
@@ -389,6 +402,7 @@ export function hitMarker(markers, layers, vp, sx, sy) {
     if (!markerVisible(marker, layers)) continue;
     if (marker.type === "city" && cityAlpha(marker, z) <= 0) continue;
     if (marker.type === "flag" && fadeFactor(z, FLAG_FADE[0], FLAG_FADE[1]) <= 0) continue;
+    if (marker.type === "symbol" && symbolAlpha(z) <= 0) continue;
     const anchor = anchorOf(marker, vp);
     let distance = Math.hypot(anchor.sx - sx, anchor.sy - sy);
     if (marker.type === "flag") {

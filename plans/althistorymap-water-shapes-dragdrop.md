@@ -44,7 +44,7 @@ In `System/Apps/AltHistoryMap/`, all eight changes work in the running app, veri
 
 ## Resources
 - Context: Personal Research (coding / builds). Charter: `System/Context/PersonalResearch.md`.
-- Standard: `Memory/Long-Term/Coding/vibe-coding-rules.md` (AG-1 to AG-5, CORE-1 to CORE-4, JS-*, CSS-*, TEST-*).
+- Standard: `System/Docs/Rules/vibe-coding-rules.md` (AG-1 to AG-5, CORE-1 to CORE-4, JS-*, CSS-*, TEST-*).
 - Nearest analogue plan: `althistorymap-layer-views.md`.
 - Specs: `_build/specs/interface.spec.md` (FR-7, FR-8, FR-9, FR-10, FR-1), `model.spec.md`, `mapfile.spec.md`, `render.spec.md`.
 - The tree already holds uncommitted edits from the layer-views work. This plan builds on them and commits nothing.

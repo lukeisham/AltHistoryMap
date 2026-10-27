@@ -36,7 +36,7 @@ In the live app (`System/Apps/AltHistoryMap/`), a crest can be dropped onto a co
 
 ## Resources
 
-- **Memory to read:** `Memory/Long-Term/Coding/vibe-coding-rules.md` (read in full before the first edit)
+- **Memory to read:** `System/Docs/Rules/vibe-coding-rules.md` (read in full before the first edit)
 - **Capability skills:** none (the browser pane is used for the check in step 10)
 - **Domain skills (Skillbank):** `!AppDevelopment` (Refactor loop), `!DesignCheck` (pop-up layout, step 10)
 - **Sub-agents:** none. The work is one codebase with tight coupling between steps.

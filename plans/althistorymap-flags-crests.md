@@ -27,7 +27,7 @@ All six items work in the live app (`System/Apps/AltHistoryMap/`), both test sui
 - `node --test tests/*.test.js` and `python3 -m unittest discover -s tests -p "test_*.py"` pass; a test opens every bundled `.ahmap` plus a header-without-`crests` fixture and round-trips a map with crests.
 
 ## Resources
-- **Memory to read:** `Memory/Long-Term/Coding/vibe-coding-rules.md`
+- **Memory to read:** `System/Docs/Rules/vibe-coding-rules.md`
 - **Capability skills:** none
 - **Domain skills (Skillbank):** `!AppDevelopment` (Refactor loop)
 - **Sub-agents:** none

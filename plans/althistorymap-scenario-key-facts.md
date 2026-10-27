@@ -33,7 +33,7 @@ Each country (political palette colour) in the eight bundled scenarios opens in 
 - **Linking is out of scope.** Linking each country to its scenario flag design is a separate wish, not done here.
 
 ## Resources
-- **Memory to read:** `Memory/Long-Term/Coding/vibe-coding-rules.md` in full before the first edit; `System/Apps/AltHistoryMap/GUIDE.md` and `app-decisions.md` (#14, #17); `app/countrydata.js` (field limits), `app/mapfile.js` (how `countries` is read).
+- **Memory to read:** `System/Docs/Rules/vibe-coding-rules.md` in full before the first edit; `System/Apps/AltHistoryMap/GUIDE.md` and `app-decisions.md` (#14, #17); `app/countrydata.js` (field limits), `app/mapfile.js` (how `countries` is read).
 - **Capability skills:** `!HeadlessChromeBrowser` for sources that need a real page; sub-agents also use their own web search and fetch tools.
 - **Domain skills (Skillbank):** `!FactCheck` (its fail-closed rule and provenance labels, applied per field rather than to a pasted paragraph), `!AppIssues` (delete the row), `!VibeCoding` (always on).
 - **Sub-agents:** one researcher per scenario (7 historical scenarios, step 3); one independent verifier per scenario (step 4). The verifier gets only the claims and their citations, never the researcher's reasoning.

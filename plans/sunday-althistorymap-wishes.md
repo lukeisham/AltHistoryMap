@@ -25,7 +25,7 @@ AltHistoryMap's flag designer can stamp a shield alone, the crest maker's suppor
 - The Lukeatron charter baseline holds: the thing works (shown by the output of its checks), it matches the house style of its siblings, and no core skill, checkpoint, template or `CLAUDE.md` file changed.
 
 ## Resources
-- **Memory to read:** `Memory/Long-Term/Coding/vibe-coding-rules.md` in full before the first edit; `GUIDE.md` and `app-decisions.md` of each app named below.
+- **Memory to read:** `System/Docs/Rules/vibe-coding-rules.md` in full before the first edit; `GUIDE.md` and `app-decisions.md` of each app named below.
 - **Capability skills:** none
 - **Domain skills (Skillbank):** `!AppIssues` (delete a row once it is verified closed), `!VibeCoding` (always on)
 - **Sub-agents:** one per issue step that needs judgement about the code; each gets only its step block, the vibe-coding rules and the app folder.

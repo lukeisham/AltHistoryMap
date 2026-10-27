@@ -59,7 +59,7 @@ it is made. A minor or easily guessed choice belongs in the commit message.
 
 ## Rule exceptions
 
-Deliberate breaks from `Memory/Long-Term/Coding/vibe-coding-rules.md`, each granted by Luke after
+Deliberate breaks from `System/Docs/Rules/vibe-coding-rules.md`, each granted by Luke after
 being asked with the rule ID and a reason. Code that matches a row here is intentional — do not
 "fix" it.
 

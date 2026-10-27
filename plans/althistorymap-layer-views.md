@@ -52,7 +52,7 @@ In `System/Apps/AltHistoryMap/`, View mode offers exactly the five approved view
 - Charter baseline: the app works against reality (browser check, not just tests), matches house style (siblings read first, tokens only, no literal colour), touches no key skill, checkpoint or template, and nothing leaves the system.
 
 ## Resources
-- **Memory to read:** `Memory/Long-Term/Coding/vibe-coding-rules.md` (the rules the app obeys; read before editing).
+- **Memory to read:** `System/Docs/Rules/vibe-coding-rules.md` (the rules the app obeys; read before editing).
 - **Capability skills:** none.
 - **Domain skills (Skillbank):** `!DesignCheck` (layer bar review). `!HouseStyle` is always on for the layer bar and tokens.
 - **Sub-agents:** one fresh code reviewer for the finished diff (judgement; independent of the author).
@@ -78,7 +78,7 @@ Bite-sized and ordered. Each box is one action. Mark `[x]` when complete.
 ### Wave 0 — Baseline and paperwork
 - [x] Step 1 — Run `git status` and confirm no other session is changing files in `System/Apps/AltHistoryMap/` (CLAUDE.md: nothing locks a file). [runs: Bash]
 - [x] Step 2 — Run both test suites and record the pass counts as the baseline. [runs: `node --test tests/*.test.js`; `python3 -m unittest discover -s tests -p "test_*.py"` in `System/Apps/AltHistoryMap/`]
-- [x] Step 3 — Read `Memory/Long-Term/Coding/vibe-coding-rules.md`, and `app/layerbar.css` and `app/toolpanel.js` as the nearest siblings for the new bar. [reads: Coding store]
+- [x] Step 3 — Read `System/Docs/Rules/vibe-coding-rules.md`, and `app/layerbar.css` and `app/toolpanel.js` as the nearest siblings for the new bar. [reads: Coding store]
 - [x] Step 4 — Write the approval and decision into `app-decisions.md`: an Approvals row ("2026-10-14, layer rules change approved; reverses the PRD's one layer at a time") and one Key decision (view-mode combinations; Culture never with Political; Edit Culture fades Political; reason: Political and Culture cannot share a pattern without hiding one of them; rejected: speckle, dots, grid, tint, seam, rim). The PRD closed on 2026-10-14 and stays closed (`!AppDevelopment`: the specs are the build instruction). A decision confined to one app is not a `history.log` line. [inline]
 - [x] Step 5 — Amend `_build/specs/render.spec.md` (FR-2, FR-3, FR-5, FR-8, AC-2, AC-3 and the AD-3 pattern decision) and `_build/specs/interface.spec.md` (FR-1, FR-3, FR-4 keys, AC list). Add the looks table and the rules table from this plan. Do not edit `_build/prd.md`. [inline]
 

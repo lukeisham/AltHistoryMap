@@ -31,6 +31,8 @@ const BRUSH_FROM_K = 4;
 const GRID_ALPHA = 0.14;
 const BRUSH_WIDTH = 1.5;
 const FILE_NAME_LIMIT = 80;
+// Paint notices this close together are one stroke; the names are found again once none has come for this long.
+const REGIONS_SETTLE_MS = 150;
 const ILLEGAL_FILE_CHARS = /[\\/:*?"<>|\u0000-\u001f]/g;
 
 /**
@@ -170,6 +172,8 @@ export function createRenderer({ canvas, model, glyphs }) {
   let cityColour = "neutral";
   let countryNames = true;
   let regions = null;
+  let staleRegions = null;
+  let settleTimer = 0;
   let theme = readTheme(getComputedStyle(canvas));
   let stage = { w: 0, h: 0 };
   let dpr = 1;
@@ -224,8 +228,10 @@ export function createRenderer({ canvas, model, glyphs }) {
   }
 
   // Found on first use after a paint change, so a map with names off or another layer on screen pays nothing.
+  // While a stroke is under way the previous result stays on screen, so a stroke never pays for a search per frame.
   function regionsNow() {
-    regions ??= findRegions(model.planes.political, n, representativeColours(model.palette), model.base);
+    if (!regions && staleRegions) return staleRegions;
+    regions ??= findRegions(model.planes.political, n, representativeColours(model.palette));
     return regions;
   }
 
@@ -272,14 +278,26 @@ export function createRenderer({ canvas, model, glyphs }) {
     invalidate();
   }
 
+  function holdRegionsUntilSettled() {
+    staleRegions ??= regions;
+    regions = null;
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => {
+      settleTimer = 0;
+      staleRegions = null;
+      scheduleFrame();
+    }, REGIONS_SETTLE_MS);
+  }
+
   function onModelChange(notice) {
     if (notice.all || notice.palette) {
       needsRebuild = true;
       regions = null;
+      staleRegions = null;
     } else if (notice.countries) {
       needsRebuild = true;
     } else if (notice.rect) {
-      if (notice.layer === "political") regions = null;
+      if (notice.layer === "political") holdRegionsUntilSettled();
       if (!layersDrawn(look).includes(notice.layer)) return;
       if (!needsRebuild) dirty = dirty ? unionRect(dirty, notice.rect) : { ...notice.rect };
     } else if (!notice.markers && !notice.history) {
@@ -525,6 +543,7 @@ export function createRenderer({ canvas, model, glyphs }) {
     /** @returns {Promise<Blob>} PNG of the current view at stage size times device pixel ratio. */
     async exportPng() {
       if (stage.w === 0 || stage.h === 0) throw new Error("render: the map has no size to export");
+      staleRegions = null;
       flushLayerImage();
       const out = makeCanvas(Math.round(stage.w * dpr), Math.round(stage.h * dpr));
       const outCtx = out.getContext("2d");
@@ -541,6 +560,7 @@ export function createRenderer({ canvas, model, glyphs }) {
 
     /** Removes every listener and observer. */
     destroy() {
+      clearTimeout(settleTimer);
       for (const dispose of disposers.splice(0)) dispose();
       if (frameRequest) cancelAnimationFrame(frameRequest);
       frameRequest = 0;

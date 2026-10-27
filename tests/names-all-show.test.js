@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
-import { inflateSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { decodeMap } from "../app/mapfile.js";
 import { GLYPHS } from "../app/glyphs.js";
@@ -16,7 +15,6 @@ const APP = fileURLToPath(new URL("../app/", import.meta.url));
 const FIXTURES = fileURLToPath(new URL("./fixtures/", import.meta.url));
 const GLYPH_IDS = GLYPHS.map((glyph) => glyph.id);
 const STAGE = { w: 1200, h: 800 };
-const base = new Uint8Array(inflateSync((await readFile(APP + "data/basemap.bin")).subarray(8)));
 
 const files = [
   ...(await readdir(APP + "data/scenarios")).filter((name) => name.endsWith(".ahmap")).map((name) => APP + "data/scenarios/" + name),
@@ -41,7 +39,7 @@ function measuringContext() {
 // The countries whose name is not drawn when the view is centred on each of their areas at the highest zoom.
 function unnamed(data) {
   const representative = representativeColours(data.palette);
-  const regions = findRegions(data.planes.political, N, representative, base);
+  const regions = findRegions(data.planes.political, N, representative);
   const painted = new Set();
   for (let i = 0; i < data.planes.political.length; i++) painted.add(representative[data.planes.political[i]]);
   painted.delete(0);

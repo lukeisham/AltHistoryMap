@@ -247,7 +247,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertEqual(sorted(re.findall(r"^\s+(\w+):", offered, re.MULTILINE)), sorted(js_constant(APP / "model.js", "LAYERS")))
 
     def test_the_city_colour_choice_travels_from_the_button_to_the_dot(self) -> None:
-        row = row_starting(self.section, "`markers.js`")
+        row = row_starting(self.section, "`markers.js` |")
         for name in ("scene.cityColour", "renderer.setCityColour", "ahm.prefs", "cityColour"):
             self.assertIn(f"`{name}`", row)
         self.assertIn("cityColour", app_source("layerbar.js"))
@@ -481,7 +481,7 @@ class GuideBoundaryTest(unittest.TestCase):
 
 
     def test_zoom_levels_come_from_one_table_that_the_guide_states(self) -> None:
-        row = row_starting(self.section, "`markers.js`")
+        row = row_starting(self.section, "`markers.js` |")
         viewport = app_source("viewport.js")
         for key, pair in (("flag", "1.2 to 1.6"), ("countryName", "2.0 to 2.6"), ("capital", "3.0 to 3.6"), ("city", "4.2 to 5.0")):
             numbers = pair.replace(" to ", ", ")
@@ -510,7 +510,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("wet = ~row & land_mask", basemap)
 
     def test_the_colony_tool_places_a_colony_city_and_make_city_clears_it(self) -> None:
-        row = row_starting(self.section, "`markers.js`")
+        row = row_starting(self.section, "`markers.js` |")
         for name in ("Colony tool", "tools.js", "key `O`", "editor.js", "Make city", "markerinfo.js", "editor.setColony"):
             self.assertIn(name, row)
         tools = app_source("tools.js")
@@ -520,8 +520,8 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("editor.setColony(id, colony)", app_source("stage.js"))
 
     def test_country_names_travel_from_the_button_through_the_renderer_to_the_picture(self) -> None:
-        row = row_starting(self.section, "`countrylabels.js`")
-        for name in ("render.js", "findRegions(political, n, representative, base)", "representativeColours(palette)", "layerimage.js", "drawCountryNames", "scene.countryRegions", "countryNames", "renderer.setCountryNames", "ahm.prefs", 'data-action="country-names"', "layerbar.js", "main.js", "countrydata.js"):
+        row = row_starting(self.section, "`countrylabels.js` |")
+        for name in ("render.js", "findRegions(political, n, representative)", "representativeColours(palette)", "layerimage.js", "drawCountryNames", "scene.countryRegions", "countryNames", "renderer.setCountryNames", "ahm.prefs", 'data-action="country-names"', "layerbar.js", "main.js", "countrydata.js"):
             self.assertIn(name, row)
         render = app_source("render.js")
         self.assertTrue(imports("render.js", "countrylabels.js") and imports("countrylabels.js", "countrydata.js"))
@@ -541,15 +541,43 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn(f"below {js_constant(APP / 'countrylabels.js', 'MIN_SIZE')} screen pixels", row)
         self.assertIn(f"about {js_constant(APP / 'countrylabels.js', 'SAMPLES_PER_SIDE')} samples", row)
 
-    def test_islands_symbols_and_default_names_are_stated_as_the_code_holds_them(self) -> None:
-        labels = row_starting(self.section, "`countrylabels.js`")
-        self.assertIn(f"`ISLAND_GAP` ({js_constant(APP / 'countrylabels.js', 'ISLAND_GAP')} grid pixels", labels)
-        self.assertIn("a quarter", labels)
+    def test_the_navigation_tree_names_only_real_top_level_files_and_folders(self) -> None:
+        text = guide_text()
+        tree = text[text.index("## Navigation") : text.index("## Cross-boundary behaviour")]
+        top = re.findall(r"(?m)^[├└]── (.+?)(?:\s{2,}.*)?$", tree)
+        self.assertGreaterEqual(len(top), 7)
+        names = [name.strip() for entry in top for name in entry.split(" · ")]
+        missing = [name for name in names if not (ROOT / name.rstrip("/")).exists()]
+        self.assertEqual(missing, [])
+        for folder in ("app", "build", "tests", "plans"):
+            self.assertIn(f"{folder}/", names)
+        data = APP / "data"
+        for name in ("basemap.bin", "LUCIDE-LICENSE.txt", "scenarios"):
+            self.assertTrue((data / name).exists(), name)
+
+    def test_every_pop_up_has_a_close_button_as_the_guide_says(self) -> None:
+        row = row_starting(self.section, "`dialogparts.js`, `dialogs.js`, `markerinfo.js` |")
+        parts = app_source("dialogparts.js")
+        self.assertRegex(parts, r"function closeButton\(onClick\) \{[^}]*setAttribute\(\"aria-label\", \"Close\"\)")
+        self.assertIn("fd-close", parts)
+        self.assertIn('close.setAttribute("aria-label", "Close");', app_source("dialogs.js"))
+        self.assertIn('"btn dialog-close"', app_source("dialogs.js"))
+        self.assertIn('data-role="info-close"', (APP / "index.html").read_text(encoding="utf-8"))
+        self.assertIn('closeButton: part("info-close")', app_source("main.js"))
+        for name in ("flagdesigner.js", "crestmaker.js", "countryfacts.js"):
+            self.assertIn("closeButton", app_source(name), f"{name} has no close button")
+        for fragment in ("`closeButton`", "`fd-close`", "`dialog-close`", '`data-role="info-close"`'):
+            self.assertIn(fragment, row)
+
+    def test_symbols_default_names_and_straight_names_are_stated_as_the_code_holds_them(self) -> None:
+        labels = row_starting(self.section, "`countrylabels.js` |")
+        self.assertIn("every name is straight", labels)
+        self.assertNotRegex(app_source("countrylabels.js"), r"(?i)island|coast|landmass|rotate")
+        self.assertNotIn("island", labels.lower())
         self.assertIn("`tiny` region", labels)
         self.assertIn("SINGLE_PIXEL_K", labels)
-        self.assertEqual(js_constant(APP / "countrylabels.js", "ISLAND_AREA_SHARE"), 0.25)
-        self.assertIn("findRegions(model.planes.political, n, representativeColours(model.palette), model.base)", app_source("render.js"))
-        self.assertIn("symbolAlpha(z)", row_starting(self.section, "`markers.js`"))
+        self.assertIn("findRegions(model.planes.political, n, representativeColours(model.palette))", app_source("render.js"))
+        self.assertIn("symbolAlpha(z)", row_starting(self.section, "`markers.js` |"))
         self.assertIn("symbolAlpha(z) <= 0", app_source("markers.js"))
         names = row_starting(self.section, "`countrydata.js`")
         self.assertIn("`defaultColourName(palette, colour)`", names)
@@ -621,6 +649,61 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertGreater(len(files), 50, "the file scan found almost nothing, so the scan is broken")
         outward = re.compile(r"System/|ports\.json|catalog\.json|appservers")
         self.assertEqual([path.name for path in files if outward.search(path.read_text(encoding="utf-8"))], [])
+
+
+class PerformanceRowsTest(unittest.TestCase):
+    """The purpose line and the two frame rows of the cross-boundary table against the code."""
+
+    def setUp(self) -> None:
+        self.frame = row_starting(guide_section(), "`render.js` | the browser's frame")
+        self.culling = row_starting(guide_section(), "`countrylabels.js`, `markers.js` |")
+        self.rows = self.frame + self.culling
+        self.labels = app_source("countrylabels.js")
+        self.render = app_source("render.js")
+
+    def test_there_is_no_separate_performance_section(self) -> None:
+        self.assertNotIn("## Performance", guide_text())
+        self.assertNotIn("*Performance*", guide_text())
+
+    def test_the_purpose_states_the_frame_budget_and_the_row_agrees(self) -> None:
+        purpose = guide_text()[: guide_text().index("## Navigation")]
+        self.assertIn("a frame costs 16 milliseconds or less", purpose)
+        for feature in ("scenario maps", "colonies", "country names drawn over their land", "dominion, client state or colony", "enlarged under the pointer", "eye-dropper", "crash recovery", "Cloudflare Pages"):
+            self.assertIn(feature, purpose)
+        for address in (LIVE_URL, CLOUDFLARE_URL, "download from the public GitHub repository `lukeisham/AltHistoryMap`", "run locally with `serve.py`"):
+            self.assertIn(address, purpose)
+        self.assertIn("16 ms or less (60 frames a second)", self.frame)
+
+    def test_the_tests_the_rows_name_exist(self) -> None:
+        for name in ("render.test.js", "performance.test.js"):
+            self.assertIn(f"`{name}`", self.rows)
+            self.assertTrue((ROOT / "tests" / name).exists(), name)
+
+    def test_the_numbers_are_the_code_values(self) -> None:
+        samples = js_constant(APP / "countrylabels.js", "SAMPLES_PER_SIDE")
+        self.assertIn(f"about {samples} samples a side", self.culling)
+        self.assertIn(f"names by {js_constant(APP / 'countrylabels.js', 'CULL_MARGIN')} pixels", self.culling)
+        self.assertIn(f"markers by {js_constant(APP / 'markers.js', 'CULL_MARGIN')} pixels", self.culling)
+        budget = js_constant(ROOT / "tests/performance.test.js", "FIND_REGIONS_BUDGET_MS")
+        self.assertIn(f"`findRegions` takes {budget} ms or less", self.frame)
+        settle = js_constant(APP / "render.js", "REGIONS_SETTLE_MS")
+        self.assertIn(f"`REGIONS_SETTLE_MS` ({settle} ms)", self.frame)
+
+    def test_a_frame_is_scheduled_once_and_regions_are_found_in_one_place_and_held_during_a_stroke(self) -> None:
+        self.assertRegex(self.render, r"function scheduleFrame\(\) \{\s+if \(frameRequest\) return;")
+        self.assertEqual(self.render.count("findRegions("), 1)
+        self.assertIn("regions ??= findRegions(", self.render)
+        self.assertIn('if (notice.layer === "political") holdRegionsUntilSettled();', self.render)
+        self.assertIn("if (!regions && staleRegions) return staleRegions;", self.render)
+        self.assertNotRegex(self.render, r"function (?:panBy|zoomAt|setView)\([^)]*\) \{[^}]*regions = null")
+
+    def test_a_paint_notice_recolours_only_the_changed_rectangle(self) -> None:
+        self.assertIn("dirty = dirty ? unionRect(dirty, notice.rect) : { ...notice.rect };", self.render)
+        self.assertIn("else layerImage.update(look, src, dirty);", self.render)
+
+    def test_names_off_the_stage_and_too_far_out_are_skipped_before_any_text_work(self) -> None:
+        self.assertIn("if (nameAlpha <= 0) return;", self.labels)
+        self.assertLess(self.labels.index("sx < -CULL_MARGIN"), self.labels.index("ctx.measureText(name)"))
 
 
 class ReadmeStaysHumanTest(unittest.TestCase):

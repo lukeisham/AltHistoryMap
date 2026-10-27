@@ -315,6 +315,9 @@ function installFakes() {
   const frames = [];
   const offscreen = [];
   const observers = [];
+  const timers = [];
+  set("setTimeout", (fn) => timers.push(fn));
+  set("clearTimeout", (id) => id && timers.splice(id - 1, 1, () => {}));
   set("requestAnimationFrame", (fn) => frames.push(fn));
   set("cancelAnimationFrame", () => frames.splice(0));
   set("getComputedStyle", () => fakeStyle());
@@ -355,6 +358,9 @@ function installFakes() {
     observers,
     flush() {
       while (frames.length) frames.shift()();
+    },
+    settle() {
+      while (timers.length) timers.shift()();
     },
     restore() {
       for (const [name, descriptor] of Object.entries(saved)) {
@@ -761,6 +767,9 @@ test("country names follow the Political paint through paint, undo and redo, and
     renderer.zoomAt(3, 0, 0);
     const named = () => {
       fakes.flush();
+      fakes.settle();
+      canvas.log.length = 0;
+      fakes.flush();
       const texts = canvas.log.filter(([n]) => n === "fillText").map(([, text]) => text);
       canvas.log.length = 0;
       return texts;
@@ -789,6 +798,41 @@ test("country names follow the Political paint through paint, undo and redo, and
   } finally {
     fakes.restore();
   }
+});
+
+test("a paint stroke finds the country name regions once, after the stroke settles, and not once per frame", () => {
+  // Reads of the Political plane in one stroke, with the names on or off; the difference is the name searches.
+  const readsDuring = (namesOn) => {
+    const fakes = installFakes();
+    try {
+      const model = smallModel();
+      const canvas = fakeCanvas(160, 160);
+      let reads = 0;
+      const plane = model.planes.political;
+      Object.defineProperty(model.planes, "political", { get: () => (reads++, plane), configurable: true });
+      const renderer = createRenderer({ canvas, model, glyphs: [] });
+      renderer.setCountryNames(namesOn);
+      fakes.flush();
+      const before = reads;
+      model.beginStroke({ tool: "paint", layer: "political", colour: 1, size: 1 });
+      for (let x = 1; x < 8; x++) {
+        model.strokeTo(x + 0.5, 3.5);
+        fakes.flush();
+      }
+      model.endStroke();
+      fakes.flush();
+      const during = reads - before;
+      fakes.settle();
+      fakes.flush();
+      return { during, afterSettle: reads - before - during };
+    } finally {
+      fakes.restore();
+    }
+  };
+  const off = readsDuring(false);
+  const on = readsDuring(true);
+  assert.ok(on.during - off.during <= 1, `${on.during - off.during} name searches during the stroke`);
+  assert.equal(on.afterSettle - off.afterSettle, 1, "one search once the stroke has settled");
 });
 
 // A context that records the text drawn; a character is 0.5 of the font size wide.

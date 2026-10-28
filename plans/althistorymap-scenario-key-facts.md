@@ -8,7 +8,7 @@ major_because: "multi-step; edits the scenario builder, eight scenario sources a
 project: ""
 rows: ["AltHistoryMap#5 (second half)"]
 review: "APPROVED 2026-10-20 — inline !ReviewPlan: alignment (Lukeatron charter, app-decisions #17), efficiency (research and verification by sub-agents, build and tests by script, new builder code paired with tests), measurability (each step has a done-check, Verify precedes close-out); one flag fixed (sources file records the verdict)"
-skills_used: [!AppIssues, !VibeCoding, !FactCheck, !HeadlessChromeBrowser, !PlainEnglish]
+skills_used: [!IssuesAndDecisions, !VibeCoding, !FactCheck, !HeadlessChromeBrowser, !PlainEnglish]
 ---
 
 # Plan — AltHistoryMap: real, source-checked key facts for the bundled scenarios
@@ -23,7 +23,7 @@ Each country (political palette colour) in the eight bundled scenarios opens in 
 - `alignment` is empty, `flag` and `crest` are -1 in every record. No scenario map, flag or marker changes.
 - `tests/test_scenarios.py` reads every rebuilt `.ahmap` with the app's real reader and matches its countries to the source; the app's full test suite is green.
 - `GUIDE.md` describes the new `countries` key in the `build_scenarios.py` cross-file row, and `test_guide` passes.
-- Row 5 of `issues.md` is deleted through `!AppIssues` (see step 8).
+- Row 5 of `issues.md` is deleted through `!IssuesAndDecisions` (see step 8).
 - Charter baseline (Lukeatron): the feature works (shown by test output and by opening a scenario in the running app), it follows the house style of the sibling build code, and no core skill, checkpoint, template or `CLAUDE.md` file changed.
 
 ## Pre-decisions (change at review, or they stand)
@@ -35,7 +35,7 @@ Each country (political palette colour) in the eight bundled scenarios opens in 
 ## Resources
 - **Memory to read:** `System/Docs/Rules/vibe-coding-rules.md` in full before the first edit; `System/Apps/AltHistoryMap/GUIDE.md` and `app-decisions.md` (#14, #17); `app/countrydata.js` (field limits), `app/mapfile.js` (how `countries` is read).
 - **Capability skills:** `!HeadlessChromeBrowser` for sources that need a real page; sub-agents also use their own web search and fetch tools.
-- **Domain skills (Skillbank):** `!FactCheck` (its fail-closed rule and provenance labels, applied per field rather than to a pasted paragraph), `!AppIssues` (delete the row), `!VibeCoding` (always on).
+- **Domain skills (Skillbank):** `!FactCheck` (its fail-closed rule and provenance labels, applied per field rather than to a pasted paragraph), `!IssuesAndDecisions` (delete the row), `!VibeCoding` (always on).
 - **Sub-agents:** one researcher per scenario (7 historical scenarios, step 3); one independent verifier per scenario (step 4). The verifier gets only the claims and their citations, never the researcher's reasoning.
 - **Scripts:** `System/Sandbox/althistorymap-key-facts/roster.py` (step 1, one-off); `python3 build/build_scenarios.py`; the app's tests; `python3 System/Tools/comment-lint/comment_lint.py`.
 - **Temp-skills:** none
@@ -53,7 +53,7 @@ Each country (political palette colour) in the eight bundled scenarios opens in 
   - [x] !Checkpoint — N/A: stays inside `System/Apps/AltHistoryMap/`, nothing outgoing, no Long-Term memory change.
 - [x] Step 8 — Rebuild and test. Run `python3 build/build_scenarios.py` for all eight scenarios, add a test that each rebuilt `.ahmap` yields exactly the countries in its source, then run the app's full test command (see `README.md`) and `comment_lint.py` on the changed files. Add the `countries` key to the `build_scenarios.py` row of the cross-file table in `GUIDE.md`, and run `test_guide`. Show the output. [script]
 - [x] Step 9 — See it in the app. Start `serve.py`, open `ottoman-1683` and `mongol-1279`, click painted land in View mode, and check that the Key Facts pop-up fields equal the source and that a blank field is blank. Take one screenshot. [`!HeadlessChromeBrowser`]
-- [x] Step 10 — Close the issue. Read row 5 in `issues.md`. If it still includes the country names half and `app/countrylabels.js` is not yet wired in, reword it with `!AppIssues` to the names half only; otherwise delete the row. Then update the "Not queued" line for AltHistoryMap #5 in `System/Plans/New/_sunday-queue.md` to point at this plan, or remove it. [`!AppIssues`]
+- [x] Step 10 — Close the issue. Read row 5 in `issues.md`. If it still includes the country names half and `app/countrylabels.js` is not yet wired in, reword it with `!IssuesAndDecisions` to the names half only; otherwise delete the row. Then update the "Not queued" line for AltHistoryMap #5 in `System/Plans/New/_sunday-queue.md` to point at this plan, or remove it. [`!IssuesAndDecisions`]
 - [x] Verify — outputs meet every line in **Success criteria**, and the result matches the **Objective**? [pass/fail]
 
 ## Final step — Close out (always present)

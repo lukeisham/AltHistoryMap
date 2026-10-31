@@ -1,0 +1,32 @@
+.relation-menu {
+  position: absolute;
+  left: calc(var(--at-x, 0) * 1px);
+  top: calc(var(--at-y, 0) * 1px);
+  flex-direction: column;
+  gap: var(--s-1);
+  max-width: var(--panel-w);
+  margin: var(--s-2);
+  padding: var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: var(--shade-float);
+
+  &:not([hidden]) {
+    display: flex;
+  }
+}
+
+.relation-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.relation-option {
+  text-align: left;
+
+  &[aria-pressed="true"] {
+    outline: 2px solid var(--acc);
+    outline-offset: 1px;
+  }
+}

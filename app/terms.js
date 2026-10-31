@@ -105,9 +105,9 @@ const TERMS = {
   "flag:canton": ["Canton", "The top corner nearest the pole, here the top left. Many flags put a small flag or emblem there, as Australia's flag does with the Union Jack."],
 
   "relation:none": ["No relationship", "The country answers to no other country."],
-  "relation:dominion": ["Dominion", "A country that governs itself but is tied to another, its overlord, as the self-governing realms of an empire were. On the map its colour is a light shade of the overlord's."],
-  "relation:client": ["Client State", "A country that is nominally independent but depends on a stronger one for protection or money, and follows its lead. On the map its colour is a medium shade of the overlord's."],
-  "relation:colony": ["Colony", "A territory ruled directly from another country, its overlord. On the map its colour is a strong shade of the overlord's."],
+  "relation:dominion": ["Dominion", "A country that governs itself but is tied to another, its overlord, as the self-governing realms of an empire were. On the map its colour is a middle shade, lighter than a client state's."],
+  "relation:client": ["Client State", "A country that is nominally independent but depends on a stronger one for protection or money, and follows its lead. On the map its colour is the darkest shade, closest to its own colour."],
+  "relation:colony": ["Colony", "A territory ruled directly from another country, its overlord. On the map its colour is very light."],
 
   "alignment:lawful-good": ["Lawful good", "A country that keeps strict laws and uses them to protect people: honest, orderly and kind. Typical of a just kingdom or a well-run commonwealth."],
   "alignment:neutral-good": ["Neutral good", "A country that simply tries to do right by its people, with or without strict rules. Typical of a friendly federation or a peaceful free city."],

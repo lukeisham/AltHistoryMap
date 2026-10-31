@@ -3,10 +3,12 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { findRegions, drawCountryNames } from "../app/countrylabels.js";
+import { findRegions, regionSearch, drawCountryNames } from "../app/countrylabels.js";
+import { countryName } from "../app/countrydata.js";
 
 const SIDE = 4096;
 const FIND_REGIONS_BUDGET_MS = 600;
+const SEARCH_SLICE_BUDGET_MS = 12;
 
 // Forty separate blocks of five colours on a plane, about the shape of a busy scenario.
 function busyWorld() {
@@ -71,8 +73,12 @@ test("a frame measures and draws only the names on the stage", () => {
   drawCountryNames(ctx, sceneOf(regions, view));
   const onStage = regions.filter((r) => r.x * k > -40 && r.x * k < 1240 && r.y * k > -40 && r.y * k < 840).length;
   assert.ok(onStage > 0 && onStage < regions.length, "the view should hold some regions but not all");
-  assert.equal(calls.measureText, onStage, "one measurement per name on the stage, none for names off it");
+  const palette = sceneOf(regions, view).palette;
+  const namesOnStage = new Set(regions.filter((r) => r.x * k > -40 && r.x * k < 1240 && r.y * k > -40 && r.y * k < 840).map((r) => countryName(undefined, palette, r.colour)));
+  assert.equal(calls.measureText, namesOnStage.size, "one measurement per distinct name on the stage, none for names off it");
   assert.ok(calls.fillText <= onStage);
+  drawCountryNames(ctx, sceneOf(regions, view));
+  assert.equal(calls.measureText, namesOnStage.size, "a second frame measures nothing: the width of each name is cached");
 });
 
 test("a view too far out for names does no text work at all", () => {
@@ -81,4 +87,22 @@ test("a view too far out for names does no text work at all", () => {
   const { ctx, calls } = countingContext();
   drawCountryNames(ctx, sceneOf(regions, { x: 0, y: 0, k: 0.2, kFit: 0.2 }));
   assert.deepEqual(calls, { measureText: 0, fillText: 0, save: 0 });
+});
+
+test("the region search in slices gives the whole search's answer, and no slice runs longer than its share of a frame", () => {
+  const political = busyWorld();
+  const search = regionSearch(political, SIDE);
+  let slowest = 0;
+  let slices = 0;
+  let step;
+  for (;;) {
+    const started = performance.now();
+    step = search.next();
+    slowest = Math.max(slowest, performance.now() - started);
+    slices++;
+    if (step.done) break;
+  }
+  assert.deepEqual(step.value, findRegions(political, SIDE));
+  assert.ok(slices > 100, `only ${slices} slices; the search must yield often enough to stop between rows`);
+  assert.ok(slowest < SEARCH_SLICE_BUDGET_MS, `a slice took ${slowest.toFixed(1)} ms, budget ${SEARCH_SLICE_BUDGET_MS} ms`);
 });

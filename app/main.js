@@ -11,6 +11,8 @@ import { createFlagDesigner } from "./flagdesigner.js";
 import { createCrestMaker } from "./crestmaker.js";
 import { createCountryFacts } from "./countryfacts.js";
 import { createCountries } from "./countries.js";
+import { createRelations } from "./relations.js";
+import { createRelationMenu } from "./relationmenu.js";
 import { renderCrest, renderShieldOnly } from "./crestcells.js";
 import { downloadBlob } from "./filesave.js";
 import { createFlagZoom } from "./flagzoom.js";
@@ -43,10 +45,15 @@ const START_SCENARIO = "blank-world";
 
 const part = (name) => document.querySelector(`[data-role="${name}"]`);
 
-async function startingMap(model, glyphIds) {
+// Lets the browser paint and answer input between two long steps of start-up.
+const yieldToBrowser = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+// `blob` is the starting scenario's fetch, begun before the base map finished so the two downloads overlap.
+async function startingMap(model, glyphIds, blob) {
   const untitled = model.name;
   try {
-    const data = await decodeMap(await loadScenarioBlob(START_SCENARIO), glyphIds);
+    const data = await decodeMap(await blob, glyphIds);
+    await yieldToBrowser();
     model.replace({ ...data, name: untitled, origin: null });
   } catch (error) {
     console.warn("main: the blank world scenario was not loaded; starting with an empty map", error);
@@ -77,6 +84,9 @@ async function main() {
   const state = createAppState({ mode: narrow.matches ? "view" : prefs.mode, layer: prefs.layer, view: prefs.view, cityColour: prefs.cityColour, countryNames: prefs.countryNames, glyph: glyphIds[0] });
 
   say("Loading the map...");
+  const startingBlob = loadScenarioBlob(START_SCENARIO);
+  // startingMap reports a failed fetch; this only stops the browser flagging it as unhandled when the base map fails first and start-up ends.
+  startingBlob.catch(() => {});
   let base;
   try {
     base = await loadBasemap();
@@ -85,8 +95,10 @@ async function main() {
     say(error.message);
     return;
   }
+  await yieldToBrowser();
   const model = createModel(base);
-  await startingMap(model, glyphIds);
+  await startingMap(model, glyphIds, startingBlob);
+  await yieldToBrowser();
   messages.clear();
 
   const canvas = part("canvas");
@@ -125,6 +137,8 @@ async function main() {
     rng: Math.random,
   });
   const countries = createCountries({ facts, model, editor, say });
+  const relationMenu = createRelationMenu({ box: part("relation-menu"), stage: part("stage") });
+  const relations = createRelations({ model, editor, menu: relationMenu, say });
   const flagZoom = createFlagZoom({ box: part("flag-zoom"), canvas: part("flag-zoom-canvas"), getPalette });
   const stageBox = part("stage");
 
@@ -159,6 +173,8 @@ async function main() {
     markerInfo,
     designs,
     countries,
+    relations,
+    relationMenu,
     flagZoom,
     say,
     glyphIds,

@@ -525,7 +525,7 @@ class GuideBoundaryTest(unittest.TestCase):
             self.assertIn(name, row)
         render = app_source("render.js")
         self.assertTrue(imports("render.js", "countrylabels.js") and imports("countrylabels.js", "countrydata.js"))
-        self.assertIn("countryRegions: countryNames && look === \"political\" ? regionsNow() : null", render)
+        self.assertIn("countryRegions: countryNames && look === \"political\" ? regionsNow(deadline) : null", render)
         self.assertIn("drawCountryNames(ctx, scene)", render)
         self.assertIn("setCountryNames(on)", render)
         self.assertIn("renderer.setCountryNames(", app_source("main.js"))
@@ -576,17 +576,17 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertNotIn("island", labels.lower())
         self.assertIn("`tiny` region", labels)
         self.assertIn("SINGLE_PIXEL_K", labels)
-        self.assertIn("findRegions(model.planes.political, n, representativeColours(model.palette))", app_source("render.js"))
+        self.assertIn("regionSearch(model.planes.political, n, representativeColours(model.palette))", app_source("render.js"))
         self.assertIn("symbolAlpha(z)", row_starting(self.section, "`markers.js` |"))
         self.assertIn("symbolAlpha(z) <= 0", app_source("markers.js"))
         names = row_starting(self.section, "`countrydata.js`")
         self.assertIn("`defaultColourName(palette, colour)`", names)
         self.assertIn("countryName(country, palette, colour)", app_source("countrydata.js").replace("export function ", ""))
 
-    def test_a_relationship_is_stored_mixed_on_the_political_look_and_chosen_in_key_facts(self) -> None:
+    def test_a_relationship_is_stored_mixed_toward_white_on_the_political_look_and_chosen_by_right_click(self) -> None:
         row = row_starting(self.section, "`countrydata.js`")
         source = app_source("countrydata.js")
-        for relation, share in (("dominion", "0.25"), ("client", "0.45"), ("colony", "0.65")):
+        for relation, share in (("client", "0.25"), ("dominion", "0.5"), ("colony", "0.8")):
             self.assertRegex(source, rf'id: "{relation}", label: "[A-Za-z ]+", share: {share}')
             self.assertIn(share, row)
         for name in ("relation", "overlord", "relationLoops"):
@@ -594,13 +594,30 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertTrue(imports("layerimage.js", "countrydata.js") and imports("model.js", "countrydata.js") and imports("countries.js", "countrydata.js"))
         self.assertIn("relationLoops(model.countries, colour, clean.overlord)", app_source("model.js"))
         self.assertIn("relationLoops(countries, country.colour, country.overlord)", app_source("mapfile.js"))
-        self.assertIn("shown[colour] = mixColour(", app_source("layerimage.js"))
+        self.assertIn("shown[colour] = mixColour(palette[colour], WHITE, share)", app_source("layerimage.js"))
         self.assertIn("src.shown[src.political[i]]", app_source("layerimage.js"))
         self.assertIn("} else if (notice.countries) {", app_source("render.js"))
-        self.assertIn("others", row_starting(self.section, "`countries.js`"))
-        self.assertIn("editable: editor.editGate(), others })", app_source("countries.js"))
-        self.assertIn('aria-label="Relationship"', row_starting(self.section, "`countries.js`"))
-        self.assertIn('"Relationship"', app_source("countryfacts.js"))
+        self.assertIn("no relationship control", row_starting(self.section, "`countries.js`"))
+        self.assertNotIn("Relationship", app_source("countryfacts.js"))
+        self.assertNotIn("others", app_source("countries.js"))
+
+    def test_right_click_on_land_opens_the_relationship_menu_through_the_stage(self) -> None:
+        row = row_starting(self.section, "`relations.js`")
+        menu = row_starting(self.section, "`relationmenu.js`")
+        for name in ("stage.js", "relationmenu.js", "main.js", "nearestCapitalColour", "coloursTouch", "relationLoops", "editor.setCountry(colour, {relation, overlord})", "termFor"):
+            self.assertIn(name, row)
+        self.assertEqual(js_constant(APP / "stage.js", "RIGHT_BUTTON"), 2)
+        self.assertIn("relations.menuAt(pixelAt(done.start), done.start)", app_source("stage.js"))
+        self.assertIn("relationMenu.hide();", app_source("stage.js"))
+        self.assertTrue(imports("relations.js", "countrydata.js") and imports("relations.js", "terms.js") and imports("main.js", "relations.js") and imports("main.js", "relationmenu.js"))
+        self.assertIn("editor.setCountry(colour, patch)", app_source("relations.js"))
+        self.assertIn("nearestCapitalColour(model.markers, pixel.x, pixel.y, colour)", app_source("relations.js"))
+        self.assertIn('data-role="relation-menu"', (APP / "index.html").read_text(encoding="utf-8"))
+        self.assertIn('part("relation-menu")', app_source("main.js"))
+        self.assertIn("relationmenu.css", (APP / "index.html").read_text(encoding="utf-8"))
+        self.assertIn('data-role="relation-menu"', menu)
+        self.assertIn('doc.addEventListener("pointerdown"', app_source("relationmenu.js"))
+        self.assertIn("--at-x", app_source("relationmenu.js"))
 
     def test_a_dropped_map_file_reaches_the_open_action_and_the_browser_is_stopped_from_navigating(self) -> None:
         row = row_starting(self.section, "`filedrop.js`")
@@ -691,19 +708,45 @@ class PerformanceRowsTest(unittest.TestCase):
 
     def test_a_frame_is_scheduled_once_and_regions_are_found_in_one_place_and_held_during_a_stroke(self) -> None:
         self.assertRegex(self.render, r"function scheduleFrame\(\) \{\s+if \(frameRequest\) return;")
-        self.assertEqual(self.render.count("findRegions("), 1)
-        self.assertIn("regions ??= findRegions(", self.render)
+        self.assertEqual(self.render.count("regionSearch("), 1)
+        self.assertIn("search ??= regionSearch(", self.render)
         self.assertIn('if (notice.layer === "political") holdRegionsUntilSettled();', self.render)
-        self.assertIn("if (!regions && staleRegions) return staleRegions;", self.render)
+        self.assertIn("if (staleRegions) return staleRegions;", self.render)
         self.assertNotRegex(self.render, r"function (?:panBy|zoomAt|setView)\([^)]*\) \{[^}]*regions = null")
 
     def test_a_paint_notice_recolours_only_the_changed_rectangle(self) -> None:
         self.assertIn("dirty = dirty ? unionRect(dirty, notice.rect) : { ...notice.rect };", self.render)
-        self.assertIn("else layerImage.update(look, src, dirty);", self.render)
+        self.assertIn("layerImage.update(look, makeSource(model, theme), dirty);", self.render)
+
+    def test_a_whole_plane_recolour_and_the_name_search_are_spread_over_frames(self) -> None:
+        self.assertIn("layerImage.startRebuild(look, makeSource(model, theme));", self.render)
+        self.assertIn("layerImage.stepRebuild(deadline)", self.render)
+        self.assertIn("while (!flushLayerImage(Infinity));", self.render)
+        budget = js_constant(APP / "render.js", "FRAME_WORK_MS")
+        self.assertIn(f"`FRAME_WORK_MS` ({budget} ms)", self.frame)
+        rows = js_constant(APP / "layerimage.js", "ROWS_PER_CHECK")
+        self.assertIn("`ROWS_PER_CHECK`", self.frame)
+        self.assertGreater(int(rows), 0)
+        slice_budget = js_constant(ROOT / "tests/performance.test.js", "SEARCH_SLICE_BUDGET_MS")
+        self.assertIn(f"no slice of `regionSearch` takes more than {slice_budget} ms", self.frame)
+        limit = js_constant(ROOT / "tests/render.test.js", "FRAME_LIMIT_MS")
+        self.assertIn(f"when a frame passes {limit} ms", row_starting(guide_section(), "`performance.test.js`"))
+
+    def test_startup_overlaps_the_two_fetches_and_yields_between_long_steps(self) -> None:
+        row = row_starting(guide_section(), "`api.js`, `main.js`")
+        main = app_source("main.js")
+        for name in ("yieldToBrowser", "loadScenarioBlob", "loadBasemap", "decodeMap", "model.replace"):
+            self.assertIn(name, row)
+        self.assertLess(main.index("loadScenarioBlob(START_SCENARIO)"), main.index("await loadBasemap()"))
+        self.assertEqual(main.count("await yieldToBrowser();"), 3)
+        self.assertIn("four bytes at a time", row)
+        self.assertIn("new Uint32Array(base.buffer, base.byteOffset, wholeWords)", app_source("model.js"))
 
     def test_names_off_the_stage_and_too_far_out_are_skipped_before_any_text_work(self) -> None:
         self.assertIn("if (nameAlpha <= 0) return;", self.labels)
-        self.assertLess(self.labels.index("sx < -CULL_MARGIN"), self.labels.index("ctx.measureText(name)"))
+        self.assertLess(self.labels.index("sx < -CULL_MARGIN"), self.labels.index("widthPerSizeOf(ctx, theme.font, name)"))
+        self.assertIn("`widthPerSizeOf`", self.culling)
+        self.assertIn(f"at most {js_constant(APP / 'countrylabels.js', 'MAX_CACHED_WIDTHS')} kept", self.culling)
 
 
 class ReadmeStaysHumanTest(unittest.TestCase):

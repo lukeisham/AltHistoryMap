@@ -216,11 +216,11 @@ export function makeSource(model, theme) {
     pale[i + 1] = mixColour(colour, WHITE, numbers.cultureTint);
     faded[i + 1] = mixColour(packed.land, colour, numbers.politicalFade);
   });
-  // A country that answers to another shows its own colour mixed toward the other's; the palette itself is untouched.
+  // A country that answers to another shows its own colour lightened by its relationship; the palette itself is untouched.
   const shown = new Uint32Array(palette);
-  for (const { colour, overlord, relation } of model.countries) {
+  for (const { colour, relation } of model.countries) {
     const share = RELATIONS.find((kind) => kind.id === relation)?.share;
-    if (share !== undefined && palette[colour] !== 0 && palette[overlord] !== 0) shown[colour] = mixColour(palette[colour], palette[overlord], share);
+    if (share !== undefined && palette[colour] !== 0) shown[colour] = mixColour(palette[colour], WHITE, share);
   }
   const { political, border, province, culture } = model.planes;
   return {
@@ -336,11 +336,16 @@ export function makeCanvas(width, height) {
   return canvas;
 }
 
+// Rows coloured between two looks at the clock while a staged rebuild runs; about two milliseconds of work.
+const ROWS_PER_CHECK = 32;
+
 /**
  * The cached picture of the current look.
  * @param {number} n Grid side.
- * @returns {{canvas: object, rebuild: Function, update: Function}} `rebuild(look, src)` repaints
- *   everything; `update(look, src, rect)` repaints an inclusive pixel rectangle.
+ * @returns {{canvas: object, rebuild: Function, startRebuild: Function, stepRebuild: Function, update: Function}}
+ *   `rebuild(look, src)` repaints everything at once. `startRebuild(look, src)` and `stepRebuild(deadline)` do the
+ *   same in bands of rows, so render.js can spend a few milliseconds of each frame on it. `update(look, src, rect)`
+ *   repaints an inclusive pixel rectangle.
  */
 export function createLayerImage(n) {
   if (new Uint8Array(new Uint32Array([1]).buffer)[0] !== 1) {
@@ -351,12 +356,37 @@ export function createLayerImage(n) {
   const image = g.createImageData(n, n);
   const pixels = new Uint32Array(image.data.buffer);
   const whole = { x0: 0, y0: 0, x1: n - 1, y1: n - 1 };
+  let job = null;
 
   return {
     canvas,
     rebuild(look, src) {
+      job = null;
       fillRect(look, src, whole, pixels);
       g.putImageData(image, 0, 0);
+    },
+    startRebuild(look, src) {
+      job = { look, src, row: 0 };
+    },
+    /**
+     * Colours bands of rows until the clock passes `deadline` or the picture is whole, and uploads the rows it
+     * coloured. Bands upload on their own because one whole-plane upload costs more than a frame allows.
+     * @param {number} deadline a `performance.now()` value
+     * @returns {boolean} True when no rebuild is left to do.
+     */
+    stepRebuild(deadline) {
+      if (!job) return true;
+      const first = job.row;
+      do {
+        const last = Math.min(n - 1, job.row + ROWS_PER_CHECK - 1);
+        fillRect(job.look, job.src, { x0: 0, y0: job.row, x1: n - 1, y1: last }, pixels);
+        job.row = last + 1;
+      } while (job.row < n && performance.now() < deadline);
+      if (first === 0 && job.row >= n) g.putImageData(image, 0, 0);
+      else g.putImageData(image, 0, 0, 0, first, n, job.row - first);
+      if (job.row < n) return false;
+      job = null;
+      return true;
     },
     update(look, src, rect) {
       // A province outline depends on the neighbours, so that look repaints one pixel wider on every side.

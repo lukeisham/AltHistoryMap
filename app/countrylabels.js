@@ -16,21 +16,42 @@ const MAX_SIZE = 30;
 const FILL_WIDTH = 0.9;
 const FILL_HEIGHT = 0.5;
 const MEASURE_SIZE = 100;
+// A map holds a few hundred names at most; the cap only stops a long editing session growing the cache without end.
+const MAX_CACHED_WIDTHS = 1000;
 const HALO_SHARE = 0.18;
 const CULL_MARGIN = 40;
+
+// How many tiny-region scan steps pass between two yields of the search; about a millisecond of work.
+const SCAN_SLICE = 1 << 18;
+// How many areas are turned into regions between two yields.
+const AREA_SLICE = 512;
 
 /**
  * Where each separate area of a painted political colour has room for its name: the middle of that
  * area's longest horizontal run, with the run's length and the height of the colour above and below
  * that point. An area is four-way connected on the sampling grid, and one too small to hold a name is
  * left out, so a stray pixel gets none. Colours that share a representative are one colour.
- * `largest` marks a colour's biggest area.
+ * `largest` marks a colour's biggest area. Runs to the end; render.js drives `regionSearch` in slices instead.
  * @param {Uint8Array} political n * n palette indexes, 0 unpainted
  * @param {number} n side of the plane in grid pixels
  * @param {Uint8Array} [representative] palette index -> the index its name belongs to (see `representativeColours`)
  * @returns {{colour: number, x: number, y: number, width: number, height: number, largest: boolean, tiny?: boolean}[]} grid pixels; `colour` is the representative
  */
 export function findRegions(political, n, representative = null) {
+  const search = regionSearch(political, n, representative);
+  for (let step = search.next(); ; step = search.next()) if (step.done) return step.value;
+}
+
+/**
+ * The same search as `findRegions`, as a generator that yields after each row, slice of areas or slice
+ * of the tiny-colour scan, so a caller can stop between yields and keep a frame inside its budget. The
+ * plane must not change while it runs. Its return value is the `findRegions` result.
+ * @param {Uint8Array} political
+ * @param {number} n
+ * @param {Uint8Array} [representative]
+ * @returns {Generator<void, object[], void>}
+ */
+export function* regionSearch(political, n, representative = null) {
   const stride = Math.max(1, Math.floor(n / SAMPLES_PER_SIDE));
   const rep = (value) => (representative ? representative[value] : value);
 
@@ -74,23 +95,27 @@ export function findRegions(political, n, representative = null) {
       }
     }
     previous = current;
+    yield;
   }
 
   const areas = new Map();
-  runs.forEach((run, id) => {
+  for (let id = 0; id < runs.length; id++) {
+    const run = runs[id];
     const root = find(id);
     const area = areas.get(root) ?? { colour: run.colour, cells: 0, longest: null, runs: [] };
     area.runs.push(run);
     area.cells += (run.end - run.start) / stride;
     if (!area.longest || run.end - run.start > area.longest.end - area.longest.start) area.longest = run;
     areas.set(root, area);
-  });
+    if (id % SCAN_SLICE === SCAN_SLICE - 1) yield;
+  }
 
   const kept = [...areas.values()].filter((area) => area.cells >= MIN_AREA_CELLS);
   const largestCells = new Map();
   for (const area of kept) largestCells.set(area.colour, Math.max(largestCells.get(area.colour) ?? 0, area.cells));
 
-  const regions = kept.map((area) => {
+  const regions = [];
+  for (const area of kept) {
     const { colour, longest } = area;
     const width = longest.end - longest.start;
     const column = Math.min(n - 1, Math.floor((longest.start + width / 2) / stride) * stride);
@@ -98,21 +123,23 @@ export function findRegions(political, n, representative = null) {
     let bottom = longest.y;
     while (top - stride >= 0 && rep(political[(top - stride) * n + column]) === colour) top -= stride;
     while (bottom + stride < n && rep(political[(bottom + stride) * n + column]) === colour) bottom += stride;
-    return { colour, x: longest.start + width / 2, y: longest.y, width, height: bottom - top + stride, largest: area.cells === largestCells.get(colour) };
-  });
+    regions.push({ colour, x: longest.start + width / 2, y: longest.y, width, height: bottom - top + stride, largest: area.cells === largestCells.get(colour) });
+    if (regions.length % AREA_SLICE === 0) yield;
+  }
 
-  return [...regions, ...tinyRegions(political, n, rep, regions)];
+  return [...regions, ...(yield* tinyRegions(political, n, rep, regions))];
 }
 
 // A colour whose every area is too small for the sampling grid (or too small to hold a name) would
 // otherwise have no name at any zoom. It gets one region at its first pixel, flagged `tiny`, which
 // drawCountryNames draws at the smallest readable size once the zoom reaches single pixels.
-function tinyRegions(political, n, rep, regions) {
+function* tinyRegions(political, n, rep, regions) {
   const named = new Set(regions.map((region) => region.colour));
   const found = new Map();
   for (let i = 0; i < political.length; i++) {
     const colour = political[i] === 0 ? 0 : rep(political[i]);
     if (colour !== 0 && !named.has(colour) && !found.has(colour)) found.set(colour, i);
+    if (i % SCAN_SLICE === SCAN_SLICE - 1) yield;
   }
   return [...found].map(([colour, i]) => {
     const y = Math.floor(i / n);
@@ -122,6 +149,25 @@ function tinyRegions(political, n, rep, regions) {
     while (end < n && rep(political[y * n + end]) === colour) end++;
     return { colour, x: (start + end) / 2, y, width: end - start, height: 1, largest: true, tiny: true };
   });
+}
+
+// Text width per unit of font size, by font and name, kept per context because a width belongs to the context's
+// text engine. Measuring is the dearest call in drawCountryNames and the answer only changes with the name or
+// the font, so a name is measured once, not once per region per frame.
+const widthCaches = new WeakMap();
+
+function widthPerSizeOf(ctx, font, name) {
+  let cache = widthCaches.get(ctx);
+  if (!cache) widthCaches.set(ctx, (cache = new Map()));
+  const key = `${font}|${name}`;
+  let width = cache.get(key);
+  if (width === undefined) {
+    if (cache.size >= MAX_CACHED_WIDTHS) cache.clear();
+    ctx.font = `${MEASURE_SIZE}px ${font}`;
+    width = ctx.measureText(name).width / MEASURE_SIZE;
+    cache.set(key, width);
+  }
+  return width;
 }
 
 /**
@@ -150,8 +196,7 @@ export function drawCountryNames(ctx, scene) {
     const sy = vp.y + (region.y + 0.5) * vp.k;
     if (sx < -CULL_MARGIN || sy < -CULL_MARGIN || sx > stage.w + CULL_MARGIN || sy > stage.h + CULL_MARGIN) continue;
     const name = countryName(recordOf.get(region.colour), palette, region.colour);
-    ctx.font = `${MEASURE_SIZE}px ${theme.font}`;
-    const widthPerSize = ctx.measureText(name).width / MEASURE_SIZE;
+    const widthPerSize = widthPerSizeOf(ctx, theme.font, name);
     ctx.globalAlpha = alpha;
     drawStraight(ctx, region, name, widthPerSize, vp, theme, sx, sy);
   }

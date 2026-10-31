@@ -813,12 +813,21 @@ export function createModel(base, n = N) {
   }
 
   // Water is never painted, so a map written before that rule (or by a scenario script) is cleaned on the way in.
+  // Almost no pixel is river or lake, so the scan reads four base bytes at a time and only looks closer at a word with a water bit.
   function clearWater(planes) {
     const layers = PLANE_NAMES.map((name) => planes[name]);
-    for (let i = 0; i < base.length; i++) {
-      if (!(base[i] & WATER)) continue;
+    const wholeWords = base.byteOffset % 4 === 0 ? base.length >> 2 : 0;
+    const words = new Uint32Array(base.buffer, base.byteOffset, wholeWords);
+    const waterWord = (WATER * 0x01010101) >>> 0;
+    const clearAt = (i) => {
+      if (!(base[i] & WATER)) return;
       for (const plane of layers) plane[i] = 0;
+    };
+    for (let w = 0; w < wholeWords; w++) {
+      if (!(words[w] & waterWord)) continue;
+      for (let i = w * 4; i < w * 4 + 4; i++) clearAt(i);
     }
+    for (let i = wholeWords * 4; i < base.length; i++) clearAt(i);
   }
 
   function pickEditable({ name, colour, glyph, design, tagDx, tagDy, capital, colony, nation }) {

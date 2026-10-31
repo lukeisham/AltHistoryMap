@@ -885,19 +885,85 @@ test("a symbol shows and answers a click with the capitals, not with the cities"
   assert.equal(hitAt(3.3), 3);
 });
 
-test("a country that answers to another shows its colour mixed toward the overlord's on Political only; the palette is unchanged", () => {
+test("a country that answers to another shows its colour lightened on Political only: Client State darkest, Colony very light; the palette is unchanged", () => {
   const m = smallModel();
   m.planes.political[idx(1, 1)] = 2;
   const own = parseColour(m.palette[1]);
-  const overlord = parseColour(m.palette[0]);
   const before = [...m.palette];
-  const shades = { dominion: 0.25, client: 0.45, colony: 0.65 };
+  const shades = { client: 0.25, dominion: 0.5, colony: 0.8 };
+  const seen = [];
   for (const [relation, share] of Object.entries(shades)) {
     m.setCountry(2, { relation, overlord: 1 });
     const src = sourceOf(m);
-    assert.equal(pixelColour("political", src, idx(1, 1), 1, 1), mixColour(own, overlord, share), relation);
+    seen.push(pixelColour("political", src, idx(1, 1), 1, 1));
+    assert.equal(seen.at(-1), mixColour(own, WHITE_C, share), relation);
   }
+  const brightness = (packed) => (packed & 255) + ((packed >>> 8) & 255) + ((packed >>> 16) & 255);
+  assert.ok(brightness(own) < brightness(seen[0]) && brightness(seen[0]) < brightness(seen[1]) && brightness(seen[1]) < brightness(seen[2]));
   assert.deepEqual(m.palette, before);
   m.setCountry(2, { relation: "", overlord: 0 });
   assert.equal(pixelColour("political", sourceOf(m), idx(1, 1), 1, 1), own, "None restores the colour");
+});
+
+// ---- opening a full-size map spreads its cost over frames ----
+
+const FULL = 4096;
+const FRAME_LIMIT_MS = 60;
+
+function fullSizeModel() {
+  const base = new Uint8Array(FULL * FULL).fill(LAND);
+  const model = createModel(base, FULL);
+  for (let block = 0; block < 12; block++) {
+    const left = 200 + (block % 4) * 900;
+    const top = 300 + Math.floor(block / 4) * 1100;
+    for (let y = top; y < top + 700; y++) model.planes.political.fill((block % 5) + 1, y * FULL + left, y * FULL + left + 700);
+  }
+  return model;
+}
+
+test("a full-size map is coloured in bands over several frames, each inside the frame limit, and every row is uploaded once", () => {
+  const fakes = installFakes();
+  try {
+    const model = fullSizeModel();
+    const canvas = fakeCanvas(1200, 800);
+    createRenderer({ canvas, model, glyphs: [] });
+    const layerLog = fakes.offscreen[0].log;
+    let frames = 0;
+    let slowest = 0;
+    while (fakes.frames.length) {
+      const started = performance.now();
+      fakes.frames.shift()();
+      slowest = Math.max(slowest, performance.now() - started);
+      frames++;
+    }
+    assert.ok(frames > 2, `the first picture took ${frames} frame(s); a 4096 plane cannot be coloured inside one`);
+    assert.ok(slowest < FRAME_LIMIT_MS, `the slowest frame took ${slowest.toFixed(0)} ms, limit ${FRAME_LIMIT_MS} ms`);
+    const uploads = layerLog.filter(([name]) => name === "putImageData");
+    const rows = uploads.reduce((sum, upload) => sum + (upload.length === 4 ? FULL : upload[7]), 0);
+    assert.equal(rows, FULL, "the bands together cover the plane exactly once");
+  } finally {
+    fakes.restore();
+  }
+});
+
+test("an edit made while a map is still opening is painted over the finished picture", () => {
+  const fakes = installFakes();
+  try {
+    const model = fullSizeModel();
+    const canvas = fakeCanvas(1200, 800);
+    const renderer = createRenderer({ canvas, model, glyphs: [] });
+    const layerLog = fakes.offscreen[0].log;
+    fakes.frames.shift()();
+    model.beginStroke({ tool: "paint", layer: "political", colour: 2, size: 1 });
+    model.strokeTo(10, 10);
+    model.endStroke();
+    while (fakes.frames.length) fakes.frames.shift()();
+    fakes.settle();
+    while (fakes.frames.length) fakes.frames.shift()();
+    const uploads = layerLog.filter(([name]) => name === "putImageData");
+    assert.deepEqual(uploads.at(-1).slice(4), [10, 10, 1, 1], "the edit made mid-opening is the last upload");
+    assert.equal(renderer.getLook(), "political");
+  } finally {
+    fakes.restore();
+  }
 });

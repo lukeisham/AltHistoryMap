@@ -4,7 +4,7 @@
 
 import { LOOKS, layersDrawn, layersOnScreen } from "./layers.js";
 import { createLayerImage, createRiverOverview, makeCanvas, makeSource, readTheme, representativeColours } from "./layerimage.js";
-import { drawCountryNames, findRegions } from "./countrylabels.js";
+import { drawCountryNames, regionSearch } from "./countrylabels.js";
 import { createGlyphLibrary, drawMarkers, drawSelection, hitMarker, hitTag } from "./markers.js";
 import {
   BUTTON_ZOOM,
@@ -33,6 +33,8 @@ const BRUSH_WIDTH = 1.5;
 const FILE_NAME_LIMIT = 80;
 // Paint notices this close together are one stroke; the names are found again once none has come for this long.
 const REGIONS_SETTLE_MS = 150;
+// Time one frame may spend colouring the picture and searching for names before it draws, so the frame stays inside 16 ms.
+const FRAME_WORK_MS = 6;
 const ILLEGAL_FILE_CHARS = /[\\/:*?"<>|\u0000-\u001f]/g;
 
 /**
@@ -173,6 +175,8 @@ export function createRenderer({ canvas, model, glyphs }) {
   let countryNames = true;
   let regions = null;
   let staleRegions = null;
+  let search = null;
+  let moreWork = false;
   let settleTimer = 0;
   let theme = readTheme(getComputedStyle(canvas));
   let stage = { w: 0, h: 0 };
@@ -218,24 +222,43 @@ export function createRenderer({ canvas, model, glyphs }) {
     canvas.height = Math.round(stage.h * dpr);
   }
 
-  function flushLayerImage() {
-    if (!needsRebuild && !dirty) return;
-    const src = makeSource(model, theme);
-    if (needsRebuild) layerImage.rebuild(look, src);
-    else layerImage.update(look, src, dirty);
-    needsRebuild = false;
-    dirty = null;
+  // Colours the picture until the deadline. A rebuild runs in bands over several frames; edits made meanwhile
+  // wait in `dirty` and are painted over the finished picture.
+  function flushLayerImage(deadline) {
+    if (needsRebuild) {
+      layerImage.startRebuild(look, makeSource(model, theme));
+      needsRebuild = false;
+      dirty = null;
+    }
+    if (!layerImage.stepRebuild(deadline)) return false;
+    if (dirty) {
+      layerImage.update(look, makeSource(model, theme), dirty);
+      dirty = null;
+    }
+    return true;
   }
 
   // Found on first use after a paint change, so a map with names off or another layer on screen pays nothing.
-  // While a stroke is under way the previous result stays on screen, so a stroke never pays for a search per frame.
-  function regionsNow() {
-    if (!regions && staleRegions) return staleRegions;
-    regions ??= findRegions(model.planes.political, n, representativeColours(model.palette));
-    return regions;
+  // The search runs in slices until the deadline, so a map opening never pays for it in one frame; until it ends
+  // the previous result (or none) stays on screen. While a stroke is under way the previous result stays too, so a
+  // stroke never pays for a search per frame.
+  function regionsNow(deadline) {
+    if (regions) return regions;
+    if (staleRegions) return staleRegions;
+    search ??= regionSearch(model.planes.political, n, representativeColours(model.palette));
+    for (let step = search.next(); ; step = search.next()) {
+      if (step.done) {
+        regions = step.value;
+        search = null;
+        return regions;
+      }
+      if (performance.now() >= deadline) break;
+    }
+    moreWork = true;
+    return null;
   }
 
-  function scene() {
+  function scene(deadline = Infinity) {
     return {
       stage,
       vp,
@@ -247,7 +270,7 @@ export function createRenderer({ canvas, model, glyphs }) {
       markers: model.markers,
       cityColour,
       political: model.planes.political,
-      countryRegions: countryNames && look === "political" ? regionsNow() : null,
+      countryRegions: countryNames && look === "political" ? regionsNow(deadline) : null,
       countries: model.countries,
       designs: model.designs,
       palette: model.palette,
@@ -263,9 +286,12 @@ export function createRenderer({ canvas, model, glyphs }) {
     frameRequest = 0;
     syncSize();
     if (stage.w === 0 || stage.h === 0) return;
-    flushLayerImage();
+    moreWork = false;
+    const deadline = performance.now() + FRAME_WORK_MS;
+    if (!flushLayerImage(deadline)) moreWork = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawFrame(ctx, scene(), true);
+    drawFrame(ctx, scene(deadline), true);
+    if (moreWork) scheduleFrame();
   }
 
   function invalidate() {
@@ -279,8 +305,9 @@ export function createRenderer({ canvas, model, glyphs }) {
   }
 
   function holdRegionsUntilSettled() {
-    staleRegions ??= regions;
+    staleRegions ??= regions ?? [];
     regions = null;
+    search = null;
     clearTimeout(settleTimer);
     settleTimer = setTimeout(() => {
       settleTimer = 0;
@@ -294,6 +321,7 @@ export function createRenderer({ canvas, model, glyphs }) {
       needsRebuild = true;
       regions = null;
       staleRegions = null;
+      search = null;
     } else if (notice.countries) {
       needsRebuild = true;
     } else if (notice.rect) {
@@ -544,7 +572,7 @@ export function createRenderer({ canvas, model, glyphs }) {
     async exportPng() {
       if (stage.w === 0 || stage.h === 0) throw new Error("render: the map has no size to export");
       staleRegions = null;
-      flushLayerImage();
+      while (!flushLayerImage(Infinity));
       const out = makeCanvas(Math.round(stage.w * dpr), Math.round(stage.h * dpr));
       const outCtx = out.getContext("2d");
       outCtx.setTransform(dpr, 0, 0, dpr, 0, 0);

@@ -113,6 +113,9 @@ function setup(mode) {
     showAt: (pixel) => (countryCalls.shown.push(pixel), true),
     dropOnLand: (pixel, item) => countryCalls.dropped.push([pixel, item]),
   };
+  const relationCalls = [];
+  const relations = { menuAt: async (pixel, at) => (relationCalls.push([pixel, at]), true) };
+  const relationMenu = { hide: () => false };
   const zoom = { shown: [], hidden: 0 };
   const flagZoom = {
     show: (flag) => zoom.shown.push(flag),
@@ -130,6 +133,8 @@ function setup(mode) {
     markerInfo,
     designs,
     countries,
+    relations,
+    relationMenu,
     flagZoom,
     say,
     glyphIds: ["crown", "shape-circle"],
@@ -137,7 +142,7 @@ function setup(mode) {
     readout: { coord: {}, zoom: {} },
     zoomButtons: { zoomIn: button, zoomOut: button, home: button },
   });
-  return { model, state, editor, canvas, keys, stage, messages, renderer, info, zoom, countryCalls, asked: () => asked, answer: (text) => (answer = text) };
+  return { model, state, editor, canvas, keys, stage, messages, renderer, info, zoom, countryCalls, relationCalls, asked: () => asked, answer: (text) => (answer = text) };
 }
 
 const click = (canvas, x, y, extra = {}) => {
@@ -625,4 +630,17 @@ test("a click on the map in View mode opens the country pop-up after a short wai
   click(edit.canvas, 61, 41);
   t.mock.timers.tick(600);
   assert.equal(edit.countryCalls.shown.length, 0, "Edit mode opens it from the palette, not from a click");
+});
+
+test("a right-button click without movement asks for the relationship menu at that point; a right-button drag only pans", () => {
+  const t = setup("edit");
+  const right = (type, id, x, y) => t.canvas.fire(type, { pointerId: id, pointerType: "mouse", button: 2, clientX: x, clientY: y });
+  right("pointerdown", 1, 35, 35);
+  right("pointerup", 1, 35, 35);
+  assert.deepEqual(t.relationCalls.map(([pixel, at]) => [pixel.x, pixel.y, at.x, at.y]), [[3, 3, 35, 35]]);
+
+  right("pointerdown", 2, 35, 35);
+  right("pointermove", 2, 60, 60);
+  right("pointerup", 2, 60, 60);
+  assert.equal(t.relationCalls.length, 1, "a drag is a pan, not a click");
 });

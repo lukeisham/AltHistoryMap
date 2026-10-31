@@ -51,6 +51,8 @@ export function cursorFor({ mode, tool }, interaction) {
  *   markerInfo: {show: Function, hide: () => boolean, isOpen: () => boolean, onRename: Function, onDelete: Function},
  *   designs: {editFlag: (marker: object) => void},
  *   countries: {showAt: Function, dropOnLand: Function},
+ *   relations: {menuAt: (pixel: object, at: {x: number, y: number}) => Promise<boolean>},
+ *   relationMenu: {hide: () => boolean},
  *   flagZoom: {show: (flag: {cells: Uint8Array | null, colour: string, x: number, y: number}) => void, hide: () => void},
  *   say: (text: string) => void,
  *   glyphIds: string[],
@@ -62,7 +64,7 @@ export function cursorFor({ mode, tool }, interaction) {
  *   `dismiss` clears the selection and popover, returning true when there was one.
  */
 export function createStage(deps) {
-  const { canvas, renderer, model, state, editor, nameField, markerInfo, designs, countries, flagZoom, say, glyphIds, isPanHeld, readout, zoomButtons } = deps;
+  const { canvas, renderer, model, state, editor, nameField, markerInfo, designs, countries, relations, relationMenu, flagZoom, say, glyphIds, isPanHeld, readout, zoomButtons } = deps;
   let drag = null;
   let hover = null;
   let readoutQueued = false;
@@ -274,6 +276,8 @@ export function createStage(deps) {
       if (done.tagTo && editor.moveTag(done.hit.id, done.tagTo.dx, done.tagTo.dy)) select(done.hit);
     } else if (!done.moved && done.button === 0 && done.kind !== "fill") {
       clicked(done);
+    } else if (!done.moved && done.button === RIGHT_BUTTON && done.kind === "pan") {
+      relations.menuAt(pixelAt(done.start), done.start);
     }
   }
 
@@ -346,6 +350,7 @@ export function createStage(deps) {
   function onViewChange() {
     clearTimeout(factsTimer);
     flagZoom.hide();
+    relationMenu.hide();
     markerInfo.hide();
     scheduleReadout();
   }

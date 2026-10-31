@@ -7,11 +7,11 @@ import { ALIGNMENTS, ALIGNMENT_IDS, GOVERNMENT_TYPES } from "./alignmentpools.js
 
 export { ALIGNMENTS };
 
-/** How a country can answer to another: the share of the other colour mixed into its own on the Political look. */
+/** How a country can answer to another: the share of white mixed into its own colour on the Political look, so the closer the tie the closer the shade to the original. */
 export const RELATIONS = [
-  { id: "dominion", label: "Dominion", share: 0.25 },
-  { id: "client", label: "Client State", share: 0.45 },
-  { id: "colony", label: "Colony", share: 0.65 },
+  { id: "client", label: "Client State", share: 0.25 },
+  { id: "dominion", label: "Dominion", share: 0.5 },
+  { id: "colony", label: "Colony", share: 0.8 },
 ];
 const RELATION_IDS = RELATIONS.map((relation) => relation.id);
 

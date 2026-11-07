@@ -1,9 +1,12 @@
-"""Checks the guide's cross-boundary section against the code in both directions, and that the README stays short and human.
+"""Checks the app guide, every module guide and modules.json against the code in both directions, and that the README stays short and human.
 
-Every path the section names must exist; every boundary value the code holds (port, launcher entry,
-file magic, storage keys, drag type, plane order, projection numbers, the live address) must appear
-in the section; and the files a row says are wired together must be wired that way in the browser
-modules. Values come from the real modules, or for browser code that Python cannot import, from the
+Each guide: Purpose within its cap and in its parts, Contents, Navigation and the right third heading.
+modules.json: every path exists, every code file is in one module, every import crosses a declared
+interface of a declared dependency, and the dependencies have no cycle. The third sections together:
+every path they name exists; every boundary value the code holds (port, launcher entry, file magic,
+storage keys, drag type, plane order, projection numbers, the live address) appears in them; and the
+files a row says are wired together are wired that way in the browser modules. Each row lives in one
+guide. Values come from the real modules, or for browser code that Python cannot import, from the
 real source line that defines them.
 """
 
@@ -25,22 +28,54 @@ import serve  # noqa: E402
 
 FILE_SUFFIXES = (".js", ".py", ".json", ".bin", ".css")
 TREE_ROOTS = ("System/", "app/", "build/")
-SECTION_HEADING = "## Cross-boundary behaviour"
+APP_SECTION_HEADING = "## Cross-app behaviour"
+MODULE_SECTION_HEADING = "## Cross-module behaviour"
+CODE_SUFFIXES = {".py", ".js", ".css", ".html", ".svg", ".command", ".sh"}
+PURPOSE_MAX_WORDS = 150
+PURPOSE_PARTS = ("**Input:**", "**Output:**", "**Essential functions:**")
+JS_IMPORT = re.compile(r'import\s*\{([^}]*)\}\s*from\s*"([^"]+)"', re.S)
 README_MAX_LINES = 30
 LIVE_URL = "https://lukeisham.github.io/AltHistoryMap/"
 CLOUDFLARE_URL = "https://althistorymap.pages.dev/app/"
 LAUNCHERS = ("Start AltHistoryMap.command",)
 
 
-def guide_text() -> str:
-    return (ROOT / "GUIDE.md").read_text(encoding="utf-8")
+INDEX = json.loads((ROOT / "modules.json").read_text(encoding="utf-8"))
+MODULES = {module["name"]: module for module in INDEX["modules"]}
+FILE_OWNER = {file: module["name"] for module in INDEX["modules"] for file in module["files"]}
+GUIDE_NAMES = ["app", *MODULES]
+
+
+def guide_text(name: str = "app") -> str:
+    return (ROOT / ("GUIDE.md" if name == "app" else MODULES[name]["guide"])).read_text(encoding="utf-8")
+
+
+def third_heading(name: str) -> str:
+    return APP_SECTION_HEADING if name == "app" else MODULE_SECTION_HEADING
+
+
+def section_after(text: str, heading: str) -> str:
+    start = text.index(heading)
+    following = re.search(r"^## ", text[start + len(heading):], re.MULTILINE)
+    return text[start : start + len(heading) + following.start()] if following else text[start:]
+
+
+def section_of(name: str) -> str:
+    """The third section of the app guide ("app") or of one module's guide."""
+    return section_after(guide_text(name), third_heading(name))
+
+
+def purpose_of(name: str = "app") -> str:
+    return section_after(guide_text(name), "## Purpose")[len("## Purpose"):]
+
+
+ALL_SECTIONS = "\n".join(section_of(name) for name in GUIDE_NAMES)
+ALL_TEXT = "\n".join(guide_text(name) for name in GUIDE_NAMES)
 
 
 def guide_section() -> str:
-    text = guide_text()
-    start = text.index(SECTION_HEADING)
-    following = re.search(r"^## ", text[start + len(SECTION_HEADING):], re.MULTILINE)
-    return text[start : start + len(SECTION_HEADING) + following.start()] if following else text[start:]
+    """Every guide's third section together, for a check that does not care which guide holds a row."""
+    return ALL_SECTIONS
 
 
 def js_constant(source: Path, name: str) -> str | int | list[str]:
@@ -67,12 +102,25 @@ def imports(consumer: str, provider: str) -> bool:
     return f'from "./{provider}"' in app_source(consumer)
 
 
-def row_starting(section: str, first_cell: str) -> str:
-    """The table row whose first cell begins with the given text."""
-    rows = [line for line in section.splitlines() if line.startswith(f"| {first_cell}")]
+def table_rows() -> list[str]:
+    return [line for name in GUIDE_NAMES for line in section_of(name).splitlines() if line.startswith("| ")]
+
+
+def row_starting(section_or_cell: str, first_cell: str | None = None) -> str:
+    """The one table row, in any guide, whose first cell begins with the given text. A row that two guides hold fails."""
+    first_cell = section_or_cell if first_cell is None else first_cell
+    rows = [line for line in table_rows() if line.startswith(f"| {first_cell}")]
     if len(rows) != 1:
         raise AssertionError(f"expected one guide row starting {first_cell!r}, found {len(rows)}")
     return rows[0]
+
+
+def row_where(test) -> str:
+    """The first table row, in any guide, that the test accepts."""
+    for line in table_rows():
+        if test(line):
+            return line
+    raise AssertionError("no guide row matches")
 
 
 def js_constant_in_object(source: Path, name: str, key: str) -> str:
@@ -138,9 +186,207 @@ def path_exists(token: str) -> bool:
     return any(ROOT.rglob(token))
 
 
+def js_files() -> list[str]:
+    return [file for file in FILE_OWNER if file.endswith(".js")]
+
+
+def cross_module_uses(file: str) -> list[tuple[str, str]]:
+    """(provider module, name) for each name `file` imports from another module's file."""
+    path = ROOT / file
+    found = []
+    for names, specifier in JS_IMPORT.findall(path.read_text(encoding="utf-8")):
+        target = (path.parent / specifier).resolve().relative_to(ROOT).as_posix()
+        for name in (part.strip().split(" as ")[0] for part in names.split(",") if part.strip()):
+            found.append((FILE_OWNER[target], name))
+    return [use for use in found if use[0] != FILE_OWNER[file]]
+
+
+def exported_names(module_name: str) -> set[str]:
+    """The top-level names the module's JavaScript files export."""
+    names: set[str] = set()
+    for file in MODULES[module_name]["files"]:
+        if not file.endswith(".js"):
+            continue
+        source = (ROOT / file).read_text(encoding="utf-8")
+        names.update(re.findall(r"export\s+(?:async\s+)?(?:function|const|class|let)\s+(\w+)", source))
+        for group in re.findall(r"export\s*\{([^}]*)\}", source):
+            names.update(part.strip().split(" as ")[-1] for part in group.split(",") if part.strip())
+    return names
+
+
+def labelled_table(section: str, label: str) -> dict[str, set[str]]:
+    """The two-column table that follows a bold label such as **Interface.**, as first cell to the set of names in the second."""
+    block = section.split(label, 1)[1].split("\n**", 1)[0]
+    table: dict[str, set[str]] = {}
+    for line in block.splitlines():
+        cells = [cell.strip() for cell in line.strip("|").split("|")] if line.startswith("| ") else []
+        if len(cells) == 2 and not set(cells[0]) <= set("-: ") and cells[0] not in ("Name", "Module"):
+            table[cells[0].strip("`")] = {part.strip().strip("`") for part in cells[1].split(",")}
+    return table
+
+
+class GuideShapeTest(unittest.TestCase):
+    """Checks 4 and 8 of TEST-10 on the app guide and every module guide, and the Contents (CORE-6)."""
+
+    def test_every_guide_opens_with_purpose_then_contents_then_navigation(self) -> None:
+        for name in GUIDE_NAMES:
+            with self.subTest(guide=name):
+                headings = re.findall(r"^## (.+)$", guide_text(name), re.MULTILINE)
+                self.assertEqual(headings, ["Purpose", "Contents", "Navigation", third_heading(name)[3:]])
+
+    def test_contents_links_every_other_heading_in_order(self) -> None:
+        for name in GUIDE_NAMES:
+            with self.subTest(guide=name):
+                found = re.findall(r"^\d+\. \[([^\]]+)\]\(#([^)]+)\)$", section_after(guide_text(name), "## Contents"), re.MULTILINE)
+                self.assertEqual([label for label, _ in found], ["Navigation", third_heading(name)[3:]])
+                for label, anchor in found:
+                    self.assertEqual(anchor, label.lower().replace(" ", "-"))
+
+    def test_purpose_is_found_within_the_cap_and_holds_its_parts_in_order(self) -> None:
+        for name in GUIDE_NAMES:
+            with self.subTest(guide=name):
+                body = purpose_of(name)
+                words = body.split()
+                self.assertGreater(len(words), 20, "the Purpose section was not found, so the count is meaningless")
+                self.assertLessEqual(len(words), PURPOSE_MAX_WORDS)
+                positions = [body.find(part) for part in PURPOSE_PARTS]
+                self.assertNotIn(-1, positions)
+                self.assertEqual(sorted(positions), positions)
+                self.assertGreater(len(body[: positions[0]].split()), 6, "Purpose must first say what the thing is for")
+
+    def test_every_path_a_module_guide_names_exists(self) -> None:
+        total = 0
+        for name in MODULES:
+            with self.subTest(guide=name):
+                found = named_paths(section_of(name))
+                total += len(found)
+                self.assertEqual([token for token in found if not path_exists(token)], [])
+        self.assertGreater(total, 20, "the path scan found almost nothing, so the scan is broken")
+
+    def test_the_navigation_of_each_module_guide_names_every_file_it_owns(self) -> None:
+        for name, module in MODULES.items():
+            with self.subTest(guide=name):
+                navigation = section_after(guide_text(name), "## Navigation")
+                self.assertEqual([file for file in module["files"] if Path(file).name not in navigation], [])
+
+    def test_the_app_navigation_draws_the_modules_index_the_guides_folder_and_every_module(self) -> None:
+        navigation = section_after(guide_text(), "## Navigation")
+        self.assertIn("modules.json", navigation)
+        self.assertIn("guides/", navigation)
+        for name in MODULES:
+            self.assertRegex(navigation, rf"\b{name}\b", f"the app navigation does not draw {name}")
+
+
+class ModulesIndexTest(unittest.TestCase):
+    """Checks 5, 6 and 7 of TEST-10, and the guide tables of interface and use against the real imports."""
+
+    def test_the_index_is_complete_and_every_listed_path_exists(self) -> None:
+        self.assertIs(INDEX["complete"], True)
+        for module in INDEX["modules"]:
+            with self.subTest(module=module["name"]):
+                self.assertNotIn(" and ", module["purpose"], "MOD-1: the purpose has no 'and'")
+                self.assertTrue((ROOT / module["guide"]).is_file())
+                self.assertEqual([file for file in module["files"] if not (ROOT / file).is_file()], [])
+
+    def test_every_guide_on_disk_is_some_modules_guide(self) -> None:
+        on_disk = {path.relative_to(ROOT).as_posix() for path in (ROOT / "guides").glob("*.md")}
+        self.assertEqual(on_disk, {module["guide"] for module in INDEX["modules"]})
+
+    def test_every_code_file_is_in_exactly_one_module(self) -> None:
+        skipped = {"tests", "plans", "__pycache__", "_refactor", "guides", "source"}
+        code = {
+            path.relative_to(ROOT).as_posix()
+            for path in ROOT.rglob("*")
+            if path.is_file() and path.suffix in CODE_SUFFIXES and not skipped & set(path.relative_to(ROOT).parts)
+        }
+        listed = [file for module in INDEX["modules"] for file in module["files"]]
+        self.assertEqual(len(listed), len(set(listed)), "a file is listed in two modules")
+        self.assertEqual(code - set(listed), set(), "a code file belongs to no module")
+        self.assertEqual(set(listed) - code, set())
+
+    def test_every_cross_module_import_uses_a_declared_interface_of_a_declared_dependency(self) -> None:
+        scanned = 0
+        for file in js_files():
+            for provider, name in cross_module_uses(file):
+                scanned += 1
+                with self.subTest(file=file, use=name):
+                    self.assertIn(provider, MODULES[FILE_OWNER[file]]["depends_on"])
+                    self.assertIn(name, MODULES[provider]["interface"])
+        self.assertGreater(scanned, 150, "the import scan found almost nothing, so the scan is broken")
+
+    def test_every_declared_interface_name_is_public_real_and_used_by_someone(self) -> None:
+        used = {(provider, name) for file in js_files() for provider, name in cross_module_uses(file)}
+        for module in INDEX["modules"]:
+            with self.subTest(module=module["name"]):
+                defined = exported_names(module["name"])
+                for name in module["interface"]:
+                    self.assertFalse(name.startswith("_"), f"{name} is private (MOD-3)")
+                    self.assertIn(name, defined)
+                    self.assertIn((module["name"], name), used)
+
+    def test_every_declared_dependency_is_imported_by_some_file(self) -> None:
+        for module in INDEX["modules"]:
+            with self.subTest(module=module["name"]):
+                imported = {provider for file in module["files"] if file.endswith(".js") for provider, _ in cross_module_uses(file)}
+                self.assertEqual(imported, set(module["depends_on"]))
+
+    def test_the_dependencies_have_no_cycle(self) -> None:
+        state: dict[str, int] = {}
+
+        def visit(name: str, trail: list[str]) -> None:
+            if state.get(name) == 2:
+                return
+            self.assertNotEqual(state.get(name), 1, f"cycle: {' -> '.join(trail + [name])}")
+            state[name] = 1
+            for dependency in MODULES[name]["depends_on"]:
+                self.assertIn(dependency, MODULES)
+                visit(dependency, trail + [name])
+            state[name] = 2
+
+        for name in MODULES:
+            visit(name, [])
+
+    def test_each_guide_interface_table_lists_the_names_and_the_modules_that_import_them(self) -> None:
+        actual: dict[str, dict[str, set[str]]] = {name: {} for name in MODULES}
+        for file in js_files():
+            for provider, name in cross_module_uses(file):
+                actual[provider].setdefault(name, set()).add(FILE_OWNER[file])
+        for name, module in MODULES.items():
+            with self.subTest(module=name):
+                if module["interface"]:
+                    self.assertEqual(labelled_table(section_of(name), "**Interface.**"), actual[name])
+                else:
+                    self.assertEqual(actual[name], {})
+                    self.assertIn("**Interface.** None", section_of(name))
+
+    def test_each_guide_uses_table_lists_the_modules_and_the_names_it_imports(self) -> None:
+        for name, module in MODULES.items():
+            with self.subTest(module=name):
+                actual: dict[str, set[str]] = {}
+                for file in module["files"]:
+                    if file.endswith(".js"):
+                        for provider, used in cross_module_uses(file):
+                            actual.setdefault(provider, set()).add(used)
+                if module["depends_on"]:
+                    self.assertEqual(labelled_table(section_of(name), "**Uses.**"), actual)
+                else:
+                    self.assertIn("**Uses.** No other module", section_of(name))
+
+    def test_every_stylesheet_is_linked_from_the_page_and_reads_the_tokens(self) -> None:
+        page = (APP / "index.html").read_text(encoding="utf-8")
+        sheets = sorted(path for path in APP.glob("*.css"))
+        self.assertGreater(len(sheets), 15, "the stylesheet scan found almost nothing, so the scan is broken")
+        for sheet in sheets:
+            with self.subTest(stylesheet=sheet.name):
+                self.assertIn(f'href="{sheet.name}"', page)
+                if sheet.name != "tokens.css":
+                    self.assertIn("var(--", sheet.read_text(encoding="utf-8"))
+        self.assertIn("`tokens.css`", section_of("style"))
+
+
 class GuideBoundaryTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.section = guide_section()
+        self.section = ALL_SECTIONS
 
     def test_every_named_path_exists(self) -> None:
         paths = named_paths(self.section)
@@ -214,7 +460,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertEqual(missing, [])
 
     def test_layer_rules_reach_the_modules_the_row_names(self) -> None:
-        row = row_starting(self.section, "`layers.js`")
+        row = row_starting("`layers.js`")
         for importer in ("state.js", "render.js", "recovery.js"):
             self.assertIn(f"`{importer}`", row)
             self.assertTrue(imports(importer, "layers.js"), f"{importer} does not import layers.js")
@@ -238,7 +484,7 @@ class GuideBoundaryTest(unittest.TestCase):
         drawing = app_source("layerimage.js")
         for look in looks:
             self.assertGreaterEqual(drawing.count(f'case "{look}":'), 2, f"layerimage.js has no loop for the {look} look")
-        purpose = guide_text().split("## Purpose")[1].split("\n## ")[0]
+        purpose = purpose_of()
         for layer in js_constant(APP / "model.js", "LAYERS"):
             self.assertIn(layer.capitalize(), purpose)
 
@@ -247,7 +493,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertEqual(sorted(re.findall(r"^\s+(\w+):", offered, re.MULTILINE)), sorted(js_constant(APP / "model.js", "LAYERS")))
 
     def test_the_city_colour_choice_travels_from_the_button_to_the_dot(self) -> None:
-        row = row_starting(self.section, "`markers.js` |")
+        row = row_starting("`markers.js` |")
         for name in ("scene.cityColour", "renderer.setCityColour", "ahm.prefs", "cityColour"):
             self.assertIn(f"`{name}`", row)
         self.assertIn("cityColour", app_source("layerbar.js"))
@@ -259,7 +505,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("scene.cityColour", app_source("markers.js"))
 
     def test_the_change_notices_the_row_names_are_sent_and_handled(self) -> None:
-        row = row_starting(self.section, "`model.js`")
+        row = row_starting("`model.js`")
         model, render = app_source("model.js"), app_source("render.js")
         for shape in ("{layer, rect}", "{markers}", "{palette}", "{all}"):
             self.assertIn(f"`{shape}`", row)
@@ -268,7 +514,7 @@ class GuideBoundaryTest(unittest.TestCase):
             self.assertIn(f"notice.{key}", render, f"render.js never reads {key}")
 
     def test_the_brush_and_its_outline_share_disc_offsets(self) -> None:
-        self.assertIn("`discOffsets`", row_starting(self.section, "`model.js`"))
+        self.assertIn("`discOffsets`", row_starting("`model.js`"))
         self.assertIn("export function discOffsets(", app_source("model.js"))
         self.assertIn("discOffsets(diameter)", app_source("model.js"))
         self.assertTrue(imports("viewport.js", "model.js") and "discOffsets" in app_source("viewport.js"))
@@ -278,10 +524,10 @@ class GuideBoundaryTest(unittest.TestCase):
         direct = [path.name for path in sorted(APP.glob("*.js")) if path.name not in ("model.js", "editor.js") and re.search(rf"\bmodel\.({mutators})\(", path.read_text(encoding="utf-8"))]
         self.assertEqual(direct, [])
         self.assertIn("function editGate()", app_source("editor.js"))
-        self.assertIn("`editGate()`", row_starting(self.section, "interface modules"))
+        self.assertIn("`editGate()`", row_starting("interface modules"))
 
     def test_crest_choices_are_validated_by_the_one_validator_on_every_edit_and_every_read(self) -> None:
-        row = row_starting(self.section, "`crestcells.js`")
+        row = row_starting("`crestcells.js`")
         for name in ("model.js", "mapfile.js", "flagcells.js", "flagdesigner.js", "crestmaker.js", "creststrip.js", "crests.js", "normaliseCrest", "renderCrest", "stampCrest"):
             self.assertIn(f"`{name}`", row)
         self.assertTrue(imports("model.js", "crestcells.js") and imports("mapfile.js", "crestcells.js") and imports("flagcells.js", "crestcells.js"))
@@ -299,10 +545,10 @@ class GuideBoundaryTest(unittest.TestCase):
             self.assertIn(f"supporter${{side}}", app_source("crestcells.js"), f"normaliseCrest no longer handles {key}")
         for option in re.findall(r'\{ id: "(\w+)", label: "', "".join(re.findall(r"export const (?:FACINGS|COMPARTMENTS|RIBBONS) = \[.*?\n\];", app_source("crestcells.js"), re.DOTALL))):
             self.assertIn(f"`{option}`", row)
-        self.assertIn("`MAX_CRESTS`", row_starting(self.section, "`model.js`"))
+        self.assertIn("`MAX_CRESTS`", row_starting("`model.js`"))
 
     def test_a_map_file_without_crests_still_opens(self) -> None:
-        row = row_starting(self.section, "`mapfile.js` | `model.js`")
+        row = row_starting("`mapfile.js` | `model.js`")
         self.assertIn("`crests`", row)
         self.assertIn("h.crests ?? []", app_source("mapfile.js"))
         self.assertIn("`countries`", row)
@@ -312,7 +558,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("format: 1", app_source("mapfile.js"))
 
     def test_countries_are_validated_by_the_one_validator_and_keep_the_fields_the_guide_names(self) -> None:
-        row = row_starting(self.section, "`countrydata.js`")
+        row = row_starting("`countrydata.js`")
         for name in ("model.js", "mapfile.js", "countries.js", "countryfacts.js", "normaliseCountry", "colourNameFor", "alignmentpools.js", "stampCrest"):
             self.assertIn(f"`{name}`", row)
         blank = re.search(r"return \{ colour, (.+) \};", app_source("countrydata.js"))
@@ -323,16 +569,16 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertTrue(imports("model.js", "countrydata.js") and imports("mapfile.js", "countrydata.js"))
         self.assertIn("normaliseCountry({", app_source("model.js"))
         self.assertIn("normaliseCountry(country, palette.length", app_source("mapfile.js"))
-        self.assertIn("setCountry(colour, patch)", row_starting(self.section, "`model.js`"))
+        self.assertIn("setCountry(colour, patch)", row_starting("`model.js`"))
 
     def test_the_nine_alignment_ids_and_the_generators_are_named_and_driven_by_the_dialog(self) -> None:
         ids = re.findall(r'\{ id: "([a-z-]+)", label: "', app_source("alignmentpools.js"))
         self.assertEqual(len(ids), 9)
-        pools = row_starting(self.section, "`alignmentpools.js`")
+        pools = row_starting("`alignmentpools.js`")
         for alignment in ids:
             self.assertIn(f"`{alignment}`", pools)
         self.assertTrue(imports("namegen.js", "alignmentpools.js") and imports("countrydata.js", "alignmentpools.js"))
-        generators = row_starting(self.section, "`namegen.js`")
+        generators = row_starting("`namegen.js`")
         for name in ("makeGovernment", "makeName", "makeRuler", "makeMotto", "makeDemonym", "generateAll", "rng", "Math.random"):
             self.assertIn(name, generators)
             if name.startswith("make") or name == "generateAll":
@@ -343,7 +589,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("rng: Math.random", app_source("main.js"))
 
     def test_countries_open_from_three_places_and_take_drops_from_two(self) -> None:
-        row = row_starting(self.section, "`countries.js`")
+        row = row_starting("`countries.js`")
         for name in ("main.js", "stage.js", "palette.js", "dropOnLand", "dropOnColour", "editor.setCountry", "country-facts-open", str(js_constant(APP / "stage.js", "FACTS_DELAY_MS"))):
             self.assertIn(name, row)
         main = app_source("main.js")
@@ -359,7 +605,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("setCountry(colour, patch)", app_source("editor.js"))
 
     def test_picked_colours_and_pictures_reach_the_page_through_main(self) -> None:
-        row = next(line for line in self.section.splitlines() if line.startswith("| `flagdesigner.js`, `crestmaker.js`"))
+        row = row_where(lambda line: line.startswith("| `flagdesigner.js`, `crestmaker.js`"))
         main = app_source("main.js")
         self.assertIn("const addColour = (hex) => shownIndex(hex) ?? editor.addColour(hex);", main)
         self.assertEqual(main.count("addColour,"), 2, "main.js must hand addColour to both dialogs")
@@ -371,7 +617,7 @@ class GuideBoundaryTest(unittest.TestCase):
         for dialog in ("flagdesigner.js", "crestmaker.js"):
             self.assertIn("cellsToPng(", app_source(dialog))
             self.assertTrue(imports(dialog, "pngexport.js"))
-        pictures = row_starting(self.section, "`pngexport.js`")
+        pictures = row_starting("`pngexport.js`")
         for name in ("flagdesigner.js", "crestmaker.js", "flagzoom.js", "creststrip.js", "designs.js", "crests.js"):
             self.assertIn(f"`{name}`", pictures)
         self.assertTrue(imports("flagzoom.js", "pngexport.js") and imports("creststrip.js", "pngexport.js"))
@@ -379,7 +625,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("-crest", app_source("crests.js"))
 
     def test_supporters_reach_crestcells_and_the_crest_maker_lists_them(self) -> None:
-        row = row_starting(self.section, "`supporters.js`")
+        row = row_starting("`supporters.js`")
         for name in ("crestcells.js", "SUPPORTERS", "rasterSupporter(id)", "BODY", "EYE", *supporter_ids()):
             self.assertIn(f"`{name}`", row)
         self.assertTrue(imports("crestcells.js", "supporters.js"))
@@ -387,7 +633,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("options: SUPPORTERS", app_source("crestmaker.js"))
 
     def test_term_pop_ups_are_bound_by_both_dialogs_and_every_group_is_named(self) -> None:
-        row = row_starting(self.section, "`terms.js`")
+        row = row_starting("`terms.js`")
         for name in ("termtip.js", "crestmaker.js", "flagdesigner.js", "termFor", "bindTermTips(dialog)", "data-term"):
             self.assertIn(f"`{name}`" if name.endswith(".js") else name, row)
         self.assertTrue(imports("termtip.js", "terms.js"))
@@ -401,7 +647,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn('href="termtip.css"', (APP / "index.html").read_text(encoding="utf-8"))
 
     def test_placed_flags_and_thumbnails_draw_from_flag_blocks(self) -> None:
-        row = row_starting(self.section, "`flagblocks.js`")
+        row = row_starting("`flagblocks.js`")
         for name in ("markers.js", "flagstrip.js", "flagzoom.js"):
             self.assertIn(f"`{name}`", row)
         self.assertTrue(imports("markers.js", "flagblocks.js") and imports("flagstrip.js", "flagblocks.js"))
@@ -409,14 +655,14 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("flagBlocks(", app_source("flagstrip.js"))
 
     def test_an_older_flag_is_scaled_up_when_a_map_opens(self) -> None:
-        row = next(line for line in self.section.splitlines() if line.startswith("| `FLAG_W`, `FLAG_H`"))
+        row = row_where(lambda line: line.startswith("| `FLAG_W`, `FLAG_H`"))
         for name in ("mapfile.js", "flagcells.js", "upscaleLegacyFlag"):
             self.assertIn(name, row)
         self.assertTrue(imports("mapfile.js", "flagcells.js"))
         self.assertIn("upscaleLegacyFlag(design)", app_source("mapfile.js"))
 
     def test_the_flag_zoom_is_shown_by_the_stage_and_the_flag_list_and_hidden_again(self) -> None:
-        row = row_starting(self.section, "`flagzoom.js`")
+        row = row_starting("`flagzoom.js`")
         for name in ("stage.js", "flagstrip.js", "main.js"):
             self.assertIn(f"`{name}`", row)
         main = app_source("main.js")
@@ -428,7 +674,7 @@ class GuideBoundaryTest(unittest.TestCase):
             self.assertIn("flagZoom.hide(", app_source(source))
 
     def test_the_publish_workflow_mirrors_the_app_folder_after_the_tests_and_keeps_private_and_public_only_files_apart(self) -> None:
-        row = next(line for line in self.section.splitlines() if line.startswith("| `.github/workflows/publish-althistorymap.yml`"))
+        row = row_where(lambda line: line.startswith("| `.github/workflows/publish-althistorymap.yml`"))
         workflow = (LUKEATRON / ".github/workflows/publish-althistorymap.yml").read_text(encoding="utf-8")
         for name in ("PUBLIC_REPO_TOKEN", "lukeisham/AltHistoryMap", "System/Apps/AltHistoryMap", "issues.md", "index.html", ".nojekyll", CLOUDFLARE_URL):
             self.assertIn(name, row)
@@ -441,14 +687,14 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn('paths: ["System/Apps/AltHistoryMap/**"]', workflow)
 
     def test_the_drag_payload_module_is_used_by_both_ends(self) -> None:
-        row = next(line for line in self.section.splitlines() if "`dragitem.js`" in line)
+        row = row_where(lambda line: "`dragitem.js`" in line)
         for name in ("symbols.js", "flagstrip.js", "creststrip.js", "stage.js", "palette.js", "countryfacts.js"):
             self.assertIn(f"`{name}`", row)
             self.assertTrue(imports(name, "dragitem.js"), f"{name} does not import dragitem.js")
         self.assertIn('kind: "crest"', app_source("creststrip.js"))
 
     def test_glyphs_reach_the_modules_the_row_names(self) -> None:
-        row = row_starting(self.section, "`app/glyphs.js`")
+        row = row_starting("`app/glyphs.js`")
         for name in ("build_scenarios.py", "editor.js", "main.js", "mapfile.js", "symbols.js", "render.js", "markers.js"):
             self.assertIn(f"`{name}`", row)
         self.assertIn("glyphs.js", (ROOT / "build" / "build_scenarios.py").read_text(encoding="utf-8"))
@@ -467,7 +713,7 @@ class GuideBoundaryTest(unittest.TestCase):
             self.assertIn("serve.py", launcher.read_text(encoding="utf-8"))
 
     def test_the_app_loads_only_relative_urls_so_it_works_under_the_pages_sub_path(self) -> None:
-        row = next(line for line in self.section.splitlines() if "GitHub Pages" in line)
+        row = row_where(lambda line: "GitHub Pages" in line)
         for name in ("index.html", ".nojekyll"):
             self.assertIn(f"`{name}`", row)
         self.assertTrue((APP / "index.html").is_file())
@@ -481,7 +727,7 @@ class GuideBoundaryTest(unittest.TestCase):
 
 
     def test_zoom_levels_come_from_one_table_that_the_guide_states(self) -> None:
-        row = row_starting(self.section, "`markers.js` |")
+        row = row_starting("`markers.js` |")
         viewport = app_source("viewport.js")
         for key, pair in (("flag", "1.2 to 1.6"), ("countryName", "2.0 to 2.6"), ("capital", "3.0 to 3.6"), ("city", "4.2 to 5.0")):
             numbers = pair.replace(" to ", ", ")
@@ -492,7 +738,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertTrue(imports("markers.js", "viewport.js") and imports("countrylabels.js", "viewport.js"))
 
     def test_the_eye_dropper_button_is_placed_by_the_palette_and_both_dialogs(self) -> None:
-        row = row_starting(self.section, "`eyedropper.js`")
+        row = row_starting("`eyedropper.js`")
         for name in ("palette.js", "flagdesigner.js", "crestmaker.js", "createEyeDropperButton", "window.EyeDropper", "swatch-eyedropper", "fd-swatch-eyedropper", "eyedropper-icon", "buttons.css", "tool:eyedropper", "terms.js", "shownColourIndex", "addColour"):
             self.assertIn(name, row)
         for module in ("palette.js", "flagdesigner.js", "crestmaker.js"):
@@ -502,7 +748,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn('"tool:eyedropper"', app_source("terms.js"))
 
     def test_lakes_draw_like_the_sea_and_only_rivers_in_the_river_colour(self) -> None:
-        row = next(line for line in self.section.splitlines() if "`render.js`, `layerimage.js`" in line)
+        row = row_where(lambda line: "`render.js`, `layerimage.js`" in line)
         for name in ("RIVER bit", "river colour", "sea colour", "lake", "COAST"):
             self.assertIn(name, row)
         self.assertIn("if (bits & RIVER) ground[bits] = packed.water;", app_source("layerimage.js"))
@@ -510,7 +756,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("wet = ~row & land_mask", basemap)
 
     def test_the_colony_tool_places_a_colony_city_and_make_city_clears_it(self) -> None:
-        row = row_starting(self.section, "`markers.js` |")
+        row = row_starting("`markers.js` |")
         for name in ("Colony tool", "tools.js", "key `O`", "editor.js", "Make city", "markerinfo.js", "editor.setColony"):
             self.assertIn(name, row)
         tools = app_source("tools.js")
@@ -520,7 +766,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("editor.setColony(id, colony)", app_source("stage.js"))
 
     def test_country_names_travel_from_the_button_through_the_renderer_to_the_picture(self) -> None:
-        row = row_starting(self.section, "`countrylabels.js` |")
+        row = row_starting("`countrylabels.js` |")
         for name in ("render.js", "findRegions(political, n, representative)", "representativeColours(palette)", "layerimage.js", "drawCountryNames", "scene.countryRegions", "countryNames", "renderer.setCountryNames", "ahm.prefs", 'data-action="country-names"', "layerbar.js", "main.js", "countrydata.js"):
             self.assertIn(name, row)
         render = app_source("render.js")
@@ -543,7 +789,7 @@ class GuideBoundaryTest(unittest.TestCase):
 
     def test_the_navigation_tree_names_only_real_top_level_files_and_folders(self) -> None:
         text = guide_text()
-        tree = text[text.index("## Navigation") : text.index("## Cross-boundary behaviour")]
+        tree = section_after(text, "## Navigation")
         top = re.findall(r"(?m)^[├└]── (.+?)(?:\s{2,}.*)?$", tree)
         self.assertGreaterEqual(len(top), 7)
         names = [name.strip() for entry in top for name in entry.split(" · ")]
@@ -556,7 +802,7 @@ class GuideBoundaryTest(unittest.TestCase):
             self.assertTrue((data / name).exists(), name)
 
     def test_every_pop_up_has_a_close_button_as_the_guide_says(self) -> None:
-        row = row_starting(self.section, "`dialogparts.js`, `dialogs.js`, `markerinfo.js` |")
+        row = row_starting("`dialogparts.js`, `dialogs.js`, `markerinfo.js` |")
         parts = app_source("dialogparts.js")
         self.assertRegex(parts, r"function closeButton\(onClick\) \{[^}]*setAttribute\(\"aria-label\", \"Close\"\)")
         self.assertIn("fd-close", parts)
@@ -570,21 +816,21 @@ class GuideBoundaryTest(unittest.TestCase):
             self.assertIn(fragment, row)
 
     def test_symbols_default_names_and_straight_names_are_stated_as_the_code_holds_them(self) -> None:
-        labels = row_starting(self.section, "`countrylabels.js` |")
+        labels = row_starting("`countrylabels.js` |")
         self.assertIn("every name is straight", labels)
         self.assertNotRegex(app_source("countrylabels.js"), r"(?i)island|coast|landmass|rotate")
         self.assertNotIn("island", labels.lower())
         self.assertIn("`tiny` region", labels)
         self.assertIn("SINGLE_PIXEL_K", labels)
         self.assertIn("regionSearch(model.planes.political, n, representativeColours(model.palette))", app_source("render.js"))
-        self.assertIn("symbolAlpha(z)", row_starting(self.section, "`markers.js` |"))
+        self.assertIn("symbolAlpha(z)", row_starting("`markers.js` |"))
         self.assertIn("symbolAlpha(z) <= 0", app_source("markers.js"))
-        names = row_starting(self.section, "`countrydata.js`")
+        names = row_starting("`countrydata.js`")
         self.assertIn("`defaultColourName(palette, colour)`", names)
         self.assertIn("countryName(country, palette, colour)", app_source("countrydata.js").replace("export function ", ""))
 
     def test_a_relationship_is_stored_mixed_toward_white_on_the_political_look_and_chosen_by_right_click(self) -> None:
-        row = row_starting(self.section, "`countrydata.js`")
+        row = row_starting("`countrydata.js`")
         source = app_source("countrydata.js")
         for relation, share in (("client", "0.25"), ("dominion", "0.5"), ("colony", "0.8")):
             self.assertRegex(source, rf'id: "{relation}", label: "[A-Za-z ]+", share: {share}')
@@ -597,13 +843,13 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("shown[colour] = mixColour(palette[colour], WHITE, share)", app_source("layerimage.js"))
         self.assertIn("src.shown[src.political[i]]", app_source("layerimage.js"))
         self.assertIn("} else if (notice.countries) {", app_source("render.js"))
-        self.assertIn("no relationship control", row_starting(self.section, "`countries.js`"))
+        self.assertIn("no relationship control", row_starting("`countries.js`"))
         self.assertNotIn("Relationship", app_source("countryfacts.js"))
         self.assertNotIn("others", app_source("countries.js"))
 
     def test_right_click_on_land_opens_the_relationship_menu_through_the_stage(self) -> None:
-        row = row_starting(self.section, "`relations.js`")
-        menu = row_starting(self.section, "`relationmenu.js`")
+        row = row_starting("`relations.js`")
+        menu = row_starting("`relationmenu.js`")
         for name in ("stage.js", "relationmenu.js", "main.js", "nearestCapitalColour", "coloursTouch", "relationLoops", "editor.setCountry(colour, {relation, overlord})", "termFor"):
             self.assertIn(name, row)
         self.assertEqual(js_constant(APP / "stage.js", "RIGHT_BUTTON"), 2)
@@ -620,7 +866,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn("--at-x", app_source("relationmenu.js"))
 
     def test_a_dropped_map_file_reaches_the_open_action_and_the_browser_is_stopped_from_navigating(self) -> None:
-        row = row_starting(self.section, "`filedrop.js`")
+        row = row_starting("`filedrop.js`")
         self.assertIn("`actions.js`", row)
         self.assertTrue(imports("main.js", "filedrop.js"))
         self.assertIn("bindFileDrop({ target: document, onFile: (file) => actions.openFile(file) })", app_source("main.js"))
@@ -632,7 +878,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertEqual(drop.count("event.preventDefault()"), 2, "both events must cancel the browser's own handling")
 
     def test_the_supervisor_starts_serve_py_and_restarts_it_when_python_code_changes(self) -> None:
-        row = row_starting(self.section, "`System/Tools/appservers/appservers.py`")
+        row = row_starting("`System/Tools/appservers/appservers.py`")
         appservers = load_appservers()
         ours = [server for server in appservers.servers() if server["port"] == serve.PORT]
         self.assertEqual([(server["dir"], server["script"]) for server in ours], [(ROOT, ROOT / "serve.py")])
@@ -644,7 +890,7 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertFalse(appservers.is_stale(started=300.0, newest=200.0, now=200.0 + quiet))
 
     def test_the_model_row_matches_name_tags_notices_and_the_water_rule(self) -> None:
-        row = row_starting(self.section, "`model.js`")
+        row = row_starting("`model.js`")
         model, markers = app_source("model.js"), app_source("markers.js")
         self.assertIn("`{history, countries}`", row)
         self.assertIn("{ history: true, countries: true }", model)
@@ -672,23 +918,23 @@ class PerformanceRowsTest(unittest.TestCase):
     """The purpose line and the two frame rows of the cross-boundary table against the code."""
 
     def setUp(self) -> None:
-        self.frame = row_starting(guide_section(), "`render.js` | the browser's frame")
-        self.culling = row_starting(guide_section(), "`countrylabels.js`, `markers.js` |")
+        self.frame = row_starting("`render.js` | the browser's frame")
+        self.culling = row_starting("`countrylabels.js`, `markers.js` |")
         self.rows = self.frame + self.culling
         self.labels = app_source("countrylabels.js")
         self.render = app_source("render.js")
 
     def test_there_is_no_separate_performance_section(self) -> None:
-        self.assertNotIn("## Performance", guide_text())
-        self.assertNotIn("*Performance*", guide_text())
+        self.assertNotIn("## Performance", ALL_TEXT)
+        self.assertNotIn("*Performance*", ALL_TEXT)
 
     def test_the_purpose_states_the_frame_budget_and_the_row_agrees(self) -> None:
-        purpose = guide_text()[: guide_text().index("## Navigation")]
-        self.assertIn("a frame costs 16 milliseconds or less", purpose)
-        for feature in ("scenario maps", "colonies", "country names drawn over their land", "dominion, client state or colony", "enlarged under the pointer", "eye-dropper", "crash recovery", "Cloudflare Pages"):
-            self.assertIn(feature, purpose)
-        for address in (LIVE_URL, CLOUDFLARE_URL, "download from the public GitHub repository `lukeisham/AltHistoryMap`", "run locally with `serve.py`"):
-            self.assertIn(address, purpose)
+        self.assertIn("A frame costs 16 milliseconds or less", purpose_of())
+        for feature in ("scenario", "colony", "country names", "dominion", "enlarged", "eye dropper", "recovery"):
+            self.assertIn(feature, ALL_TEXT.lower().replace("eye-dropper", "eye dropper").replace("eyedropper", "eye dropper"))
+        for address in (LIVE_URL, CLOUDFLARE_URL, "lukeisham/AltHistoryMap"):
+            self.assertIn(address, section_of("app"))
+        self.assertIn("run locally with `serve.py`", purpose_of())
         self.assertIn("16 ms or less (60 frames a second)", self.frame)
 
     def test_the_tests_the_rows_name_exist(self) -> None:
@@ -730,10 +976,10 @@ class PerformanceRowsTest(unittest.TestCase):
         slice_budget = js_constant(ROOT / "tests/performance.test.js", "SEARCH_SLICE_BUDGET_MS")
         self.assertIn(f"no slice of `regionSearch` takes more than {slice_budget} ms", self.frame)
         limit = js_constant(ROOT / "tests/render.test.js", "FRAME_LIMIT_MS")
-        self.assertIn(f"when a frame passes {limit} ms", row_starting(guide_section(), "`performance.test.js`"))
+        self.assertIn(f"when a frame passes {limit} ms", row_starting("`performance.test.js`"))
 
     def test_startup_overlaps_the_two_fetches_and_yields_between_long_steps(self) -> None:
-        row = row_starting(guide_section(), "`api.js`, `main.js`")
+        row = row_starting("`api.js`, `main.js`")
         main = app_source("main.js")
         for name in ("yieldToBrowser", "loadScenarioBlob", "loadBasemap", "decodeMap", "model.replace"):
             self.assertIn(name, row)

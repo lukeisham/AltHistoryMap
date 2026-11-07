@@ -1,0 +1,592 @@
+{
+  "complete": true,
+  "modules": [
+    {
+      "name": "model",
+      "purpose": "Hold the one editable map state, with its undo history.",
+      "guide": "guides/model.md",
+      "files": [
+        "app/model.js"
+      ],
+      "interface": [
+        "COAST",
+        "FLAG_H",
+        "FLAG_W",
+        "LAKE",
+        "LAND",
+        "LAYERS",
+        "LEGACY_FLAG_SCALE",
+        "MARKER_TYPES",
+        "MAX_CRESTS",
+        "MAX_DESIGNS",
+        "MAX_NAME",
+        "MAX_PALETTE",
+        "MAX_TAG_OFFSET",
+        "N",
+        "PLANE_NAMES",
+        "RIVER",
+        "WATER",
+        "createModel",
+        "discOffsets",
+        "unproject"
+      ],
+      "depends_on": [
+        "countrydata",
+        "crestcells"
+      ]
+    },
+    {
+      "name": "countrydata",
+      "purpose": "Define the one country record every module validates against.",
+      "guide": "guides/countrydata.md",
+      "files": [
+        "app/countrydata.js",
+        "app/alignmentpools.js"
+      ],
+      "interface": [
+        "ALIGNMENTS",
+        "FALLBACK_TITLES",
+        "GOVERNMENTS",
+        "GOVERNMENT_TYPES",
+        "MAX_FIELD",
+        "MAX_MOTTO",
+        "RELATIONS",
+        "SAME_COLOUR_TOLERANCE",
+        "adjectivePool",
+        "blankCountry",
+        "countryName",
+        "defaultColourName",
+        "epithetPool",
+        "governmentPool",
+        "hardnessBias",
+        "isBlank",
+        "mottoPool",
+        "normaliseCountry",
+        "relationLoops",
+        "syllableRange"
+      ],
+      "depends_on": []
+    },
+    {
+      "name": "countryfacts",
+      "purpose": "Edit a country's key facts in one dialog.",
+      "guide": "guides/countryfacts.md",
+      "files": [
+        "app/countryfacts.js",
+        "app/countryfacts.css",
+        "app/namegen.js",
+        "app/countries.js"
+      ],
+      "interface": [
+        "createCountries",
+        "createCountryFacts"
+      ],
+      "depends_on": [
+        "countrydata",
+        "crestcells",
+        "dialogs",
+        "dragitem",
+        "flagdesigner",
+        "model",
+        "pngexport",
+        "render"
+      ]
+    },
+    {
+      "name": "relations",
+      "purpose": "Choose a country's relationship to another by right-click.",
+      "guide": "guides/relations.md",
+      "files": [
+        "app/relations.js",
+        "app/relationmenu.js",
+        "app/relationmenu.css"
+      ],
+      "interface": [
+        "createRelationMenu",
+        "createRelations"
+      ],
+      "depends_on": [
+        "countrydata",
+        "dialogs"
+      ]
+    },
+    {
+      "name": "crestcells",
+      "purpose": "Turn a crest's choices into a grid of cells.",
+      "guide": "guides/crestcells.md",
+      "files": [
+        "app/crestcells.js",
+        "app/supporters.js"
+      ],
+      "interface": [
+        "CHARGES",
+        "COMPARTMENTS",
+        "CREST_H",
+        "CREST_W",
+        "DIVISIONS",
+        "FACINGS",
+        "ORDINARIES",
+        "RIBBONS",
+        "SHAPES",
+        "SUPPORTERS",
+        "TOPPERS",
+        "TRANSPARENT",
+        "defaultCrest",
+        "normaliseCrest",
+        "renderCrest",
+        "renderShieldOnly"
+      ],
+      "depends_on": []
+    },
+    {
+      "name": "crestmaker",
+      "purpose": "Design the map's crests in one dialog.",
+      "guide": "guides/crestmaker.md",
+      "files": [
+        "app/crestmaker.js",
+        "app/crestmaker.css",
+        "app/crests.js",
+        "app/creststrip.js",
+        "app/creststrip.css"
+      ],
+      "interface": [
+        "bindCrestStrip",
+        "createCrestMaker",
+        "createCrests"
+      ],
+      "depends_on": [
+        "crestcells",
+        "dialogs",
+        "dragitem",
+        "model",
+        "palette",
+        "pngexport",
+        "saving"
+      ]
+    },
+    {
+      "name": "flagcells",
+      "purpose": "Build flag cell grids from starters, stamps or older files.",
+      "guide": "guides/flagcells.md",
+      "files": [
+        "app/flagcells.js"
+      ],
+      "interface": [
+        "blankCells",
+        "floodFill",
+        "pencilLine",
+        "stampCrest",
+        "starterLayout",
+        "upscaleLegacyFlag"
+      ],
+      "depends_on": [
+        "crestcells",
+        "model"
+      ]
+    },
+    {
+      "name": "flagdesigner",
+      "purpose": "Design the map's flags in one dialog.",
+      "guide": "guides/flagdesigner.md",
+      "files": [
+        "app/flagdesigner.js",
+        "app/flagdesigner.css",
+        "app/designs.js",
+        "app/flagstrip.js",
+        "app/flagstrip.css",
+        "app/flagzoom.js",
+        "app/flagzoom.css"
+      ],
+      "interface": [
+        "bindFlagStrip",
+        "createDesigns",
+        "createFlagDesigner",
+        "createFlagZoom",
+        "drawThumb"
+      ],
+      "depends_on": [
+        "crestcells",
+        "dialogs",
+        "dragitem",
+        "flagcells",
+        "model",
+        "palette",
+        "pngexport",
+        "render",
+        "saving"
+      ]
+    },
+    {
+      "name": "render",
+      "purpose": "Draw the map on the canvas within a 16 millisecond frame.",
+      "guide": "guides/render.md",
+      "files": [
+        "app/render.js",
+        "app/layerimage.js",
+        "app/markers.js",
+        "app/countrylabels.js",
+        "app/flagblocks.js"
+      ],
+      "interface": [
+        "BLOCK_COLS",
+        "BLOCK_ROWS",
+        "createRenderer",
+        "flagBlocks",
+        "pngFileName",
+        "readTheme",
+        "shownColourIndex"
+      ],
+      "depends_on": [
+        "countrydata",
+        "layers",
+        "model",
+        "viewport"
+      ]
+    },
+    {
+      "name": "viewport",
+      "purpose": "Map grid positions to screen positions at a zoom.",
+      "guide": "guides/viewport.md",
+      "files": [
+        "app/viewport.js"
+      ],
+      "interface": [
+        "BUTTON_ZOOM",
+        "KEY_PAN",
+        "SINGLE_PIXEL_K",
+        "ZOOM_FADES",
+        "brushOutline",
+        "fadeFactor",
+        "homeViewport",
+        "panViewport",
+        "readoutText",
+        "resizeViewport",
+        "screenToGrid",
+        "zoomViewport"
+      ],
+      "depends_on": [
+        "model"
+      ]
+    },
+    {
+      "name": "layers",
+      "purpose": "Define the allowed views of the map.",
+      "guide": "guides/layers.md",
+      "files": [
+        "app/layers.js"
+      ],
+      "interface": [
+        "LOOKS",
+        "isAllowedView",
+        "layersDrawn",
+        "layersOnScreen",
+        "lookFor",
+        "settleLayers",
+        "soloView",
+        "toggleLayer"
+      ],
+      "depends_on": [
+        "model"
+      ]
+    },
+    {
+      "name": "controls",
+      "purpose": "Hold the screen state the controls change.",
+      "guide": "guides/controls.md",
+      "files": [
+        "app/tools.js",
+        "app/state.js",
+        "app/toolpanel.js",
+        "app/toolpanel.css",
+        "app/layerbar.js",
+        "app/layerbar.css",
+        "app/keys.js",
+        "app/header.js",
+        "app/header.css",
+        "app/namefield.js",
+        "app/namefield.css"
+      ],
+      "interface": [
+        "BRUSH_TOOLS",
+        "NAME_TAG_TOOLS",
+        "PLACING_TOOLS",
+        "STROKE_TOOLS",
+        "bindHeader",
+        "bindLayerBar",
+        "bindToolPanel",
+        "createAppState",
+        "createKeys",
+        "createNameField",
+        "keepSelectionsValid"
+      ],
+      "depends_on": [
+        "layers",
+        "model"
+      ]
+    },
+    {
+      "name": "editor",
+      "purpose": "Change the map only through one edit gate.",
+      "guide": "guides/editor.md",
+      "files": [
+        "app/editor.js",
+        "app/glyphs.js",
+        "app/symbols.js",
+        "app/symbols.css",
+        "app/markerinfo.js",
+        "app/markerinfo.css"
+      ],
+      "interface": [
+        "GLYPHS",
+        "bindSymbols",
+        "createEditor",
+        "createMarkerInfo"
+      ],
+      "depends_on": [
+        "controls",
+        "dragitem",
+        "model"
+      ]
+    },
+    {
+      "name": "stage",
+      "purpose": "Turn pointer input on the map into actions.",
+      "guide": "guides/stage.md",
+      "files": [
+        "app/stage.js",
+        "app/stage.css"
+      ],
+      "interface": [
+        "createStage"
+      ],
+      "depends_on": [
+        "controls",
+        "dragitem"
+      ]
+    },
+    {
+      "name": "palette",
+      "purpose": "Show the colour swatches, each of which is a country.",
+      "guide": "guides/palette.md",
+      "files": [
+        "app/palette.js",
+        "app/palette.css",
+        "app/eyedropper.js"
+      ],
+      "interface": [
+        "bindPalette",
+        "createEyeDropperButton"
+      ],
+      "depends_on": [
+        "countrydata",
+        "dragitem",
+        "model"
+      ]
+    },
+    {
+      "name": "dragitem",
+      "purpose": "Define the one drag payload type.",
+      "guide": "guides/dragitem.md",
+      "files": [
+        "app/dragitem.js"
+      ],
+      "interface": [
+        "hasDragItem",
+        "readDragItem",
+        "setDragItem"
+      ],
+      "depends_on": []
+    },
+    {
+      "name": "pngexport",
+      "purpose": "Draw a cell grid as a PNG.",
+      "guide": "guides/pngexport.md",
+      "files": [
+        "app/pngexport.js"
+      ],
+      "interface": [
+        "CREST_PNG_CELL",
+        "FLAG_PNG_CELL",
+        "cellsToPng",
+        "drawCells"
+      ],
+      "depends_on": [
+        "crestcells"
+      ]
+    },
+    {
+      "name": "dialogs",
+      "purpose": "Provide the pop-up pieces the dialogs share.",
+      "guide": "guides/dialogs.md",
+      "files": [
+        "app/dialogs.js",
+        "app/dialogs.css",
+        "app/dialogparts.js",
+        "app/terms.js",
+        "app/termtip.js",
+        "app/termtip.css",
+        "app/messages.js",
+        "app/messages.css"
+      ],
+      "interface": [
+        "bindTermTips",
+        "createDialogs",
+        "createMessages",
+        "dialogParts",
+        "termFor"
+      ],
+      "depends_on": []
+    },
+    {
+      "name": "mapfile",
+      "purpose": "Define the map file format.",
+      "guide": "guides/mapfile.md",
+      "files": [
+        "app/mapfile.js",
+        "app/streams.js"
+      ],
+      "interface": [
+        "MapFileError",
+        "StreamLimitError",
+        "asScenarioCopy",
+        "collectBounded",
+        "decodeMap",
+        "encodeMap"
+      ],
+      "depends_on": [
+        "countrydata",
+        "crestcells",
+        "flagcells",
+        "model"
+      ]
+    },
+    {
+      "name": "loading",
+      "purpose": "Fetch the files the page needs from the network.",
+      "guide": "guides/loading.md",
+      "files": [
+        "app/api.js"
+      ],
+      "interface": [
+        "loadBasemap",
+        "loadScenarioBlob",
+        "loadScenarioIndex"
+      ],
+      "depends_on": [
+        "mapfile",
+        "model"
+      ]
+    },
+    {
+      "name": "scenarios",
+      "purpose": "List the scenario maps in the footer.",
+      "guide": "guides/scenarios.md",
+      "files": [
+        "app/scenarios.js",
+        "app/footer.css"
+      ],
+      "interface": [
+        "bindScenarios"
+      ],
+      "depends_on": [
+        "loading"
+      ]
+    },
+    {
+      "name": "saving",
+      "purpose": "Open, save or recover a map file.",
+      "guide": "guides/saving.md",
+      "files": [
+        "app/filesave.js",
+        "app/filedrop.js",
+        "app/recovery.js",
+        "app/actions.js"
+      ],
+      "interface": [
+        "bindFileDrop",
+        "cleanFileName",
+        "clearRecovery",
+        "createActions",
+        "downloadBlob",
+        "loadPrefs",
+        "readRecovery",
+        "savePrefs",
+        "startRecovery"
+      ],
+      "depends_on": [
+        "layers",
+        "loading",
+        "mapfile",
+        "model",
+        "render"
+      ]
+    },
+    {
+      "name": "main",
+      "purpose": "Wire the modules together on one page.",
+      "guide": "guides/main.md",
+      "files": [
+        "app/main.js",
+        "app/index.html"
+      ],
+      "interface": [],
+      "depends_on": [
+        "controls",
+        "countryfacts",
+        "crestcells",
+        "crestmaker",
+        "dialogs",
+        "editor",
+        "flagdesigner",
+        "layers",
+        "loading",
+        "mapfile",
+        "model",
+        "palette",
+        "relations",
+        "render",
+        "saving",
+        "scenarios",
+        "stage"
+      ]
+    },
+    {
+      "name": "style",
+      "purpose": "Hold the shared look tokens.",
+      "guide": "guides/style.md",
+      "files": [
+        "app/tokens.css",
+        "app/page.css",
+        "app/buttons.css",
+        "app/favicon.svg"
+      ],
+      "interface": [],
+      "depends_on": []
+    },
+    {
+      "name": "server",
+      "purpose": "Serve the app folder on the local machine.",
+      "guide": "guides/server.md",
+      "files": [
+        "serve.py",
+        "Start AltHistoryMap.command"
+      ],
+      "interface": [],
+      "depends_on": []
+    },
+    {
+      "name": "build",
+      "purpose": "Build the data files the app loads.",
+      "guide": "guides/build.md",
+      "files": [
+        "build/build_basemap.py",
+        "build/build_scenarios.py",
+        "build/build_glyphs.py",
+        "build/raster.py",
+        "build/preview_scenario.py"
+      ],
+      "interface": [],
+      "depends_on": []
+    }
+  ]
+}

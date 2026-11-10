@@ -1,0 +1,46 @@
+.sb-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.sb-lead {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.sb-canvas {
+  display: block;
+  max-width: calc(100vw - 4 * var(--s-3));
+  height: auto;
+  touch-action: none;
+  cursor: crosshair;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--map-sea);
+}
+
+.sb-brush {
+  width: var(--panel-w);
+  max-width: 100%;
+}
+
+.sb-name {
+  flex: 1 1 var(--panel-w);
+  min-width: 0;
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+}

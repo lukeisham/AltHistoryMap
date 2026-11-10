@@ -1,5 +1,5 @@
 // What the heraldic and flag words on the crest maker and flag designer, and the nine philosophy squares
-// of the Key Facts dialog, mean, for the pop-ups in termtip.js. Keys are `<group>:<id>`; the crest maker builds them from the id lists in crestcells.js
+// of the Key Facts dialog, and the Sandbox's start choices and tools, mean, for the pop-ups in termtip.js. Keys are `<group>:<id>`; the crest maker builds them from the id lists in crestcells.js
 // and supporters.js, and the flag designer from its own tool and starter lists, so every option has
 // a definition (terms.test.js checks that none is missing).
 
@@ -108,6 +108,20 @@ const TERMS = {
   "relation:dominion": ["Dominion", "A country that governs itself but is tied to another, its overlord, as the self-governing realms of an empire were. On the map its colour is a middle shade, lighter than a client state's."],
   "relation:client": ["Client State", "A country that is nominally independent but depends on a stronger one for protection or money, and follows its lead. On the map its colour is the darkest shade, closest to its own colour."],
   "relation:colony": ["Colony", "A territory ruled directly from another country, its overlord. On the map its colour is very light."],
+
+  "sandbox:ocean": ["Start with ocean", "You paint the sea and the land shapes itself around it: whatever you leave unpainted becomes land, and a ring of sea you close fills its inside. Best for carving seas, gulfs and straits out of one great landmass."],
+  "sandbox:land": ["Start with land", "You paint the land borders and the water fills in around them: whatever you leave unpainted becomes sea, and a ring of land you close fills its inside. Best for drawing continents and islands on open water."],
+  "sandbox:detail": ["Detail", "Broad paints in large soft blocks, quick for whole continents. Fine paints in blocks four times narrower, for bays, straits and small islands, but takes longer to cover the world. Choose it before you start; changing it later starts a new sandbox."],
+  "sandbox:paint": ["Paint", "Paints with the kind of ground you started with, and fills any area you close in with it."],
+  "sandbox:erase": ["Erase", "Takes paint away. Erased cells turn into the other kind of ground, so erasing the sea you painted leaves land."],
+  "sandbox:brush": ["Brush size", "How wide a stroke is, in sandbox cells."],
+  "sandbox:undo": ["Undo", "Takes back the last stroke."],
+  "sandbox:redo": ["Redo", "Brings back the stroke you took back."],
+  "sandbox:clear": ["Clear", "Wipes every stroke, so the whole sandbox becomes the other kind of ground. Undo brings it back."],
+  "sandbox:restart": ["Start over", "Goes back to the choice of ocean or land and detail, discarding this sandbox."],
+  "sandbox:save": ["Save base map", "Downloads the base map as an AltHistoryMap file. Open it later to play or edit on it, like any map."],
+  "sandbox:play": ["Play on it", "Opens an empty map over this base map in View mode, to look at and explore."],
+  "sandbox:edit": ["Edit it", "Opens an empty map over this base map in Edit mode, ready to paint countries and place markers."],
 
   "alignment:lawful-good": ["Lawful good", "A country that keeps strict laws and uses them to protect people: honest, orderly and kind. Typical of a just kingdom or a well-run commonwealth."],
   "alignment:neutral-good": ["Neutral good", "A country that simply tries to do right by its people, with or without strict rules. Typical of a friendly federation or a peaceful free city."],

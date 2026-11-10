@@ -26,6 +26,7 @@ app/
 | From | To | What crosses | What breaks if it changes |
 |---|---|---|---|
 | `mapfile.js` | `model.js` | A marker's `colony` (boolean, default false, true only on a city that is not a capital), written on every save and optional on read. The header keys `crests`, a list of crest choice objects, and `countries`, a list of country records (see the `countrydata.js` row), each written on every save and optional on read: a file saved before either existed has no such key and opens with none. Each country record is written with `relation` and `overlord` only when set, and a file without them opens with none; a key the reader does not know is ignored, and a loop of overlords is refused. The format number (1) and `AHMAP001` are unchanged | Older maps stop opening; a new map fails in an older copy of the app |
+| `mapfile.js` | `actions.js` | A map with its own base map writes the header key `customBase` (true; absent otherwise) and one more N x N plane, the sixth, after the five named planes; the reader checks the length against the key, accepts only the four base bits in that plane and returns it as `base`. A file without the key is five planes and opens as before. The format number (1) is unchanged, so an older copy of the app refuses a map with its own base map as damaged | A custom base map that is dropped on save, or a plane count that no longer matches the key |
 
 **Interface.** The names other modules import, and who imports them.
 

@@ -318,6 +318,7 @@ export function createRenderer({ canvas, model, glyphs }) {
 
   function onModelChange(notice) {
     if (notice.all || notice.palette) {
+      if (notice.all) rivers.reset();
       needsRebuild = true;
       regions = null;
       staleRegions = null;

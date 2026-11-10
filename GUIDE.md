@@ -4,7 +4,7 @@ For AI agents. People start at `README.md`. Each module has its own guide, liste
 
 ## Purpose
 
-A zoomable Mercator world map for building alternative histories, with a flag designer and a crest maker. It is a static site played online or run locally with `serve.py`, and it reads no other Lukeatron app, store or file. **Input:** people create imaginary maps, flags and crests, or start from a ready-made scenario map. **Output:** saved maps, each one file holding paint, markers, flags, crests and countries, and flags and crests as PNG. **Essential functions:** painting territory in three layers (Political, Province, Culture); markers shown by zoom level; country names over their land; countries with key facts and relationships; crash recovery of unsaved work. A frame costs 16 milliseconds or less.
+A zoomable Mercator world map for building alternative histories, with a flag designer and a crest maker. It is a static site played online or run locally with `serve.py`, and it reads no other Lukeatron app, store or file. **Input:** people create imaginary maps, flags and crests, start from a ready-made scenario map, or paint a new base map from scratch in the Sandbox. **Output:** saved maps, each one file holding paint, markers, flags, crests and countries (and its own base map, if made in the Sandbox), and flags and crests as PNG. **Essential functions:** painting territory in three layers (Political, Province, Culture); markers shown by zoom level; country names over their land; countries with key facts and relationships; crash recovery of unsaved work. A frame costs 16 milliseconds or less.
 
 ## Contents
 
@@ -24,7 +24,7 @@ AltHistoryMap/
 │   ├── data/               basemap.bin · LUCIDE-LICENSE.txt · scenarios/ (index.json + one .ahmap per listed scenario)
 │   ├── map state           model · countrydata · crestcells · flagcells · mapfile
 │   ├── drawing             render · viewport · layers
-│   ├── designers           crestmaker · flagdesigner · pngexport · dialogs
+│   ├── designers           crestmaker · flagdesigner · sandbox · pngexport · dialogs
 │   ├── countries           countryfacts · relations
 │   ├── interface           controls · editor · stage · palette · dragitem
 │   ├── files and start-up  loading · scenarios · saving · main · style

@@ -48,6 +48,7 @@ app/
 | palette | `bindPalette` |
 | relations | `createRelationMenu`, `createRelations` |
 | render | `createRenderer`, `readTheme`, `shownColourIndex` |
+| sandbox | `createSandbox` |
 | saving | `bindFileDrop`, `clearRecovery`, `createActions`, `downloadBlob`, `loadPrefs`, `readRecovery`, `savePrefs`, `startRecovery` |
 | scenarios | `bindScenarios` |
 | stage | `createStage` |

@@ -6,7 +6,7 @@ import { downloadMap, downloadBlob, pickMapFile, readMapFile, cleanFileName } fr
 import { clearRecovery } from "./recovery.js";
 import { loadScenarioBlob } from "./api.js";
 import { pngFileName } from "./render.js";
-import { MAX_NAME } from "./model.js";
+import { MAX_NAME, N, PLANE_NAMES, DEFAULT_PALETTE } from "./model.js";
 
 const DEFAULT_NOTE = "This scenario is an approximate sketch, not a historian's map.";
 
@@ -93,6 +93,46 @@ export function createActions({ model, renderer, dialogs, say, glyphIds, onChang
     isDirty,
     guardUnsaved,
     save,
+
+    /**
+     * Opens an empty map over a Sandbox base map, after the unsaved-work question.
+     * @param {Uint8Array} base
+     * @param {string} name
+     * @returns {Promise<boolean>} False when the person chose to keep the map that is open.
+     */
+    async startOnBase(base, name) {
+      if (!(await guardUnsaved())) return false;
+      const wasUnsaved = isDirty();
+      restoredUnsaved = false;
+      model.startOver(base, name);
+      if (wasUnsaved) deps.clearRecovery();
+      onChange();
+      say(`Started ${name} on your new base map.`);
+      return true;
+    },
+
+    /**
+     * Downloads a Sandbox base map as a map file with no paint, markers or countries; the open map is not touched.
+     * @param {Uint8Array} base
+     * @param {string} name
+     * @returns {Promise<boolean>}
+     */
+    async saveBaseMap(base, name) {
+      try {
+        // Every plane is empty, so one shared zero plane is enough for the writer, which only reads.
+        const zero = new Uint8Array(N * N);
+        const planes = Object.fromEntries(PLANE_NAMES.map((plane) => [plane, zero]));
+        const clean = await deps.downloadMap(
+          { name, origin: null, palette: [...DEFAULT_PALETTE], markers: [], designs: [], crests: [], countries: [], planes, base },
+          name,
+        );
+        say(`Saved as ${clean}.ahmap`);
+        return true;
+      } catch (error) {
+        fail(error, "The base map could not be saved.");
+        return false;
+      }
+    },
 
     /** Asks for a name, then saves under it. */
     async saveAs() {

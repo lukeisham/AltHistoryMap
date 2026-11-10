@@ -441,9 +441,10 @@ export function riverMask(base, n, scale) {
  * Coarser pictures of the rivers, drawn over the layer picture when zoomed out so a one-pixel river
  * does not vanish. Each level is built the first time its zoom is reached.
  * @param {number} n Grid side.
- * @param {Uint8Array} base The base plane, which never changes.
- * @returns {{levelFor: (k: number, colour: number) => ({canvas: object, scale: number} | null)}}
- *   `levelFor` returns null when no overlay is needed at zoom `k`; `colour` is the packed river colour.
+ * @param {Uint8Array} base The base plane; it changes only when a map brings its own, which calls `reset`.
+ * @returns {{levelFor: (k: number, colour: number) => ({canvas: object, scale: number} | null), reset: () => void}}
+ *   `levelFor` returns null when no overlay is needed at zoom `k`; `colour` is the packed river colour;
+ *   `reset` forgets every level so the next call reads the base again.
  */
 export function createRiverOverview(n, base) {
   const levels = new Map();
@@ -459,6 +460,9 @@ export function createRiverOverview(n, base) {
   }
 
   return {
+    reset() {
+      levels.clear();
+    },
     levelFor(k, colour) {
       const scale = riverScale(k);
       if (scale === 1) return null;

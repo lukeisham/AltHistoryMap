@@ -10,6 +10,7 @@
       ],
       "interface": [
         "COAST",
+        "DEFAULT_PALETTE",
         "FLAG_H",
         "FLAG_W",
         "LAKE",
@@ -162,6 +163,24 @@
         "palette",
         "pngexport",
         "saving"
+      ]
+    },
+    {
+      "name": "sandbox",
+      "purpose": "Make a new base map from scratch, then save it or play on it.",
+      "guide": "guides/sandbox.md",
+      "files": [
+        "app/sandbox.js",
+        "app/sandboxcells.js",
+        "app/sandbox.css"
+      ],
+      "interface": [
+        "createSandbox"
+      ],
+      "depends_on": [
+        "dialogs",
+        "model",
+        "render"
       ]
     },
     {
@@ -545,6 +564,7 @@
         "palette",
         "relations",
         "render",
+        "sandbox",
         "saving",
         "scenarios",
         "stage"

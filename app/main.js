@@ -9,6 +9,7 @@ import { GLYPHS } from "./glyphs.js";
 import { createRenderer } from "./render.js";
 import { createFlagDesigner } from "./flagdesigner.js";
 import { createCrestMaker } from "./crestmaker.js";
+import { createSandbox } from "./sandbox.js";
 import { createCountryFacts } from "./countryfacts.js";
 import { createCountries } from "./countries.js";
 import { createRelations } from "./relations.js";
@@ -191,7 +192,15 @@ async function main() {
     stage.refresh();
   };
   const actions = createActions({ model, renderer, dialogs, say, glyphIds, onChange: () => refreshChrome() });
-  const header = bindHeader({ root: document.querySelector(".app-header"), state, model, actions });
+  // The window may be too narrow to edit in, so Edit falls back to View with a note.
+  const useBase = async (base, name, mode) => {
+    if (!(await actions.startOnBase(base, name))) return false;
+    if (mode === "edit" && narrow.matches) say("This window is too narrow to edit in; the map is open in View.");
+    else state.set({ mode });
+    return true;
+  };
+  const sandbox = createSandbox({ dialog: part("sandbox"), saveBase: actions.saveBaseMap, useBase });
+  const header = bindHeader({ root: document.querySelector(".app-header"), state, model, actions, openSandbox: () => sandbox.open() });
   bindFileDrop({ target: document, onFile: (file) => actions.openFile(file) });
   bindLayerBar({ root: document.querySelector(".layerbar"), state, model, editor, say });
   bindToolPanel({

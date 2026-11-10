@@ -7,12 +7,13 @@ const APP_NAME = "AltHistoryMap";
  *   root: HTMLElement,
  *   state: {get: () => object, set: (patch: object) => void, subscribe: Function},
  *   model: {name: string},
- *   actions: {isDirty: () => boolean, open: Function, save: Function, saveAs: Function, exportPng: Function}
+ *   actions: {isDirty: () => boolean, open: Function, save: Function, saveAs: Function, exportPng: Function},
+ *   openSandbox: () => void
  * }} deps
  * @returns {{refresh: () => void, setNarrow: (narrow: boolean) => void}} `refresh` re-reads the name and unsaved
  *   mark; `setNarrow` disables Edit and shows the note when the window is too narrow to edit in.
  */
-export function bindHeader({ root, state, model, actions }) {
+export function bindHeader({ root, state, model, actions, openSandbox }) {
   const radios = [...root.querySelectorAll('input[name="mode"]')];
   const nameEl = root.querySelector('[data-role="map-name"]');
   const dirtyEls = root.querySelectorAll('[data-role="dirty"]');
@@ -29,6 +30,7 @@ export function bindHeader({ root, state, model, actions }) {
     save: actions.save,
     "save-as": actions.saveAs,
     png: actions.exportPng,
+    sandbox: openSandbox,
   };
   for (const [name, run] of Object.entries(buttons)) {
     root.querySelector(`[data-action="${name}"]`).addEventListener("click", () => run());

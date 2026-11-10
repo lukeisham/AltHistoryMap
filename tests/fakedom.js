@@ -27,7 +27,7 @@ export class FakeElement {
   }
   getContext() {
     const noop = () => {};
-    return { setTransform: noop, fillRect: noop, clearRect: noop, strokeRect: noop, beginPath: noop, moveTo: noop, lineTo: noop, closePath: noop, fill: noop, stroke: noop, setLineDash: noop };
+    return { createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }), putImageData: noop, drawImage: noop, setTransform: noop, fillRect: noop, clearRect: noop, strokeRect: noop, beginPath: noop, moveTo: noop, lineTo: noop, closePath: noop, fill: noop, stroke: noop, setLineDash: noop };
   }
   getBoundingClientRect() { return { left: 0, top: 0, width: 384, height: 256 }; }
   setPointerCapture() {}

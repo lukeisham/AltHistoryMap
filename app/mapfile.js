@@ -29,6 +29,7 @@ const DESIGN_CELLS = FLAG_W * FLAG_H;
 const LEGACY_DESIGN_CELLS = DESIGN_CELLS / LEGACY_FLAG_SCALE ** 2;
 const MAX_HEADER = 4 * 1024 * 1024;
 const HEX = /^#[0-9a-f]{6}$/;
+const BASE_BITS_MAX = 15;
 const DEFAULT_NAME = "Untitled map";
 const LEGACY_FIGHTING = 255;
 
@@ -40,8 +41,8 @@ const DAMAGED = "This file is damaged or cut short";
 
 /**
  * Turns a map into a gzip-compressed .ahmap Blob.
- * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests?: object[], countries?: object[], planes: object}} data
- *   The shape of model.snapshot().
+ * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests?: object[], countries?: object[], planes: object, base?: Uint8Array}} data
+ *   The shape of model.snapshot(). `base` is written as a sixth plane when the map has its own base map.
  * @returns {Promise<Blob>}
  */
 export async function encodeMap(data) {
@@ -56,6 +57,7 @@ export async function encodeMap(data) {
     }
     return plane;
   });
+  if (data.base) planes.push(checkedBase(data.base, () => new MapFileError("This map is incomplete and cannot be saved")));
   // The Blob copies its parts here, before any await, so edits made while compressing are not saved half-way.
   const raw = new Blob([MAGIC_BYTES, length, headerBytes, ...planes]);
   const gzip = raw.stream().pipeThrough(new CompressionStream("gzip"));
@@ -89,6 +91,7 @@ function buildHeader(data) {
     countries: (data.countries ?? []).map((country) => ({ ...country })),
     savedWith: SAVED_WITH,
   };
+  if (data.base) header.customBase = true;
   try {
     checkHeader(header, null);
   } catch (error) {
@@ -102,8 +105,8 @@ function buildHeader(data) {
  * Reads and validates a map file. Nothing is returned unless the whole file is valid.
  * @param {Blob | ArrayBuffer | Uint8Array} source The gzip bytes.
  * @param {string[]} glyphIds Every valid symbol glyph id.
- * @returns {Promise<{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests: object[], countries: object[], planes: object}>}
- *   Ready for model.replace(); the planes are views of one buffer.
+ * @returns {Promise<{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests: object[], countries: object[], planes: object, base?: Uint8Array}>}
+ *   Ready for model.replace(); the planes, and `base` when the file carries its own base map, are views of one buffer.
  * @throws {MapFileError} On any problem with the file.
  */
 export async function decodeMap(source, glyphIds) {
@@ -115,7 +118,7 @@ export async function decodeMap(source, glyphIds) {
   let bytes;
   try {
     const inflated = blob.stream().pipeThrough(new DecompressionStream("gzip"));
-    const limit = MAGIC_BYTES.length + 4 + MAX_HEADER + PLANE_NAMES.length * PLANE_BYTES;
+    const limit = MAGIC_BYTES.length + 4 + MAX_HEADER + (PLANE_NAMES.length + 1) * PLANE_BYTES;
     bytes = await collectBounded(inflated, limit, { size: MAGIC_BYTES.length, check: checkMagic });
   } catch (error) {
     if (error instanceof MapFileError) throw error;
@@ -126,9 +129,9 @@ export async function decodeMap(source, glyphIds) {
   const headerAt = MAGIC_BYTES.length + 4;
   if (bytes.length < headerAt) throw new MapFileError(DAMAGED);
   const headerLength = new DataView(bytes.buffer, bytes.byteOffset + MAGIC_BYTES.length, 4).getUint32(0, false);
-  if (headerLength > MAX_HEADER || bytes.length !== headerAt + headerLength + PLANE_NAMES.length * PLANE_BYTES) {
-    throw new MapFileError(DAMAGED);
-  }
+  const bodyLength = bytes.length - headerAt - headerLength;
+  const withoutBase = PLANE_NAMES.length * PLANE_BYTES;
+  if (headerLength > MAX_HEADER || (bodyLength !== withoutBase && bodyLength !== withoutBase + PLANE_BYTES)) throw new MapFileError(DAMAGED);
 
   let header;
   try {
@@ -137,6 +140,7 @@ export async function decodeMap(source, glyphIds) {
     throw new MapFileError("The details at the start of this file are damaged");
   }
   const checked = checkHeader(header, new Set(glyphIds));
+  if (checked.customBase !== (bodyLength > withoutBase)) throw new MapFileError(DAMAGED);
 
   const planes = {};
   let offset = headerAt + headerLength;
@@ -155,7 +159,20 @@ export async function decodeMap(source, glyphIds) {
   for (let i = 0; i < PLANE_BYTES; i++) {
     if (planes.province[i] === LEGACY_FIGHTING) planes.province[i] = 0;
   }
-  return { ...checked, planes };
+  const { customBase, ...rest } = checked;
+  if (!customBase) return { ...rest, planes };
+  const base = bytes.subarray(offset, offset + PLANE_BYTES);
+  checkedBase(base, () => new MapFileError("The base map in this file is not valid"));
+  return { ...rest, planes, base };
+}
+
+// A base plane holds only the four base bits; the check is one pass over 16 MB.
+function checkedBase(base, makeError) {
+  if (!(base instanceof Uint8Array) || base.length !== PLANE_BYTES) throw makeError();
+  for (let i = 0; i < base.length; i++) {
+    if (base[i] > BASE_BITS_MAX) throw makeError();
+  }
+  return base;
 }
 
 function checkMagic(head) {
@@ -240,7 +257,8 @@ function checkHeader(h, glyphs) {
   const seen = new Set();
   const markers = h.markers.map((m) => checkMarker(m, palette.length, designs.length, glyphs, seen));
 
-  return { name, origin, palette: [...palette], markers, designs, crests, countries };
+  if (h.customBase !== undefined && h.customBase !== true) throw new MapFileError("The base map flag in this file is not valid");
+  return { name, origin, palette: [...palette], markers, designs, crests, countries, customBase: h.customBase === true };
 }
 
 function checkMarker(m, paletteLength, designCount, glyphs, seen) {

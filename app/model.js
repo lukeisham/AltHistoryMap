@@ -117,7 +117,8 @@ export function discOffsets(d) {
 
 /**
  * Builds an empty map over a base plane.
- * @param {Uint8Array} base Read-only plane with LAND, RIVER, LAKE and COAST bits; length n*n.
+ * @param {Uint8Array} base Plane with LAND, RIVER, LAKE and COAST bits; length n*n. Only `replace` changes it, in place,
+ *   so every module that holds it sees a map's own base map.
  * @param {number} [n] Grid side; only tests use a size other than N.
  * @returns {object} The model.
  */
@@ -128,10 +129,13 @@ export function createModel(base, n = N) {
   let entryTotal = 0;
   let nextId = 1;
   let stroke = null;
+  // The standard base map, copied the first time a map brings its own, so the next map without one can put it back.
+  let standardBase = null;
 
   const model = {
     n,
     base,
+    customBase: false,
     name: "Untitled map",
     origin: null,
     planes: emptyPlanes(n),
@@ -776,10 +780,20 @@ export function createModel(base, n = N) {
 
     /**
      * Replaces the whole map (Open, scenario, restore). Clears history and the dirty flag.
-     * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests: object[], countries?: object[], planes: object}} data
+     * @param {{name: string, origin: string | null, palette: string[], markers: object[], designs: Uint8Array[], crests: object[], countries?: object[], planes: object, base?: Uint8Array}} data
+     *   `base` is the map's own base map; without it the standard one is used.
      */
     replace(data) {
+      if (data.base && data.base.length !== base.length) throw new RangeError("the map's base plane has the wrong size");
       stroke = null;
+      if (data.base) {
+        standardBase ??= base.slice();
+        base.set(data.base);
+        model.customBase = true;
+      } else if (model.customBase) {
+        base.set(standardBase);
+        model.customBase = false;
+      }
       model.name = data.name;
       model.origin = data.origin;
       model.palette = data.palette;
@@ -798,10 +812,19 @@ export function createModel(base, n = N) {
       notify({ all: true });
     },
 
-    /** @returns {object} References to the live map content, for the map file writer. */
+    /**
+     * Starts an empty map over a base map made in the Sandbox.
+     * @param {Uint8Array} newBase The base plane, n * n bytes.
+     * @param {string} name
+     */
+    startOver(newBase, name) {
+      model.replace({ name, origin: null, palette: [...DEFAULT_PALETTE], markers: [], designs: [], crests: [], countries: [], planes: emptyPlanes(n), base: newBase });
+    },
+
+    /** @returns {object} References to the live map content, for the map file writer; `base` only when the map has its own. */
     snapshot() {
       const { name, origin, palette, markers, designs, crests, countries, planes } = model;
-      return { name, origin, palette, markers, designs, crests, countries, planes };
+      return { name, origin, palette, markers, designs, crests, countries, planes, ...(model.customBase ? { base } : {}) };
     },
   });
 

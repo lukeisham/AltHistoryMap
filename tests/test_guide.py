@@ -557,6 +557,28 @@ class GuideBoundaryTest(unittest.TestCase):
             self.assertIn(number, row)
         self.assertIn("format: 1", app_source("mapfile.js"))
 
+    def test_a_map_with_its_own_base_map_is_one_more_plane_and_goes_through_model_replace(self) -> None:
+        row = row_starting("`mapfile.js` | `actions.js`")
+        for name in ("customBase", "sixth", "base"):
+            self.assertIn(name, row)
+        self.assertIn("header.customBase = true", app_source("mapfile.js"))
+        self.assertIn("h.customBase", app_source("mapfile.js"))
+        replace_row = row_starting("`replace`, `startOver`")
+        for name in ("customBase", "startOver", "snapshot"):
+            self.assertIn(name, replace_row)
+        self.assertIn("base.set(data.base)", app_source("model.js"))
+        self.assertIn("rivers.reset()", app_source("render.js"))
+        saving_row = row_starting("`actions.js` | `sandbox.js`")
+        for name in ("saveBaseMap", "startOnBase", "model.startOver"):
+            self.assertIn(name, saving_row)
+            self.assertIn(name.split(".")[-1], app_source("actions.js"))
+        sandbox_row = row_starting("`sandbox.js` | `main.js`")
+        for name in ("createSandbox", "saveBase", "useBase", "actions.saveBaseMap", "actions.startOnBase"):
+            self.assertIn(name, sandbox_row)
+        self.assertIn("createSandbox({ dialog: part(\"sandbox\"), saveBase: actions.saveBaseMap, useBase })", app_source("main.js"))
+        self.assertIn('data-role="sandbox"', (APP / "index.html").read_text(encoding="utf-8"))
+        self.assertIn('href="sandbox.css"', (APP / "index.html").read_text(encoding="utf-8"))
+
     def test_countries_are_validated_by_the_one_validator_and_keep_the_fields_the_guide_names(self) -> None:
         row = row_starting("`countrydata.js`")
         for name in ("model.js", "mapfile.js", "countries.js", "countryfacts.js", "normaliseCountry", "colourNameFor", "alignmentpools.js", "stampCrest"):
@@ -637,7 +659,7 @@ class GuideBoundaryTest(unittest.TestCase):
         for name in ("termtip.js", "crestmaker.js", "flagdesigner.js", "termFor", "bindTermTips(dialog)", "data-term"):
             self.assertIn(f"`{name}`" if name.endswith(".js") else name, row)
         self.assertTrue(imports("termtip.js", "terms.js"))
-        for dialog in ("flagdesigner.js", "crestmaker.js", "countryfacts.js"):
+        for dialog in ("flagdesigner.js", "crestmaker.js", "countryfacts.js", "sandbox.js"):
             self.assertTrue(imports(dialog, "termtip.js"))
             self.assertIn("bindTermTips(dialog)", app_source(dialog))
         groups = set(re.findall(r'^  "(\w+):', app_source("terms.js"), re.MULTILINE))

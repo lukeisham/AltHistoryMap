@@ -327,10 +327,14 @@ test("a create option is the sheet's paint tool; the other one starts a new shee
   pointer(canvas, "pointermove", 200, 120);
   pointer(canvas, "pointerup", 200, 120);
   assert.equal(byText("Undo").disabled, false, "the river is a step");
-  assert.equal(byText("Create by ocean").disabled, true, "a drawing is not thrown away by the other create option");
+  assert.equal(byText("Create by ocean").disabled, false, "the other create option stays available");
   assert.match(dialog.find((n) => n.className === "fd-status").textContent, /^Land 0%, sea 100%$/, "a river paints no ground");
-  byText("Create by border").click();
-  assert.equal(byText("Create by border").attrs["aria-pressed"], "true");
+  byText("Create by ocean").click();
+  assert.equal(byText("Undo").disabled, false, "the first click on the other option keeps the drawing");
+  assert.match(dialog.find((n) => n.className === "fd-status").textContent, /^Create by ocean again to discard/);
+  byText("Create by ocean").click();
+  assert.equal(byText("Create by ocean").attrs["aria-pressed"], "true");
+  assert.equal(byText("Undo").disabled, true, "the second click starts a new sheet");
 
   byText("Start over").click();
   assert.equal(byText("Create by ocean").disabled, false);

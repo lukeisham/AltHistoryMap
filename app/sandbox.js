@@ -41,6 +41,7 @@ export function createSandbox({ dialog, saveBase, useBase }) {
   let busy = false;
   let last = null;
   let colours = { sea: 0, land: 0, water: "" };
+  let armed = null;
 
   function termButton(label, term, onClick, className) {
     const node = button(label, onClick, className);
@@ -136,13 +137,20 @@ export function createSandbox({ dialog, saveBase, useBase }) {
     refresh();
   }
 
-  // The create button of the sheet in hand is its paint tool; the other one starts a new sheet, and is
-  // shut once anything is drawn so a slip cannot throw the drawing away.
+  // The create button of the sheet in hand is its paint tool; the other one starts a new sheet. Once
+  // anything is drawn it takes a second click on the same button, so a slip cannot throw the drawing away.
   function chooseCreate(start) {
     if (grid?.start === start) {
+      armed = null;
       setTool("paint");
       return;
     }
+    if (grid && (grid.canUndo() || grid.canRedo()) && armed !== start) {
+      armed = start;
+      refresh({ cells: false });
+      return;
+    }
+    armed = null;
     grid = createSandboxGrid({ start, side: sideFor(detail) });
     tool = "paint";
     ui.brush.setAttribute("max", String(BRUSH_MAX[detail]));
@@ -199,8 +207,8 @@ export function createSandbox({ dialog, saveBase, useBase }) {
     const drawn = started && (grid.canUndo() || grid.canRedo());
     for (const [start, node] of Object.entries(ui.createBtns)) {
       node.setAttribute("aria-pressed", String(started && grid.start === start && tool === "paint"));
-      node.disabled = drawn && grid.start !== start;
     }
+    if (!drawn) armed = null;
     ui.detailBtn.textContent = detail === "fine" ? "Detail: Fine" : "Detail: Broad";
     ui.detailBtn.setAttribute("aria-pressed", String(detail === "fine"));
     ui.detailBtn.disabled = started;
@@ -214,6 +222,10 @@ export function createSandbox({ dialog, saveBase, useBase }) {
     drawSheet();
     if (!started) {
       say(BLANK_HINT);
+      return;
+    }
+    if (armed) {
+      say(`${CREATE_LABEL[armed]} again to discard this drawing and start a new sheet.`);
       return;
     }
     const share = Math.round(grid.landShare() * 100);

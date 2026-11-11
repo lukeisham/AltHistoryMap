@@ -52,3 +52,20 @@
     background: var(--danger-wash);
   }
 }
+
+/* One selected look for every toggle button: the tint and border each module sets, plus an underline bar that
+   does not rely on colour alone, and a short transform-only pop that runs as the button becomes selected. */
+:is(.btn, .fd-btn, .tool-button, .layer-button)[aria-pressed="true"] {
+  box-shadow: inset 0 -3px 0 var(--acc);
+  animation: btn-selected var(--m-base) var(--ease-out);
+
+  &:focus-visible {
+    box-shadow: inset 0 -3px 0 var(--acc), var(--focus-ring);
+  }
+}
+
+@keyframes btn-selected {
+  50% {
+    transform: scale(1.06);
+  }
+}

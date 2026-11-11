@@ -48,7 +48,7 @@ app/
 | `MAX_TAG_OFFSET` | mapfile |
 | `N` | loading, mapfile, sandbox, saving |
 | `PLANE_NAMES` | mapfile, saving |
-| `RIVER` | render |
+| `RIVER` | render, sandbox |
 | `WATER` | editor |
 | `createModel` | main |
 | `discOffsets` | sandbox, viewport |

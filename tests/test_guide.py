@@ -579,6 +579,31 @@ class GuideBoundaryTest(unittest.TestCase):
         self.assertIn('data-role="sandbox"', (APP / "index.html").read_text(encoding="utf-8"))
         self.assertIn('href="sandbox.css"', (APP / "index.html").read_text(encoding="utf-8"))
 
+    def test_the_sandbox_is_a_whole_window_page_and_its_rivers_are_land_pixels_with_the_river_bit(self) -> None:
+        page_row = row_starting("`sandbox.js` | `sandbox.css`")
+        for name in ("sb-page", ".sb-sheet", "min(100cqw, 100cqh)", "Create by ocean", "Create by border", 'data-role="sandbox"'):
+            self.assertIn(name, page_row)
+        self.assertIn('dialog.className = "fd sb-page"', app_source("sandbox.js"))
+        self.assertIn('canvas.node.style.width = "min(100cqw, 100cqh)"', app_source("sandbox.js"))
+        for label in ("Create by ocean", "Create by border"):
+            self.assertIn(f'"{label}"', app_source("sandbox.js"))
+        css = app_source("sandbox.css")
+        self.assertIn(".sb-page {", css)
+        self.assertRegex(css, r"\.sb-sheet \{[^}]*container-type: size")
+        river_row = row_starting("`sandboxcells.js` | `model.js`")
+        widths = re.search(r"export const RIVER_WIDTHS = \{ narrow: (\d+), wide: (\d+) \};", app_source("sandboxcells.js"))
+        self.assertIsNotNone(widths, "RIVER_WIDTHS was not found in sandboxcells.js")
+        self.assertIn(f"`narrow` {widths.group(1)}, `wide` {widths.group(2)}", river_row)
+        for name in ("discOffsets(RIVER_WIDTHS[width])", "`RIVER`", "`LAND`"):
+            self.assertIn(name, river_row)
+        self.assertIn("if (base[y * n + x] & LAND) base[y * n + x] |= RIVER;", app_source("sandboxcells.js"))
+        terms_row = row_starting("`terms.js`")
+        sandbox_ids = re.findall(r'^  "sandbox:(\w+)"', app_source("terms.js"), re.MULTILINE)
+        self.assertGreater(len(sandbox_ids), 10, "the Sandbox term scan found almost nothing")
+        listed = re.search(r"`sandbox` \(([^)]*?): the hover text", terms_row)
+        self.assertIsNotNone(listed, "the guide's Sandbox term list was not found")
+        self.assertEqual(re.findall(r"`(\w+)`", listed.group(1)), sandbox_ids)
+
     def test_countries_are_validated_by_the_one_validator_and_keep_the_fields_the_guide_names(self) -> None:
         row = row_starting("`countrydata.js`")
         for name in ("model.js", "mapfile.js", "countries.js", "countryfacts.js", "normaliseCountry", "colourNameFor", "alignmentpools.js", "stampCrest"):

@@ -3,15 +3,22 @@ import assert from "node:assert/strict";
 import { createModel, LAND, COAST, RIVER, N, DEFAULT_PALETTE } from "../app/model.js";
 import { encodeMap, decodeMap, MapFileError } from "../app/mapfile.js";
 import { createActions } from "../app/actions.js";
-import { createSandboxGrid, sideFor, BLANK, PAINTED, DETAILS } from "../app/sandboxcells.js";
+import { createSandboxGrid, sideFor, BLANK, PAINTED, DETAILS, RIVER_WIDTHS } from "../app/sandboxcells.js";
 import { createSandbox } from "../app/sandbox.js";
+import { termFor } from "../app/terms.js";
 import { fakeDocument, fakeDialog } from "./fakedom.js";
 
 const SIDE = 16;
 const grid = (start = "ocean") => createSandboxGrid({ start, side: SIDE });
 const paint = (g, x, y, d = 1, erase = false) => {
-  g.beginStroke(erase);
+  g.beginStroke(erase ? "erase" : "paint");
   g.dab(x, y, d);
+  return g.endStroke();
+};
+const river = (g, x0, y0, x1, y1, width = "narrow") => {
+  g.beginStroke("river", width);
+  g.dab(x0, y0, 1);
+  g.drag(x0, y0, x1, y1, 1);
   return g.endStroke();
 };
 const ring = (g, x0, y0, x1, y1) => {
@@ -123,6 +130,52 @@ test("starting with ocean makes the unpainted cells land", () => {
   assert.equal(base[2 * n + 2] & LAND, LAND, "the unpainted rest is land");
 });
 
+test("a river marks the land under it and nothing on the sea, a wide one marks more, and a click alone is no river", () => {
+  assert.deepEqual(Object.keys(RIVER_WIDTHS), ["narrow", "wide"]);
+  const n = N;
+  const mid = n / 2;
+  const riverPixels = (width) => {
+    const g = grid("land");
+    ring(g, 3, 3, 12, 12);
+    assert.equal(river(g, 1, 8, 14, 8, width), true);
+    const base = g.toBase(n);
+    const row = Math.round((8 + 0.5) * (n / SIDE) - 0.5);
+    assert.equal(base[row * n + mid] & (LAND | RIVER), LAND | RIVER, "the river runs through the land and stays land");
+    assert.equal(base[row * n + Math.round(n * 0.09)] & (LAND | RIVER), 0, "the part over the sea is dropped");
+    assert.equal(base[Math.round(n * 0.3) * n + mid] & (LAND | RIVER), LAND, "land away from the river is dry");
+    return base.reduce((count, bits) => count + ((bits & RIVER) !== 0), 0);
+  };
+  assert.ok(riverPixels("wide") > riverPixels("narrow"));
+
+  const g = grid("land");
+  g.beginStroke("river");
+  g.dab(5, 5, 1);
+  assert.equal(g.endStroke(), false);
+  assert.equal(g.rivers().length, 0);
+  assert.throws(() => g.beginStroke("flood"), RangeError);
+  assert.throws(() => g.beginStroke("river", "huge"), RangeError);
+});
+
+test("the eraser cuts a river in two, undo joins it again, and clear removes rivers as one undoable step", () => {
+  const g = grid("land");
+  river(g, 1, 8, 14, 8);
+  assert.equal(g.rivers().length, 1);
+  assert.ok(g.cells.every((c) => c === BLANK), "a river paints no ground");
+  assert.equal(paint(g, 8, 8, 3, true), true, "erasing over a river is a step even when no cell changes");
+  assert.equal(g.rivers().length, 2);
+  for (const { points } of g.rivers()) {
+    for (let k = 0; k < points.length; k += 2) assert.ok(Math.abs(points[k] - 8) > 1.5, "no point is left under the eraser");
+  }
+  assert.equal(g.undo(), true);
+  assert.equal(g.rivers().length, 1);
+  assert.equal(g.redo(), true);
+  assert.equal(g.rivers().length, 2);
+  assert.equal(g.clear(), true);
+  assert.equal(g.rivers().length, 0);
+  g.undo();
+  assert.equal(g.rivers().length, 2);
+});
+
 test("a map with its own base map saves a sixth plane, reopens with it, and a plain map still saves five", async () => {
   const base = new Uint8Array(N * N);
   base[1000] = LAND;
@@ -228,15 +281,26 @@ function dialogTest(t, options = {}) {
   return { sandbox, dialog, calls, byText, pointer };
 }
 
-test("the dialog opens on the choice of ocean or land and a detail toggle, each with hover text", (t) => {
+test("the page opens on a blank sheet with both create options, the river tools shut until one is chosen, and hover text on every control", (t) => {
   const { sandbox, dialog, byText } = dialogTest(t);
   sandbox.open();
   assert.equal(dialog.open, true);
+  assert.match(dialog.className, /\bsb-page\b/);
   const terms = [];
   dialog.walk((n) => { if (n.attrs["data-term"]) terms.push(n.attrs["data-term"]); });
-  for (const key of ["sandbox:ocean", "sandbox:land", "sandbox:detail", "sandbox:paint", "sandbox:erase", "sandbox:save", "sandbox:play", "sandbox:edit"]) {
-    assert.ok(terms.includes(key), `${key} has no hover text`);
+  for (const key of ["sandbox:ocean", "sandbox:land", "sandbox:detail", "sandbox:river", "sandbox:narrow", "sandbox:wide", "sandbox:erase", "sandbox:brush", "sandbox:undo", "sandbox:redo", "sandbox:clear", "sandbox:restart", "sandbox:save", "sandbox:play", "sandbox:edit"]) {
+    assert.ok(terms.includes(key), `${key} is on no control`);
+    assert.ok(termFor(key), `${key} has no hover text`);
   }
+  assert.equal(termFor("sandbox:paint"), null);
+  for (const label of ["Create by ocean", "Create by border"]) {
+    assert.equal(byText(label).disabled, false);
+    assert.equal(byText(label).attrs["aria-pressed"], "false");
+  }
+  for (const label of ["River", "Narrow", "Wide", "Erase", "Undo", "Clear", "Start over", "Save base map", "Play on it", "Edit it"]) {
+    assert.equal(byText(label).disabled, true, `${label} waits for a sheet`);
+  }
+  assert.match(dialog.find((n) => n.className === "fd-status").textContent, /^Choose Create by ocean or Create by border/);
   const toggle = byText("Detail: Broad");
   assert.ok(toggle);
   toggle.click();
@@ -245,10 +309,38 @@ test("the dialog opens on the choice of ocean or land and a detail toggle, each 
   assert.ok(byText("Detail: Broad"));
 });
 
-test("painting with the pointer fills cells, then Edit it hands the base to useBase and closes", async (t) => {
+test("a create option is the sheet's paint tool; the other one starts a new sheet until something is drawn; Start over returns to the blank sheet", (t) => {
+  const { sandbox, dialog, byText, pointer } = dialogTest(t);
+  sandbox.open();
+  byText("Create by ocean").click();
+  assert.equal(byText("Create by ocean").attrs["aria-pressed"], "true");
+  assert.equal(byText("Detail: Broad").disabled, true);
+  byText("Create by border").click();
+  assert.equal(byText("Create by border").attrs["aria-pressed"], "true");
+  assert.equal(byText("Create by ocean").attrs["aria-pressed"], "false");
+
+  byText("Wide").click();
+  assert.equal(byText("River").attrs["aria-pressed"], "true");
+  assert.equal(byText("Create by border").attrs["aria-pressed"], "false");
+  const canvas = dialog.find((n) => n.tagName === "canvas" && n.className === "sb-canvas");
+  pointer(canvas, "pointerdown", 100, 100);
+  pointer(canvas, "pointermove", 200, 120);
+  pointer(canvas, "pointerup", 200, 120);
+  assert.equal(byText("Undo").disabled, false, "the river is a step");
+  assert.equal(byText("Create by ocean").disabled, true, "a drawing is not thrown away by the other create option");
+  assert.match(dialog.find((n) => n.className === "fd-status").textContent, /^Land 0%, sea 100%$/, "a river paints no ground");
+  byText("Create by border").click();
+  assert.equal(byText("Create by border").attrs["aria-pressed"], "true");
+
+  byText("Start over").click();
+  assert.equal(byText("Create by ocean").disabled, false);
+  assert.equal(byText("River").disabled, true);
+});
+
+test("painting with the pointer fills cells, then Edit it hands the base to useBase and closes the page", async (t) => {
   const { sandbox, dialog, calls, byText, pointer } = dialogTest(t);
   sandbox.open();
-  byText("Start with ocean").click();
+  byText("Create by ocean").click();
   const canvas = dialog.find((n) => n.tagName === "canvas" && n.className === "sb-canvas");
   pointer(canvas, "pointerdown", 100, 100);
   pointer(canvas, "pointermove", 200, 120);
@@ -263,10 +355,10 @@ test("painting with the pointer fills cells, then Edit it hands the base to useB
   assert.equal(dialog.open, false);
 });
 
-test("declining the unsaved-work question keeps the dialog and the painting; Save base map does not close it", async (t) => {
+test("declining the unsaved-work question keeps the page and the drawing; Save base map does not close it", async (t) => {
   const { sandbox, dialog, calls, byText } = dialogTest(t, { accept: false });
   sandbox.open();
-  byText("Start with land").click();
+  byText("Create by border").click();
   byText("Play on it").click();
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(calls.used[0].mode, "view");

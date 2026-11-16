@@ -65,7 +65,7 @@
   /* ══ ground-INVARIANT below this line. These never change with the ground. ══ */
 
   /* ── spacing — the only legal values ──────────────────────────────────── */
-  /* !DesignCheck visual lens: the constrained scale. An arbitrary value is an audit failure.
+  /* Visual check: the constrained scale. An arbitrary value is an audit failure.
      Space BETWEEN groups must exceed space WITHIN groups. */
   --s-1: 4px;
   --s-2: 8px;
